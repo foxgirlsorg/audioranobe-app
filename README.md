@@ -78,7 +78,7 @@ The release build type minifies and shrinks resources; add your signing config i
 ## 📂 Project Structure
 
 ```text
-app/src/main/java/com/audioranobe/app/
+app/src/main/java/org/foxgirls/audioranobe/
 ├── App.kt / MainActivity.kt   # Application, deep links, splash
 ├── core/                      # Api (OkHttp + X-Me), cookies, prefs, formatting, limits
 ├── data/                      # Serializable models, Auth / badges / config stores

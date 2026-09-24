@@ -8,11 +8,11 @@ plugins {
 }
 
 android {
-    namespace = "com.audioranobe.app"
+    namespace = "org.foxgirls.audioranobe"
     compileSdk = 36
 
     defaultConfig {
-        applicationId = "com.audioranobe.app"
+        applicationId = "org.foxgirls.audioranobe"
         minSdk = 26
         targetSdk = 36
         versionCode = 1
