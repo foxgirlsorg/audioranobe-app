@@ -296,7 +296,7 @@ fun VerifyScreen(token: String) {
     when (state) {
         "working" -> LoadingCard("Подтверждаем почту…")
         "done" -> Box(Modifier.fillMaxSize().statusBarsPadding()) { EmptyState("Почта подтверждена", "Спасибо! Адрес привязан к вашему аккаунту.", Lucide.CircleCheck) { ArButton("На главную", { nav.tab(nav.home) }, kind = ButtonKind.Primary) } }
-        else -> Box(Modifier.fillMaxSize().statusBarsPadding()) { EmptyState("Не удалось подтвердить", error, Lucide.CircleX) { ArButton("Отправить ссылку заново", { nav.replace(Routes.settings("security")) }, kind = ButtonKind.Ghost) } }
+        else -> Box(Modifier.fillMaxSize().statusBarsPadding()) { EmptyState("Не удалось подтвердить", error, Lucide.CircleAlert) { ArButton("Отправить ссылку заново", { nav.replace(Routes.settings("security")) }, kind = ButtonKind.Ghost) } }
     }
 }
 

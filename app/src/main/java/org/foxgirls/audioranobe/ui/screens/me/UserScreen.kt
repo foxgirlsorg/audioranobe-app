@@ -42,7 +42,7 @@ import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import org.foxgirls.audioranobe.core.Api
 import org.foxgirls.audioranobe.core.Fmt
-import org.foxgirls.audioranobe.core.Labels
+import org.foxgirls.audioranobe.data.Labels
 import org.foxgirls.audioranobe.core.Limits
 import org.foxgirls.audioranobe.data.Badge
 import org.foxgirls.audioranobe.data.CollectionCard

@@ -542,7 +542,7 @@ private fun ChapterDialog(title: TitleFull, volume: Volume, existing: ChapterRow
     var range by remember { mutableStateOf(existing?.number_end != null) }
     var numberEnd by remember { mutableStateOf(existing?.number_end?.let { fmtNum(it) } ?: "") }
     var name by remember { mutableStateOf(existing?.name ?: "") }
-    var narratorIds by remember { mutableStateOf(existing?.narrators?.map { it.id } ?: emptyList()) }
+    var narratorIds by remember { mutableStateOf<List<Int>>(existing?.narrators?.map { it.id } ?: emptyList()) }
     var file by remember { mutableStateOf<PickedFile?>(null) }
     var progress by remember { mutableStateOf<Float?>(null) }
     var busy by remember { mutableStateOf(false) }

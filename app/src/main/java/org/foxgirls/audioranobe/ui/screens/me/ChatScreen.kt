@@ -60,6 +60,7 @@ import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.text.withLink
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -287,7 +288,7 @@ private fun Thread(userId: Int) {
                         val showDay = older == null || dayKey(older.created_at) != dayKey(m.created_at)
                         // New bubbles pop in from the bottom; edits and deletions re-flow the list smoothly.
                         val appear = remember(m.id) { MutableTransitionState(false).apply { targetState = true } }
-                        AnimatedVisibility(appear, Modifier.animateItem(), enter = fadeIn(tween(220)) + slideInVertically(spring(stiffness = Spring.StiffnessMediumLow)) { it / 2 } + scaleIn(tween(220), initialScale = 0.94f), exit = fadeOut()) {
+                        BubbleAppear(appear, Modifier.animateItem()) {
                         Column(Modifier.fillMaxWidth()) {
                             if (showDay) Box(Modifier.fillMaxWidth().padding(vertical = 8.dp), contentAlignment = Alignment.Center) {
                                 Text(dayLabel(m.created_at), color = Ar.textMuted, fontSize = 11.sp, modifier = Modifier.background(Ar.fill06, CircleShape).padding(horizontal = 10.dp, vertical = 3.dp))
@@ -408,4 +409,14 @@ fun LinkifiedText(body: String, onLink: (String) -> Unit) {
         }
     }
     Text(annotated, color = Ar.text, fontSize = 14.sp, lineHeight = 19.sp)
+}
+
+/** Pop-in for a chat bubble; lives outside any Column/Row scope so the plain [AnimatedVisibility] overload is used. */
+@Composable
+private fun BubbleAppear(state: MutableTransitionState<Boolean>, modifier: Modifier, content: @Composable () -> Unit) {
+    AnimatedVisibility(
+        visibleState = state, modifier = modifier,
+        enter = fadeIn(tween(220)) + slideInVertically(spring(stiffness = Spring.StiffnessMediumLow)) { it / 2 } + scaleIn(tween(220), initialScale = 0.94f),
+        exit = fadeOut(),
+    ) { content() }
 }

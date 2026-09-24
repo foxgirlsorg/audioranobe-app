@@ -66,7 +66,7 @@ private val HEADINGS = mapOf(
     "banners" to ("Баннеры" to ""), "donations" to ("Пожертвования" to ""), "audit" to ("Аудит" to "действий"), "tasks" to ("Задачи" to ""),
 )
 
-/** app/mod/*: one route, the page picked by [page]; the sidebar becomes a bottom sheet. */
+/** The mod panel: one route, the page picked by [page]; the sidebar becomes a bottom sheet. */
 @Composable
 fun ModScreen(page: String, arg: String?) {
     if (RequireAuth()) return

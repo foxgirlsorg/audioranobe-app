@@ -207,7 +207,7 @@ fun HistoryScreen() {
 private val TYPE_ICONS: Map<String, ImageVector> = mapOf(
     "new_chapter" to Lucide.Headphones, "narrator_release" to Lucide.Mic, "comment_reply" to Lucide.Reply, "narrator_comment" to Lucide.MessageCircle,
     "mention" to Lucide.MessageCircle, "system" to Lucide.Megaphone, "request_reviewed" to Lucide.ClipboardCheck, "request_approved" to Lucide.ClipboardCheck,
-    "request_rejected" to Lucide.CircleX, "entity_modified" to Lucide.Pencil, "entity_deleted" to Lucide.FileX, "narrator_post" to Lucide.Newspaper,
+    "request_rejected" to Lucide.CircleAlert, "entity_modified" to Lucide.Pencil, "entity_deleted" to Lucide.FileX, "narrator_post" to Lucide.Newspaper,
     "friend_request" to Lucide.UserPlus, "friend_accept" to Lucide.UserCheck, "narration_ready" to Lucide.Headphones, "badge_earned" to Lucide.Award,
 )
 private val TYPE_LABELS = mapOf(

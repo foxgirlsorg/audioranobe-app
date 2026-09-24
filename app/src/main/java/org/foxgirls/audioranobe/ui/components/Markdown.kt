@@ -42,7 +42,7 @@ import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardCapitalization
 import androidx.compose.ui.text.input.TextFieldValue
-import androidx.compose.ui.text.input.TextRange
+import androidx.compose.ui.text.TextRange
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import org.foxgirls.audioranobe.ui.icons.Lucide
@@ -215,7 +215,7 @@ fun MarkdownEditor(
             Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()).padding(horizontal = 6.dp, vertical = 4.dp), verticalAlignment = Alignment.CenterVertically) {
                 for (t in tools) IconBtn(t.icon, t.title, { if (!preview) set(applyTool(t, tfv)) }, size = 32.dp, iconSize = 14.dp, enabled = !preview)
                 if (!slim && (media == "image" || media == "both")) IconBtn(Lucide.Image, "Вставить изображение", { urlPrompt = "image" }, size = 32.dp, iconSize = 14.dp, enabled = !preview)
-                if (!slim && (media == "video" || media == "both")) IconBtn(Lucide.Youtube, "Вставить видео", { urlPrompt = "video" }, size = 32.dp, iconSize = 14.dp, enabled = !preview)
+                if (!slim && (media == "video" || media == "both")) IconBtn(Lucide.PlayCircle, "Вставить видео", { urlPrompt = "video" }, size = 32.dp, iconSize = 14.dp, enabled = !preview)
                 Spacer(Modifier.weight(1f))
                 IconBtn(if (preview) Lucide.Pencil else Lucide.Eye, if (preview) "Правка" else "Предпросмотр", { preview = !preview }, size = 32.dp, iconSize = 14.dp, tint = if (preview) Ar.accent else Ar.textSecondary)
             }

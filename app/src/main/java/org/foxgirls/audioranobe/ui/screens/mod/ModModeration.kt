@@ -376,7 +376,7 @@ fun TitleReviewModal(slug: String?, onClose: () -> Unit) {
     var description by remember(t?.id) { mutableStateOf(t?.description ?: "") }
     var year by remember(t?.id) { mutableStateOf(t?.year?.toString() ?: "") }
     var author by remember(t?.id) { mutableStateOf(t?.author?.let { Author(it.id, it.name, it.slug) }) }
-    var genreIds by remember(t?.id) { mutableStateOf(t?.genres?.map { it.id } ?: emptyList()) }
+    var genreIds by remember(t?.id) { mutableStateOf<List<Int>>(t?.genres?.map { it.id } ?: emptyList()) }
     var status by remember(t?.id) { mutableStateOf(t?.release_status ?: "ongoing") }
     var isNsfw by remember(t?.id) { mutableStateOf(t?.is_nsfw ?: false) }
     var isAi by remember(t?.id) { mutableStateOf(t?.is_ai ?: false) }

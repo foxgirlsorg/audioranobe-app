@@ -12,6 +12,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.ui.draw.clip
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
@@ -121,4 +122,3 @@ private fun SuggestRow(name: String, sub: String, onClick: () -> Unit, leading: 
 }
 
 private fun Modifier.clip8() = this.then(Modifier.clip(RoundedCornerShape(8.dp)))
-private fun Modifier.clip(shape: androidx.compose.ui.graphics.Shape) = androidx.compose.ui.draw.clip(this, shape)
