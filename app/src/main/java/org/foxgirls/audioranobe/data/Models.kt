@@ -99,7 +99,7 @@ data class AuthProviderConfig(
     val userinfo_url: String = "",
     val scope: String = "",
     val trust_email: Boolean = false,
-    val map: Map<String, String> = emptyMap(),
+    @Serializable(with = StringMap::class) val map: Map<String, String> = emptyMap(),
 )
 
 @Serializable
@@ -392,7 +392,7 @@ data class TitleFull(
     val narrators: List<NarratorCard> = emptyList(),
     val my_rating: Int? = null,
     val my_library: LibraryEntryBrief? = null,
-    val rating_distribution: Map<String, Int> = emptyMap(),
+    @Serializable(with = IntMap::class) val rating_distribution: Map<String, Int> = emptyMap(),
     val similar: List<TitleCard> = emptyList(),
     val volumes: List<Volume> = emptyList(),
     val source_url: String? = null,
@@ -409,7 +409,7 @@ data class TitleFull(
     val version_name: String = "Основная",
     val versions: List<TitleVersion> = emptyList(),
     val selected_version_id: Int = 0,
-    val alt_chapters: Map<String, List<ChapterRow>> = emptyMap(),
+    @Serializable(with = ChapterRowsMap::class) val alt_chapters: Map<String, List<ChapterRow>> = emptyMap(),
     val narrator_ids: List<Int>? = null,
 ) {
     fun asCard() = TitleCard(id, slug, name, author, year, cover_url, cover_thumb_url, release_status, country, avg_rating, rating_count, listens, updated_at, chapters_count, genres, age_rating, my_favorite, is_deleted, is_hidden, is_nsfw, is_ai, has_sensitive_genre, is_restricted)
@@ -760,7 +760,7 @@ data class UserStats(
 )
 
 @Serializable
-data class ListeningHeatmapData(val year: Int = 0, val years: List<Int> = emptyList(), val days: Map<String, Int> = emptyMap())
+data class ListeningHeatmapData(val year: Int = 0, val years: List<Int> = emptyList(), @Serializable(with = IntMap::class) val days: Map<String, Int> = emptyMap())
 
 @Serializable
 data class ScoreRow(val score: Int = 0, val titles: Int = 0, val hours: Double = 0.0)
