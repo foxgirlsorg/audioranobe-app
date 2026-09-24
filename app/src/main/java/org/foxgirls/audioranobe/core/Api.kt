@@ -72,7 +72,14 @@ object Api {
             .readTimeout(60, TimeUnit.SECONDS)
             .writeTimeout(120, TimeUnit.SECONDS)
             .addInterceptor { chain ->
-                chain.proceed(chain.request().newBuilder().header("User-Agent", "AudioRanobe-Android/${BuildConfig.VERSION_NAME}").build())
+                chain.proceed(
+                    chain.request().newBuilder()
+                        .header("User-Agent", "AudioRanobe-Android/${BuildConfig.VERSION_NAME}")
+                        // The backend's CORS / CSRF checks are configured for the site origin; present it like the browser does.
+                        .header("Origin", siteUrl)
+                        .header("Referer", "$siteUrl/")
+                        .build()
+                )
             }
             .build()
     }

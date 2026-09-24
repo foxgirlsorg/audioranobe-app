@@ -21,7 +21,7 @@ android {
         // Backend API base URL, including /api. Override with -PapiUrl=… or the API_URL env var.
         val apiUrl = (project.findProperty("apiUrl") as String?)
             ?: System.getenv("API_URL")
-            ?: "https://api.audioranobe.com/api"
+            ?: "https://back.audioranobe.com/api"
         val siteUrl = (project.findProperty("siteUrl") as String?)
             ?: System.getenv("SITE_URL")
             ?: "https://audioranobe.com"

@@ -56,7 +56,7 @@ The API powering the content is maintained separately: [foxgirlsorg/audioranobe-
 
    | Property / variable | Required | Description |
    |---|---|---|
-   | `apiUrl` / `API_URL` | No | Backend API URL, including `/api`. Defaults to `https://api.audioranobe.com/api`. |
+   | `apiUrl` / `API_URL` | No | Backend API URL, including `/api`. Defaults to `https://back.audioranobe.com/api`. |
    | `siteUrl` / `SITE_URL` | No | Public site URL, used for share links, OAuth and the captcha widget. Defaults to `https://audioranobe.com`. |
 
 3. **Build and install**
