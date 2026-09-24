@@ -15,8 +15,9 @@ android {
         applicationId = "org.foxgirls.audioranobe"
         minSdk = 26
         targetSdk = 36
-        versionCode = 1
-        versionName = "0.1.0"
+        // CI passes the tag as VERSION_NAME and the run number as VERSION_CODE; local builds use the defaults.
+        versionCode = ((project.findProperty("versionCode") as String?) ?: System.getenv("VERSION_CODE"))?.toIntOrNull() ?: 1
+        versionName = ((project.findProperty("versionName") as String?) ?: System.getenv("VERSION_NAME"))?.removePrefix("v") ?: "0.1.0"
 
         // Backend API base URL, including /api. Override with -PapiUrl=… or the API_URL env var.
         val apiUrl = (project.findProperty("apiUrl") as String?)
@@ -25,8 +26,28 @@ android {
         val siteUrl = (project.findProperty("siteUrl") as String?)
             ?: System.getenv("SITE_URL")
             ?: "https://audioranobe.com"
+        // GitHub repository ("owner/name") whose Releases the in-app updater polls. Empty disables the updater.
+        // CI passes its own repository, so a fork updates from itself. Override with -PupdateRepo=… or UPDATE_REPO.
+        val updateRepo = (project.findProperty("updateRepo") as String?)
+            ?: System.getenv("UPDATE_REPO")
+            ?: ""
         buildConfigField("String", "API_URL", "\"$apiUrl\"")
         buildConfigField("String", "SITE_URL", "\"$siteUrl\"")
+        buildConfigField("String", "UPDATE_REPO", "\"$updateRepo\"")
+    }
+
+    // Release signing from the environment (CI secrets). Without a keystore the release build stays
+    // unsigned, which the updater refuses to publish — see .github/workflows/release.yml.
+    val keystorePath = System.getenv("SIGNING_KEYSTORE")
+    if (!keystorePath.isNullOrBlank() && file(keystorePath).exists()) {
+        signingConfigs {
+            create("release") {
+                storeFile = file(keystorePath)
+                storePassword = System.getenv("SIGNING_KEYSTORE_PASSWORD")
+                keyAlias = System.getenv("SIGNING_KEY_ALIAS")
+                keyPassword = System.getenv("SIGNING_KEY_PASSWORD")
+            }
+        }
     }
 
     buildTypes {
@@ -34,6 +55,7 @@ android {
             isMinifyEnabled = true
             isShrinkResources = true
             proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
+            signingConfigs.findByName("release")?.let { signingConfig = it }
         }
         debug {
             applicationIdSuffix = ".debug"

@@ -19,6 +19,12 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import org.foxgirls.audioranobe.core.AppVersion
+import org.foxgirls.audioranobe.core.Updater
+import org.foxgirls.audioranobe.ui.toast.ToastKind
+import org.foxgirls.audioranobe.ui.toast.toast
+import org.foxgirls.audioranobe.ui.toast.toastError
+import androidx.compose.runtime.getValue
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import org.foxgirls.audioranobe.core.Support
 import org.foxgirls.audioranobe.ui.components.Eyebrow
 import org.foxgirls.audioranobe.ui.components.GlassPanel
@@ -61,6 +67,21 @@ fun OtherScreen() {
             MenuRow(Lucide.MessageCircle, "Бот поддержки в Telegram", { Links.external(context, Support.BOT) })
             MenuRow(Lucide.Radio, "Канал в Telegram", { Links.external(context, Support.CHANNEL) })
             MenuRow(Lucide.Globe, "foxgirls.org", { Links.external(context, "https://foxgirls.org") })
+        }
+        if (Updater.enabled) {
+            val checking by Updater.checking.collectAsStateWithLifecycle()
+            GlassPanel(Modifier.fillMaxWidth().padding(bottom = 12.dp), padding = PaddingValues(4.dp)) {
+                Eyebrow("Приложение", Modifier.padding(start = 12.dp, top = 8.dp, bottom = 4.dp))
+                MenuRow(Lucide.RefreshCw, if (checking) "Проверяем…" else "Проверить обновления", {
+                    if (!checking) Updater.check(manual = true) { release, error ->
+                        when {
+                            error != null -> toastError(error)
+                            release == null || !Updater.isNewer(release.version, AppVersion.VERSION) -> toast("У вас последняя версия", ToastKind.INFO)
+                        }
+                    }
+                })
+                MenuRow(Lucide.Code, "Исходный код и релизы", { Links.external(context, "https://github.com/${Updater.repo}") })
+            }
         }
         Spacer(Modifier.height(8.dp))
         Text("AudioRanobe для Android · ${AppVersion.VERSION} «${AppVersion.NAME}»", color = Ar.textMuted, fontSize = 12.sp)

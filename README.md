@@ -31,6 +31,7 @@ The API powering the content is maintained separately: [foxgirlsorg/audioranobe-
 * **Creator tools** — add books, narrators and authors; edit titles (info, artwork, illustrations); manage volumes, chapters and chunked audio uploads; alternate narrations; bulk upload.
 * **Moderation panel** — `/mod/*` tools gated by the backend permission system: queue, reports, review, comments, word filter, reserved names, trash, titles import, users, narrators, authors, tags, badges, DMCA, banners, donations, audit log and jobs.
 * **Motion** — the dock and mini player fold while you scroll and unfold on the first scroll up; screens, sheets and the player slide in and out.
+* **In-app updates** — the app polls the GitHub Releases of the repository it was built from, shows a popup with the release notes, downloads the APK and hands it to the system installer. «Позже» hides it until the next check, «Пропустить версию» silences that release. A manual check lives under «Другое».
 
 ## 🚀 Local Development
 
@@ -58,6 +59,9 @@ The API powering the content is maintained separately: [foxgirlsorg/audioranobe-
    |---|---|---|
    | `apiUrl` / `API_URL` | No | Backend API URL, including `/api`. Defaults to `https://back.audioranobe.com/api`. |
    | `siteUrl` / `SITE_URL` | No | Public site URL, used for share links, OAuth and the captcha widget. Defaults to `https://audioranobe.com`. |
+   | `updateRepo` / `UPDATE_REPO` | No | `owner/name` of the GitHub repository whose Releases the in-app updater polls. Empty (the default for local builds) disables the updater. CI passes its own repository. |
+   | `versionName` / `VERSION_NAME` | No | Version string (`v` prefix is stripped). Defaults to `0.1.0`; the release workflow passes the tag. |
+   | `versionCode` / `VERSION_CODE` | No | Integer version code. Defaults to `1`; CI passes the run number. |
 
 3. **Build and install**
    ```bash
@@ -73,14 +77,23 @@ The API powering the content is maintained separately: [foxgirlsorg/audioranobe-
 ./gradlew assembleRelease
 ```
 
-The release build type minifies and shrinks resources; add your signing config in `app/build.gradle.kts` (or via Android Studio) before publishing. GitHub Actions builds a debug APK on every push (`.github/workflows/android.yml`) and uploads it as the `audioranobe-debug` artifact — no keys or secrets are needed for that.
+The release build type minifies and shrinks resources. Signing is read from the environment: `SIGNING_KEYSTORE` (path), `SIGNING_KEYSTORE_PASSWORD`, `SIGNING_KEY_ALIAS`, `SIGNING_KEY_PASSWORD`. Without them the release APK stays unsigned.
+
+Two GitHub Actions workflows are included:
+
+* **Android CI** (`.github/workflows/android.yml`) — builds a debug APK on every push and uploads it as the `audioranobe-debug` artifact. No keys or secrets are needed.
+* **Release** (`.github/workflows/release.yml`) — on a `v*` tag builds a signed release APK and publishes it as a GitHub Release, which is what the in-app updater picks up. It needs the secrets `SIGNING_KEYSTORE_BASE64`, `SIGNING_KEYSTORE_PASSWORD`, `SIGNING_KEY_ALIAS` and `SIGNING_KEY_PASSWORD`. Use the same key for every release: Android refuses to install an update signed with a different key.
+
+```bash
+git tag v1.0.0 && git push origin v1.0.0
+```
 
 ## 📂 Project Structure
 
 ```text
 app/src/main/java/org/foxgirls/audioranobe/
 ├── App.kt / MainActivity.kt   # Application, deep links, splash
-├── core/                      # Api (OkHttp + X-Me), cookies, prefs, formatting, limits
+├── core/                      # Api (OkHttp + X-Me), cookies, prefs, formatting, limits, Updater (OTA)
 ├── data/                      # Serializable models, Auth / badges / config stores
 ├── offline/                   # OfflineStore (manifests, download queue, progress sync) + DownloadService
 ├── player/                    # PlaybackService (Media3) + PlayerController

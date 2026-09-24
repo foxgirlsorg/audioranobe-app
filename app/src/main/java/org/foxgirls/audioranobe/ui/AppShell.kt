@@ -42,6 +42,7 @@ import org.foxgirls.audioranobe.data.LocalAuth
 import org.foxgirls.audioranobe.data.Stores
 import org.foxgirls.audioranobe.player.PlayerController
 import org.foxgirls.audioranobe.ui.components.CenterSpinner
+import org.foxgirls.audioranobe.ui.components.UpdateDialog
 import org.foxgirls.audioranobe.ui.nav.AppNav
 import org.foxgirls.audioranobe.ui.nav.LocalNav
 import org.foxgirls.audioranobe.ui.nav.Routes
@@ -97,6 +98,7 @@ fun AppShell(pendingRoute: String?, pendingSeq: Int, onRouteConsumed: () -> Unit
             else -> MainShell(pendingRoute, pendingSeq, onRouteConsumed)
         }
     }
+    UpdateDialog()
 }
 
 @Composable

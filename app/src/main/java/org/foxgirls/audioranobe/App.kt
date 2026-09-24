@@ -12,6 +12,7 @@ import coil.memory.MemoryCache
 import org.foxgirls.audioranobe.core.Api
 import org.foxgirls.audioranobe.core.CookieStore
 import org.foxgirls.audioranobe.core.Prefs
+import org.foxgirls.audioranobe.core.Updater
 import org.foxgirls.audioranobe.data.Stores
 import org.foxgirls.audioranobe.offline.OfflineStore
 import org.foxgirls.audioranobe.player.PlayerController
@@ -23,12 +24,14 @@ class App : Application(), ImageLoaderFactory {
         Api.init(CookieStore(this))
         Stores.init(Prefs(this))
         OfflineStore.init(this)
+        Updater.init(this)
         PlayerController.init(this)
         ProcessLifecycleOwner.get().lifecycle.addObserver(object : DefaultLifecycleObserver {
             override fun onStart(owner: LifecycleOwner) {
                 Stores.badges.foreground = true
                 Stores.badges.refresh()
                 OfflineStore.syncProgress()
+                Updater.checkIfDue()
             }
 
             override fun onStop(owner: LifecycleOwner) {

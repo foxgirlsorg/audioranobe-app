@@ -47,6 +47,6 @@ object Support {
 }
 
 object AppVersion {
-    const val VERSION = "1.0.0"
+    val VERSION: String get() = org.foxgirls.audioranobe.BuildConfig.VERSION_NAME
     const val NAME = "Aphelion"
 }

@@ -1,0 +1,64 @@
+name: Release
+
+# Push a tag like v1.2.0 to build a signed release APK and publish it as a GitHub Release.
+# The in-app updater (core/Updater.kt) polls this repository's Releases and offers the APK asset.
+#
+# Required repository secrets (Settings → Secrets and variables → Actions):
+#   SIGNING_KEYSTORE_BASE64   base64 of the .jks / .p12 keystore
+#   SIGNING_KEYSTORE_PASSWORD
+#   SIGNING_KEY_ALIAS
+#   SIGNING_KEY_PASSWORD
+# Every release must be signed with the same key, otherwise Android refuses to install the update
+# over the previous version. Without the secrets the workflow stops before publishing anything.
+
+on:
+  push:
+    tags: ["v*"]
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: 17
+
+      - uses: gradle/actions/setup-gradle@v4
+
+      - name: Check signing secrets
+        env:
+          KS: ${{ secrets.SIGNING_KEYSTORE_BASE64 }}
+        run: |
+          if [ -z "$KS" ]; then
+            echo "::error::SIGNING_KEYSTORE_BASE64 is not set; an unsigned APK cannot be installed as an update."
+            exit 1
+          fi
+
+      - name: Decode keystore
+        run: echo "${{ secrets.SIGNING_KEYSTORE_BASE64 }}" | base64 -d > "$RUNNER_TEMP/release.keystore"
+
+      - name: Build release APK
+        env:
+          UPDATE_REPO: ${{ github.repository }}
+          VERSION_NAME: ${{ github.ref_name }}
+          VERSION_CODE: ${{ github.run_number }}
+          SIGNING_KEYSTORE: ${{ runner.temp }}/release.keystore
+          SIGNING_KEYSTORE_PASSWORD: ${{ secrets.SIGNING_KEYSTORE_PASSWORD }}
+          SIGNING_KEY_ALIAS: ${{ secrets.SIGNING_KEY_ALIAS }}
+          SIGNING_KEY_PASSWORD: ${{ secrets.SIGNING_KEY_PASSWORD }}
+        run: |
+          ./gradlew --no-daemon assembleRelease
+          cp app/build/outputs/apk/release/app-release.apk "audioranobe-${{ github.ref_name }}.apk"
+
+      - name: Publish GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          name: ${{ github.ref_name }}
+          generate_release_notes: true
+          files: audioranobe-${{ github.ref_name }}.apk
