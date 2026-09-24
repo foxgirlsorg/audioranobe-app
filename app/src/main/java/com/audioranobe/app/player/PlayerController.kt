@@ -14,6 +14,7 @@ import com.audioranobe.app.core.Api
 import com.audioranobe.app.core.Fmt
 import com.audioranobe.app.data.ChapterPlay
 import com.audioranobe.app.data.Stores
+import com.audioranobe.app.offline.OfflineStore
 import com.audioranobe.app.ui.toast.toastError
 import com.google.common.util.concurrent.MoreExecutors
 import kotlinx.coroutines.CoroutineScope
@@ -98,7 +99,7 @@ object PlayerController {
                 if (c.mediaItemCount > 0) {
                     val id = c.currentMediaItem?.mediaId?.toIntOrNull()
                     if (id != null && _current.value?.id != id) {
-                        scope.launch { runCatching { _current.value = Api.get<ChapterPlay>("/chapters/$id") } }
+                        scope.launch { runCatching { _current.value = OfflineStore.chapterPlay(id) ?: Api.get<ChapterPlay>("/chapters/$id") } }
                     }
                     _playing.value = c.isPlaying
                     if (c.duration > 0) _duration.value = c.duration / 1000.0
@@ -195,10 +196,15 @@ object PlayerController {
         if (Stores.auth.user.value == null) return
         val pos = positionOverride ?: _position.value
         if (pos.isNaN()) return
+        val offline = OfflineStore.isDownloaded(cur.id)
         scope.launch(Dispatchers.IO) {
-            runCatching {
+            val ok = runCatching {
                 Api.put<Unit>("/me/progress/${cur.id}", buildJsonObject { put("position", max(0.0, pos)) })
-            }
+            }.isSuccess
+            // Keep the progress on the device when the server is unreachable (and for downloaded
+            // chapters, so the offline title page shows it); it syncs when a connection is back.
+            if (ok) OfflineStore.markSynced(cur.id)
+            if (!ok || offline) OfflineStore.recordProgress(cur, max(0.0, pos))
         }
     }
 
@@ -242,7 +248,9 @@ object PlayerController {
 
         val seq = ++loadSeq
         _loading.value = true
-        val ch = try {
+        // Downloaded chapters play from the device; otherwise stream, and fall back to the
+        // saved copy of the chapter if the network is down.
+        val ch = OfflineStore.chapterPlay(id) ?: try {
             Api.get<ChapterPlay>("/chapters/$id")
         } catch (e: Exception) {
             _loading.value = false

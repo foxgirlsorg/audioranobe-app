@@ -88,7 +88,8 @@ fun AccountMenuSheet(open: Boolean, onClose: () -> Unit) {
             MenuRow(Lucide.Library, "Коллекции", { go(Routes.COLLECTIONS) })
             MenuRow(Lucide.Newspaper, "Новости", { go(Routes.NEWS) })
             MenuRow(Lucide.Dices, "Случайный тайтл", { random() })
-            MenuRow(Lucide.Heart, "Поддержать", { go(Routes.DONATE) })
+            MenuRow(Lucide.Download, "Загрузки", { go(Routes.OFFLINE) })
+            MenuRow(Lucide.Ellipsis, "Другое", { go(Routes.OTHER) })
             HairlineDivider(Modifier.padding(vertical = 6.dp))
             MenuRow(Lucide.Plus, "Добавить", { addOpen = true })
             if (myNarrators.isNotEmpty()) {
@@ -108,7 +109,7 @@ fun AccountMenuSheet(open: Boolean, onClose: () -> Unit) {
             MenuRow(Lucide.Library, "Коллекции", { go(Routes.COLLECTIONS) })
             MenuRow(Lucide.Newspaper, "Новости", { go(Routes.NEWS) })
             MenuRow(Lucide.Dices, "Случайный тайтл", { random() })
-            MenuRow(Lucide.Heart, "Поддержать", { go(Routes.DONATE) })
+            MenuRow(Lucide.Ellipsis, "Другое", { go(Routes.OTHER) })
             HairlineDivider(Modifier.padding(vertical = 6.dp))
             MenuRow(Lucide.LogIn, "Войти", { go(Routes.LOGIN) })
             MenuRow(Lucide.UserPlus, "Регистрация", { go(Routes.REGISTER) })

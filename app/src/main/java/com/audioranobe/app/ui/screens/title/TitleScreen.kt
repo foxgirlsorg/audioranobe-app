@@ -50,7 +50,10 @@ import com.audioranobe.app.data.ChapterRow
 import com.audioranobe.app.data.LocalAuth
 import com.audioranobe.app.data.TitleFull
 import com.audioranobe.app.data.Volume
+import com.audioranobe.app.offline.OfflineStore
 import com.audioranobe.app.player.PlayerController
+import com.audioranobe.app.ui.screens.offline.ChapterDownloadButton
+import com.audioranobe.app.ui.screens.offline.DownloadSheet
 import com.audioranobe.app.ui.LocalBottomInset
 import com.audioranobe.app.ui.dockScrollAware
 import com.audioranobe.app.ui.swipeTabs
@@ -112,7 +115,13 @@ fun TitleScreen(slug: String, initialTab: String?) {
     val auth = LocalAuth.current
     val user by auth.user.collectAsStateWithLifecycle()
     val isMod = auth.isMod
-    val loader = rememberLoader(slug, user?.id, keepOnReload = true) { Api.get<TitleFull>("/titles/${Routes.enc(slug)}") }
+    // Without a network a downloaded book opens from its saved copy.
+    val loader = rememberLoader(slug, user?.id, keepOnReload = true) {
+        try { Api.get<TitleFull>("/titles/${Routes.enc(slug)}") } catch (e: Exception) { OfflineStore.manifestBySlug(slug)?.let { OfflineStore.offlineTitle(it) } ?: throw e }
+    }
+    val dlStates by OfflineStore.states.collectAsStateWithLifecycle()
+    val offlineTitles by OfflineStore.titles.collectAsStateWithLifecycle()
+    var downloadSheet by remember { mutableStateOf(false) }
     val scope = rememberCoroutineScope()
     val bottom = LocalBottomInset.current
     var tab by remember { mutableStateOf(initialTab?.takeIf { it in setOf("about", "chapters", "illustrations", "comments", "similar") } ?: "about") }
@@ -202,6 +211,7 @@ fun TitleScreen(slug: String, initialTab: String?) {
                             IconBtn(Lucide.ListMusic, "Главы и загрузка аудио", { nav.go(Routes.titleEdit(title.slug, "content")) }, tint = Ar.text)
                         }
                         IconBtn(Lucide.Share2, "Поделиться", { Links.share(nav.context, "${Links.site}/title/${title.slug}", title.name) }, tint = Ar.text)
+                        if (playable.isNotEmpty()) IconBtn(Lucide.Download, "Скачать для офлайна", { downloadSheet = true }, tint = if (offlineTitles.any { it.titleId == title.id }) Ar.accent else Ar.text)
                     }
                     if (title.mod_status != "approved") GlassPanel(Modifier.padding(bottom = 10.dp), padding = PaddingValues(10.dp), borderColor = Ar.amber.copy(alpha = 0.4f)) {
                         Row(verticalAlignment = Alignment.CenterVertically) {
@@ -316,6 +326,10 @@ fun TitleScreen(slug: String, initialTab: String?) {
                                             if (total > 0) { Spacer(Modifier.width(10.dp)); Icon(Lucide.Clock, null, tint = Ar.textMuted, modifier = Modifier.size(12.dp)); Text(" ${Fmt.duration(total)}", color = Ar.textMuted, fontSize = 12.sp) }
                                         }
                                     }
+                                    val volReady = v.liveChapters.filter { it.audio_status == "ready" }
+                                    val volManifest = offlineTitles.firstOrNull { it.titleId == title.id }
+                                    val volDone = volReady.isNotEmpty() && volReady.all { volManifest?.chapters?.containsKey(it.id) == true }
+                                    if (volReady.isNotEmpty()) IconBtn(if (volDone) Lucide.CircleCheck else Lucide.Download, if (volDone) "Том скачан" else "Скачать том", { if (volDone) OfflineStore.removeVolume(title.id, v) else { OfflineStore.downloadVolume(title, v); toast("Том ${v.number} добавлен в загрузки") } }, size = 30.dp, iconSize = 14.dp, tint = if (volDone) Ar.accent else Ar.textSecondary)
                                     Icon(if (open) Lucide.ChevronUp else Lucide.ChevronDown, null, tint = Ar.textMuted, modifier = Modifier.size(16.dp))
                                 }
                                 if (open) {
@@ -346,7 +360,7 @@ fun TitleScreen(slug: String, initialTab: String?) {
                                                     reNarrating = ch.id
                                                     scope.launch { try { Api.post<Unit>("/mod/chapters/${ch.id}/re-narrate"); toast("Глава ${Fmt.trimNum(ch.number)} отправлена на переозвучку") } catch (e: Exception) { toastError(e) } finally { reNarrating = null } }
                                                 }, size = 30.dp, iconSize = 12.dp)
-                                                if (chPlayable && user != null) IconBtn(Lucide.Download, "Скачать главу", { Links.external(nav.context, "${Api.baseUrl}/download/chapters/${ch.id}") }, size = 30.dp, iconSize = 14.dp)
+                                                if (chPlayable) ChapterDownloadButton(title, ch, dlStates[ch.id], offlineTitles.any { it.chapters.containsKey(ch.id) })
                                             }
                                             val pct = if (isCurrent) { val d = if (liveDuration > 0) liveDuration else ch.duration_seconds; if (d > 0) (position / d).toFloat() else 0f } else staticPct
                                             if (pct > 0f) ProgressTrack(pct, Modifier.padding(horizontal = 10.dp).padding(bottom = 6.dp), height = 2.dp)
@@ -363,6 +377,7 @@ fun TitleScreen(slug: String, initialTab: String?) {
             "similar" -> item { Box(Modifier.padding(horizontal = 16.dp)) { CardGrid(title.similar) } }
         }
     }
+    DownloadSheet(downloadSheet, { downloadSheet = false }, title, offlineTitles.firstOrNull { it.titleId == title.id }, dlStates)
     ImageViewer(coverViewer, listOfNotNull(title.cover_url) + title.volumes.mapNotNull { it.cover_url }.filter { it != title.cover_url }, 0, listOf(title.name) + title.volumes.filter { it.cover_url != null && it.cover_url != title.cover_url }.map { it.name.ifBlank { "${title.volume_label} ${it.number}" } }) { coverViewer = false }
 }
 

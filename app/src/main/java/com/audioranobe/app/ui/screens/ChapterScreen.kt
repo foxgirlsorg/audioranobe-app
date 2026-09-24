@@ -37,6 +37,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.audioranobe.app.core.Api
 import com.audioranobe.app.core.Fmt
 import com.audioranobe.app.data.ChapterPlay
+import com.audioranobe.app.offline.OfflineStore
 import com.audioranobe.app.player.PlayerController
 import com.audioranobe.app.ui.LocalBottomInset
 import com.audioranobe.app.ui.components.ArButton
@@ -60,7 +61,7 @@ import com.audioranobe.app.ui.theme.Ar
 @Composable
 fun ChapterScreen(id: Int, startAt: Double?) {
     val nav = LocalNav.current
-    val loader = rememberLoader(id) { Api.get<ChapterPlay>("/chapters/$id") }
+    val loader = rememberLoader(id) { try { Api.get<ChapterPlay>("/chapters/$id") } catch (e: Exception) { OfflineStore.chapterPlay(id) ?: throw e } }
     val current by PlayerController.current.collectAsStateWithLifecycle()
     val playing by PlayerController.playing.collectAsStateWithLifecycle()
     val livePos by PlayerController.position.collectAsStateWithLifecycle()

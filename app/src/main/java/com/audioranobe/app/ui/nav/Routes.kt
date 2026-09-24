@@ -11,6 +11,8 @@ object Routes {
     const val DONATE = "donate"
     const val DMCA = "dmca"
     const val NOT_FOUND = "notfound"
+    const val OFFLINE = "offline"
+    const val OTHER = "other"
 
     const val TITLE = "title/{slug}?tab={tab}"
     const val TITLE_EDIT = "title/{slug}/edit?tab={tab}"

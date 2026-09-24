@@ -57,6 +57,7 @@ private val TABS = listOf(
     Tab("catalog", Routes.catalog(), "Каталог", Lucide.LibraryBig) { it.startsWith("catalog") },
     Tab("notifications", Routes.ME_NOTIFICATIONS, "Уведомления", Lucide.Bell) { it.startsWith("me/notifications") },
     Tab("messages", Routes.chat(), "Сообщения", Lucide.MessageCircle) { it.startsWith("me/chat") },
+    Tab("offline", Routes.OFFLINE, "Загрузки", Lucide.Download) { it == Routes.OFFLINE },
 )
 
 /**
@@ -72,6 +73,7 @@ fun Dock(route: String) {
     val user by auth.user.collectAsStateWithLifecycle()
     val badges by Stores.badges.badges.collectAsStateWithLifecycle()
     val current by PlayerController.current.collectAsStateWithLifecycle()
+    val dlQueue by com.audioranobe.app.offline.OfflineStore.queue.collectAsStateWithLifecycle()
     val compact = shell.dockCompact
     val height by animateDpAsState(if (compact) Ar.dockHeightCompact else Ar.dockHeight, spring(stiffness = Spring.StiffnessMediumLow), label = "dockHeight")
     val iconScale by animateFloatAsState(if (compact) 0.82f else 1f, tween(220), label = "dockIconScale")
@@ -85,7 +87,7 @@ fun Dock(route: String) {
             Row(Modifier.fillMaxWidth().height(height).padding(horizontal = 6.dp), verticalAlignment = Alignment.CenterVertically) {
                 for (t in TABS) {
                     val active = t.match(route)
-                    val count = when (t.key) { "messages" -> badges.messages; "notifications" -> badges.notifications; else -> 0 }
+                    val count = when (t.key) { "messages" -> badges.messages; "notifications" -> badges.notifications; "offline" -> dlQueue.size; else -> 0 }
                     DockTab(active, count, iconScale, Modifier.weight(1f), onClick = {
                         shell.dockCompact = false
                         if (t.key == "home" || t.key == "catalog" || user != null) nav.tab(t.route) else nav.go(Routes.LOGIN)

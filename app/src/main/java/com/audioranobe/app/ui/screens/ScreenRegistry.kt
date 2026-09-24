@@ -42,6 +42,8 @@ object ScreenRegistry {
 
     fun register(b: NavGraphBuilder) = with(b) {
         composable(Routes.COLLECTIONS) { CollectionsScreen() }
+        composable(Routes.OFFLINE) { com.audioranobe.app.ui.screens.offline.OfflineScreen() }
+        composable(Routes.OTHER) { com.audioranobe.app.ui.screens.content.OtherScreen() }
         composable(Routes.NEWS) { NewsScreen() }
         composable(Routes.DONATE) { DonateScreen() }
         composable(Routes.DMCA) { DmcaScreen() }

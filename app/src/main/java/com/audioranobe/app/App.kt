@@ -13,6 +13,7 @@ import com.audioranobe.app.core.Api
 import com.audioranobe.app.core.CookieStore
 import com.audioranobe.app.core.Prefs
 import com.audioranobe.app.data.Stores
+import com.audioranobe.app.offline.OfflineStore
 import com.audioranobe.app.player.PlayerController
 
 class App : Application(), ImageLoaderFactory {
@@ -21,11 +22,13 @@ class App : Application(), ImageLoaderFactory {
         instance = this
         Api.init(CookieStore(this))
         Stores.init(Prefs(this))
+        OfflineStore.init(this)
         PlayerController.init(this)
         ProcessLifecycleOwner.get().lifecycle.addObserver(object : DefaultLifecycleObserver {
             override fun onStart(owner: LifecycleOwner) {
                 Stores.badges.foreground = true
                 Stores.badges.refresh()
+                OfflineStore.syncProgress()
             }
 
             override fun onStop(owner: LifecycleOwner) {

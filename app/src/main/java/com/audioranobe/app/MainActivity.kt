@@ -39,6 +39,7 @@ class MainActivity : ComponentActivity() {
 
     private fun handleIntent(intent: Intent?) {
         if (intent == null) return
+        intent.getStringExtra("open_route")?.let { r -> intent.removeExtra("open_route"); pendingRoute = r; pendingSeq++ }
         if (intent.getBooleanExtra("open_player", false)) {
             PlayerController.setFull(true)
             intent.removeExtra("open_player")

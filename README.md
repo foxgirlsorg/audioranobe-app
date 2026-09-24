@@ -26,6 +26,7 @@ The API powering the content is maintained separately: [foxgirlsorg/audioranobe-
 * **Account-gated** — the app opens on the sign-in / registration screens (email, OAuth providers, TOTP) and shows nothing else until you are signed in.
 * **Audio player** — persistent mini bar above the dock with a full-screen stage: playback speed (0.5–3×), sleep timer, volume, chapter illustrations, progress saved server-side while you listen, resume of the last-open chapter. Swipe the mini bar to skip ±10 s, swipe the full player down to close it.
 * **Catalog** — title grid with live search, filters and sorting; title pages with volumes, chapters, illustrations, ratings and comments. Swipe horizontally to switch tabs.
+* **Offline library** (app only) — download a chapter, a volume or the whole book together with its info, covers and illustrations; play without a network from the «Загрузки» dock tab. Progress made offline is kept on the device and synced when a connection is back — and never overwrites server progress that is already further in the book.
 * **Community** — profiles, library shelves, favorites, listening history, friends, direct messages with animated bubbles, collections, news, narrator blogs, monthly and yearly recaps.
 * **Creator tools** — add books, narrators and authors; edit titles (info, artwork, illustrations); manage volumes, chapters and chunked audio uploads; alternate narrations; bulk upload.
 * **Moderation panel** — `/mod/*` tools gated by the backend permission system: queue, reports, review, comments, word filter, reserved names, trash, titles import, users, narrators, authors, tags, badges, DMCA, banners, donations, audit log and jobs.
@@ -81,6 +82,7 @@ app/src/main/java/com/audioranobe/app/
 ├── App.kt / MainActivity.kt   # Application, deep links, splash
 ├── core/                      # Api (OkHttp + X-Me), cookies, prefs, formatting, limits
 ├── data/                      # Serializable models, Auth / badges / config stores
+├── offline/                   # OfflineStore (manifests, download queue, progress sync) + DownloadService
 ├── player/                    # PlaybackService (Media3) + PlayerController
 └── ui/
     ├── AppShell.kt            # Auth gate, NavHost, dock, full player, sheets
@@ -91,7 +93,8 @@ app/src/main/java/com/audioranobe/app/
     ├── screens/
     │   ├── auth/              # Login, register, forgot / reset, verify, setup, OAuth, TOTP
     │   ├── catalog/ title/    # Catalog grid + filters, title page
-    │   ├── content/           # Collections, news, posts, narrator, author, donate, DMCA, legal
+    │   ├── content/           # Collections, news, posts, narrator, author, donate, DMCA, legal, «Другое»
+│   ├── offline/           # Downloads tab, per-chapter download controls, download sheet
     │   ├── editing/           # Add content, title / narrator / author edit, uploads, illustrations
     │   ├── me/                # Profile, friends, history, notifications, requests, settings, chat, recap
     │   └── mod/               # Moderation panel

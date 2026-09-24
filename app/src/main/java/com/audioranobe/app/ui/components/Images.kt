@@ -52,7 +52,7 @@ fun ArImage(
             if (fallbackIcon != null) Icon(fallbackIcon, null, tint = Color.White.copy(alpha = 0.16f), modifier = Modifier.size(28.dp))
         } else {
             AsyncImage(
-                model = ImageRequest.Builder(LocalContext.current).data(url).crossfade(true).build(),
+                model = ImageRequest.Builder(LocalContext.current).data(com.audioranobe.app.offline.OfflineStore.resolveImage(url)?.let { if (it.startsWith("/")) java.io.File(it) else it }).crossfade(true).build(),
                 contentDescription = contentDescription,
                 contentScale = contentScale,
                 modifier = Modifier.fillMaxSize().then(if (blurred) Modifier.blur(16.dp) else Modifier),
