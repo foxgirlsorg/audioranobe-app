@@ -110,7 +110,7 @@ fun LoginScreen() {
         }
     }
 
-    AuthCard("Вход", "в аккаунт", formError = formError) {
+    AuthCard("Вход", "в аккаунт", formError = formError, showBack = false) {
         if (needsTotp) {
             ArTextField(totp, { totp = it.take(9) }, label = "Код из приложения-аутентификатора", placeholder = "000000", keyboardType = KeyboardType.Number, imeAction = ImeAction.Done, onImeAction = { submit() }, hint = "Нет доступа к приложению? Введите один из запасных кодов вместо этого.")
         } else {
@@ -175,7 +175,7 @@ fun RegisterScreen() {
         }
     }
 
-    AuthCard("Создать", "аккаунт", formError = formError) {
+    AuthCard("Создать", "аккаунт", formError = formError, showBack = false) {
         if (emailTaken) AltLink("Войти", { nav.replace(Routes.LOGIN) }, modifier = Modifier.fillMaxWidth().padding(bottom = 8.dp))
         ArTextField(username, { username = it; errors = errors - "username" }, label = "Имя пользователя", placeholder = "iloveranobe228", maxLength = Limits.username, error = errors["username"], hint = "Латинские буквы, цифры и подчёркивания, 3–30 символов", imeAction = ImeAction.Next)
         Spacer(Modifier.height(12.dp))

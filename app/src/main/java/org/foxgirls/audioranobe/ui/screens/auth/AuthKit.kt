@@ -10,6 +10,7 @@ import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
@@ -19,6 +20,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -77,27 +79,32 @@ import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.put
 import java.nio.ByteBuffer
 
-/** The glass card every auth page uses (auth/login/login.module.css). */
+/**
+ * The frame every auth page uses. On the site this is a glass card; on the phone the form is
+ * a plain, vertically centred page (no card, no modal feel). Content scrolls when it does not fit
+ * or the keyboard is up. [showBack] is off for the two gate screens, which have nowhere to go back to.
+ */
 @Composable
-fun AuthCard(title: String, accent: String, eyebrow: String? = null, formError: String? = null, content: @Composable ColumnScope.() -> Unit) {
+fun AuthCard(title: String, accent: String, eyebrow: String? = null, formError: String? = null, showBack: Boolean = true, content: @Composable ColumnScope.() -> Unit) {
     val nav = LocalNav.current
     val bottom = LocalBottomInset.current
-    Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).statusBarsPadding().imePadding().padding(horizontal = 16.dp).padding(bottom = bottom + 24.dp)) {
-        Row(Modifier.fillMaxWidth().padding(vertical = 6.dp)) { IconBtn(Lucide.ArrowLeft, "Назад", { nav.back() }, tint = Ar.text) }
-        Spacer(Modifier.height(12.dp))
-        Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(16.dp)).background(Ar.surfaceSolid.copy(alpha = 0.8f)).border(1.dp, Ar.border, RoundedCornerShape(16.dp))) {
-            Box(Modifier.fillMaxWidth().height(3.dp).background(Ar.accent))
-            Column(Modifier.padding(22.dp)) {
-                if (eyebrow != null) { Eyebrow(eyebrow); Spacer(Modifier.height(6.dp)) }
-                Row { Text(title, color = Ar.white, fontSize = 24.sp, fontWeight = FontWeight.Light); Text(" $accent", color = Ar.accent, fontSize = 24.sp, fontWeight = FontWeight.Normal) }
-                Spacer(Modifier.height(16.dp))
-                if (!formError.isNullOrBlank()) {
-                    Text(formError, color = Ar.danger, fontSize = 13.sp, lineHeight = 18.sp, modifier = Modifier.fillMaxWidth().background(Ar.danger.copy(alpha = 0.1f), RoundedCornerShape(8.dp)).padding(10.dp))
-                    Spacer(Modifier.height(12.dp))
-                }
-                content()
+    BoxWithConstraints(Modifier.fillMaxSize().statusBarsPadding().imePadding()) {
+        val viewport = maxHeight
+        Column(
+            Modifier.fillMaxWidth().verticalScroll(rememberScrollState()).heightIn(min = viewport).padding(horizontal = 22.dp).padding(top = if (showBack) 60.dp else 16.dp, bottom = bottom + 24.dp),
+            verticalArrangement = Arrangement.Center,
+        ) {
+            if (eyebrow != null) { Eyebrow(eyebrow); Spacer(Modifier.height(6.dp)) }
+            Row { Text(title, color = Ar.white, fontSize = 28.sp, fontWeight = FontWeight.Light); Text(" $accent", color = Ar.accent, fontSize = 28.sp, fontWeight = FontWeight.Normal) }
+            Spacer(Modifier.height(20.dp))
+            if (!formError.isNullOrBlank()) {
+                Text(formError, color = Ar.danger, fontSize = 13.sp, lineHeight = 18.sp, modifier = Modifier.fillMaxWidth().background(Ar.danger.copy(alpha = 0.1f), RoundedCornerShape(8.dp)).padding(10.dp))
+                Spacer(Modifier.height(12.dp))
             }
+            content()
         }
+        // Pinned to the top-left, above the scrolling form.
+        if (showBack) IconBtn(Lucide.ArrowLeft, "Назад", { nav.back() }, modifier = Modifier.padding(start = 10.dp, top = 6.dp), tint = Ar.text)
     }
 }
 
