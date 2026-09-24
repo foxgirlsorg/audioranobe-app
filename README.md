@@ -94,7 +94,7 @@ app/src/main/java/org/foxgirls/audioranobe/
     │   ├── auth/              # Login, register, forgot / reset, verify, setup, OAuth, TOTP
     │   ├── catalog/ title/    # Catalog grid + filters, title page
     │   ├── content/           # Collections, news, posts, narrator, author, donate, DMCA, legal, «Другое»
-│   ├── offline/           # Downloads tab, per-chapter download controls, download sheet
+    │   ├── offline/           # Downloads tab, per-chapter download controls, download sheet
     │   ├── editing/           # Add content, title / narrator / author edit, uploads, illustrations
     │   ├── me/                # Profile, friends, history, notifications, requests, settings, chat, recap
     │   └── mod/               # Moderation panel
