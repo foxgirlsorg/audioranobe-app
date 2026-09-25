@@ -8,6 +8,7 @@ import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.layout.IntrinsicSize
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxScope
@@ -458,7 +459,7 @@ fun ArTabs(
                     val on = t.key == active
                     val fg = if (on) Ar.white else if (t.accent) Ar.accent else Ar.textMuted
                     Column(
-                        Modifier.then(if (!scrollable) Modifier.weight(1f) else Modifier)
+                        Modifier.then(if (!scrollable) Modifier.weight(1f) else Modifier.width(IntrinsicSize.Max))
                             .clickable(interactionSource = remember { MutableInteractionSource() }, indication = null) { onChange(t.key) }
                             .padding(horizontal = 12.dp),
                         horizontalAlignment = Alignment.CenterHorizontally,
