@@ -31,12 +31,11 @@ class AppNav(val controller: NavHostController, val context: Context, val home: 
         if (!controller.popBackStack()) go(home)
     }
 
-    /** Switches to a dock tab: single instance, keeps its own state. */
+    /** Switches to a dock tab: always lands on the tab's root, whatever screen is open. */
     fun tab(route: String) = safely {
         controller.navigate(route) {
-            popUpTo(home) { saveState = true; inclusive = false }
+            popUpTo(home) { inclusive = false }
             launchSingleTop = true
-            restoreState = true
         }
     }
 
