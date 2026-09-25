@@ -1,6 +1,6 @@
 # AudioRanobe Android app
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
-[![Android CI](https://github.com/ItsOlegDm/audioranobe-app/actions/workflows/android.yml/badge.svg)](https://github.com/ItsOlegDm/audioranobe-app/actions/workflows/android.yml)
+[![Android CI](https://github.com/foxgirlsorg/audioranobe-app/actions/workflows/android.yml/badge.svg)](https://github.com/foxgirlsorg/audioranobe-app/actions/workflows/android.yml)
 
 > **The native Android client for the AudioRanobe audiobook platform.**
 
@@ -44,7 +44,7 @@ The API powering the content is maintained separately: [foxgirlsorg/audioranobe-
 
 1. **Clone the repository**
    ```bash
-   git clone https://github.com/ItsOlegDm/audioranobe-app.git
+   git clone https://github.com/foxgirlsorg/audioranobe-app.git
    cd audioranobe-app
    ```
 
