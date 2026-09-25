@@ -1,16 +1,11 @@
 package org.foxgirls.audioranobe.ui.nav.chrome
 
-import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
-import androidx.compose.animation.expandVertically
-import androidx.compose.animation.fadeIn
-import androidx.compose.animation.fadeOut
-import androidx.compose.animation.shrinkVertically
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
@@ -39,7 +34,6 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import org.foxgirls.audioranobe.data.LocalAuth
 import org.foxgirls.audioranobe.data.Stores
-import org.foxgirls.audioranobe.player.PlayerController
 import org.foxgirls.audioranobe.ui.LocalShell
 import org.foxgirls.audioranobe.ui.components.CountBubble
 import org.foxgirls.audioranobe.ui.components.HairlineDivider
@@ -47,7 +41,6 @@ import org.foxgirls.audioranobe.ui.components.UserAvatar
 import org.foxgirls.audioranobe.ui.icons.Lucide
 import org.foxgirls.audioranobe.ui.nav.LocalNav
 import org.foxgirls.audioranobe.ui.nav.Routes
-import org.foxgirls.audioranobe.ui.player.MiniPlayer
 import org.foxgirls.audioranobe.ui.theme.Ar
 
 private data class Tab(val key: String, val route: String, val label: String, val icon: ImageVector, val match: (String) -> Boolean)
@@ -61,9 +54,9 @@ private val TABS = listOf(
 )
 
 /**
- * components/Dock: the installed-app bottom bar with the mini player above it.
- * Both fold into a compact strip while the page scrolls down and grow back on
- * the first scroll up; the mini player slides in when playback starts.
+ * components/Dock: the installed-app bottom bar. It folds into a compact strip
+ * while the page scrolls down and grows back on the first scroll up; the mini
+ * player floats above it over the page (see MainShell).
  */
 @Composable
 fun Dock(route: String) {
@@ -72,16 +65,12 @@ fun Dock(route: String) {
     val auth = LocalAuth.current
     val user by auth.user.collectAsStateWithLifecycle()
     val badges by Stores.badges.badges.collectAsStateWithLifecycle()
-    val current by PlayerController.current.collectAsStateWithLifecycle()
     val dlQueue by org.foxgirls.audioranobe.offline.OfflineStore.queue.collectAsStateWithLifecycle()
     val compact = shell.dockCompact
     val height by animateDpAsState(if (compact) Ar.dockHeightCompact else Ar.dockHeight, spring(stiffness = Spring.StiffnessMediumLow), label = "dockHeight")
     val iconScale by animateFloatAsState(if (compact) 0.82f else 1f, tween(220), label = "dockIconScale")
 
     Column(Modifier.fillMaxWidth()) {
-        AnimatedVisibility(visible = current != null, enter = expandVertically(tween(260)) + fadeIn(tween(260)), exit = shrinkVertically(tween(220)) + fadeOut(tween(160))) {
-            MiniPlayer(compact = compact)
-        }
         Column(Modifier.fillMaxWidth().background(Ar.bg.copy(alpha = 0.96f))) {
             HairlineDivider()
             Row(Modifier.fillMaxWidth().height(height).padding(horizontal = 6.dp), verticalAlignment = Alignment.CenterVertically) {

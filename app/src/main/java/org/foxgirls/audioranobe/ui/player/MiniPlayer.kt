@@ -1,15 +1,12 @@
 package org.foxgirls.audioranobe.ui.player
 
 import androidx.compose.animation.AnimatedContent
-import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
-import androidx.compose.animation.expandVertically
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.scaleIn
 import androidx.compose.animation.scaleOut
-import androidx.compose.animation.shrinkVertically
 import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -48,11 +45,10 @@ import kotlin.math.abs
 
 /**
  * The dock's mini player (components/Dock .player). A horizontal swipe skips
- * ±10 s (left = back, right = forward); tapping opens the full player. In
- * compact mode only the progress line stays visible.
+ * ±10 s (left = back, right = forward); tapping opens the full player.
  */
 @Composable
-fun MiniPlayer(compact: Boolean = false) {
+fun MiniPlayer() {
     val current by PlayerController.current.collectAsStateWithLifecycle()
     val playing by PlayerController.playing.collectAsStateWithLifecycle()
     val position by PlayerController.position.collectAsStateWithLifecycle()
@@ -61,34 +57,43 @@ fun MiniPlayer(compact: Boolean = false) {
     val label = "Гл. ${Fmt.chapterNumber(cur.number, cur.number_end)}" + (if (cur.name.isNotBlank()) " — ${cur.name}" else "")
     val frac by animateFloatAsState((if (duration > 0) (position / duration).toFloat() else 0f).coerceIn(0f, 1f), tween(400), label = "miniProgress")
 
-    Column(Modifier.fillMaxWidth().padding(horizontal = if (compact) 0.dp else 8.dp, vertical = if (compact) 0.dp else 5.dp).clip(RoundedCornerShape(if (compact) 0.dp else 14.dp)).background(Ar.surfaceSolid.copy(alpha = 0.92f))) {
-        AnimatedVisibility(visible = !compact, enter = expandVertically(tween(240)) + fadeIn(tween(240)), exit = shrinkVertically(tween(200)) + fadeOut(tween(120))) {
-            Row(
-                Modifier.fillMaxWidth().height(Ar.miniPlayerHeight - 8.dp)
-                    .pointerInput(Unit) {
-                        var total = 0f
-                        detectHorizontalDragGestures(onDragStart = { total = 0f }, onDragEnd = { if (abs(total) > 80f) PlayerController.skip(if (total > 0) 10.0 else -10.0) }) { _, d -> total += d }
-                    }
-                    .clickable { PlayerController.setFull(true) }.padding(start = 10.dp, end = 6.dp),
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                ArImage(cur.coverUrl, Modifier.size(36.dp), fallbackIcon = Lucide.Music, shape = RoundedCornerShape(8.dp))
-                Spacer(Modifier.width(10.dp))
-                Column(Modifier.weight(1f)) {
-                    Text(cur.title.name, color = Ar.text, fontSize = 12.sp, fontWeight = FontWeight.Medium, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                    Text(label, color = Ar.textSecondary, fontSize = 11.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+    Column(Modifier.fillMaxWidth().padding(horizontal = 8.dp, vertical = 5.dp).clip(RoundedCornerShape(14.dp)).background(Ar.surfaceSolid)) {
+        Row(
+            Modifier.fillMaxWidth().height(Ar.miniPlayerHeight - 8.dp)
+                .pointerInput(Unit) {
+                    var total = 0f
+                    detectHorizontalDragGestures(onDragStart = { total = 0f }, onDragEnd = { if (abs(total) > 80f) PlayerController.skip(if (total > 0) 10.0 else -10.0) }) { _, d -> total += d }
                 }
-                IconBtn(Lucide.RotateCcw, "Назад на 10 секунд", { PlayerController.skip(-10.0) }, size = 36.dp, iconSize = 20.dp)
-                Box(Modifier.size(36.dp).clip(CircleShape).background(Ar.accent).clickable { PlayerController.toggle() }, contentAlignment = Alignment.Center) {
-                    AnimatedContent(playing, transitionSpec = { (scaleIn(tween(160)) + fadeIn(tween(160))) togetherWith (scaleOut(tween(120)) + fadeOut(tween(120))) }, label = "miniPlayPause") { p ->
-                        Icon(if (p) Lucide.Pause else Lucide.Play, if (p) "Пауза" else "Воспроизвести", tint = Ar.accentOn, modifier = Modifier.size(18.dp).padding(start = if (p) 0.dp else 1.dp))
-                    }
-                }
-                IconBtn(Lucide.RotateCw, "Вперёд на 10 секунд", { PlayerController.skip(10.0) }, size = 36.dp, iconSize = 20.dp)
+                .clickable { PlayerController.setFull(true) }.padding(start = 10.dp, end = 6.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            ArImage(cur.coverUrl, Modifier.size(36.dp), fallbackIcon = Lucide.Music, shape = RoundedCornerShape(8.dp))
+            Spacer(Modifier.width(10.dp))
+            Column(Modifier.weight(1f)) {
+                Text(cur.title.name, color = Ar.text, fontSize = 12.sp, fontWeight = FontWeight.Medium, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                Text(label, color = Ar.textSecondary, fontSize = 11.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
             }
+            IconBtn(Lucide.RotateCcw, "Назад на 10 секунд", { PlayerController.skip(-10.0) }, size = 36.dp, iconSize = 20.dp)
+            Box(Modifier.size(36.dp).clip(CircleShape).background(Ar.accent).clickable { PlayerController.toggle() }, contentAlignment = Alignment.Center) {
+                AnimatedContent(playing, transitionSpec = { (scaleIn(tween(160)) + fadeIn(tween(160))) togetherWith (scaleOut(tween(120)) + fadeOut(tween(120))) }, label = "miniPlayPause") { p ->
+                    Icon(if (p) Lucide.Pause else Lucide.Play, if (p) "Пауза" else "Воспроизвести", tint = Ar.accentOn, modifier = Modifier.size(18.dp).padding(start = if (p) 0.dp else 1.dp))
+                }
+            }
+            IconBtn(Lucide.RotateCw, "Вперёд на 10 секунд", { PlayerController.skip(10.0) }, size = 36.dp, iconSize = 20.dp)
         }
-        Box(Modifier.fillMaxWidth().height(if (compact) Ar.miniPlayerHeightCompact else 2.dp).background(Ar.fill08).clickable(enabled = compact) { PlayerController.setFull(true) }) {
-            Box(Modifier.fillMaxWidth(frac).height(if (compact) Ar.miniPlayerHeightCompact else 2.dp).background(Ar.accent))
+        Box(Modifier.fillMaxWidth().height(2.dp).background(Ar.fill08)) {
+            Box(Modifier.fillMaxWidth(frac).height(2.dp).background(Ar.accent))
         }
+    }
+}
+
+/** What stays of the mini player while it is tucked behind the folded dock: the progress line. */
+@Composable
+fun MiniProgressLine() {
+    val position by PlayerController.position.collectAsStateWithLifecycle()
+    val duration by PlayerController.duration.collectAsStateWithLifecycle()
+    val frac by animateFloatAsState((if (duration > 0) (position / duration).toFloat() else 0f).coerceIn(0f, 1f), tween(400), label = "miniLineProgress")
+    Box(Modifier.fillMaxWidth().height(Ar.miniPlayerHeightCompact).background(Ar.fill08)) {
+        Box(Modifier.fillMaxWidth(frac).height(Ar.miniPlayerHeightCompact).background(Ar.accent))
     }
 }

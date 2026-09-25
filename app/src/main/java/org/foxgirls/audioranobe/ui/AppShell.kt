@@ -54,6 +54,8 @@ import org.foxgirls.audioranobe.ui.nav.chrome.Dock
 import org.foxgirls.audioranobe.ui.nav.chrome.SearchSheet
 import org.foxgirls.audioranobe.ui.nav.chrome.UnverifiedEmailBanner
 import org.foxgirls.audioranobe.ui.player.FullPlayer
+import org.foxgirls.audioranobe.ui.player.MiniPlayer
+import org.foxgirls.audioranobe.ui.player.MiniProgressLine
 import org.foxgirls.audioranobe.ui.screens.ChapterScreen
 import org.foxgirls.audioranobe.ui.screens.HomeScreen
 import org.foxgirls.audioranobe.ui.screens.NotFoundScreen
@@ -124,7 +126,7 @@ private fun MainShell(pendingRoute: String?, pendingSeq: Int, onRouteConsumed: (
 
     BackHandler(enabled = full) { PlayerController.setFull(false) }
 
-    CompositionLocalProvider(LocalNav provides nav, LocalAuth provides Stores.auth, LocalShell provides shell, LocalBottomInset provides bottomInset) {
+    CompositionLocalProvider(LocalNav provides nav, LocalAuth provides Stores.auth, LocalShell provides shell, LocalBottomInset provides miniH) {
         Box(Modifier.fillMaxSize().background(Ar.bg)) {
             Column(Modifier.fillMaxSize()) {
                 BannedBanner()
@@ -152,6 +154,7 @@ private fun MainShell(pendingRoute: String?, pendingSeq: Int, onRouteConsumed: (
                         composable(Routes.NOT_FOUND) { NotFoundScreen() }
                         ScreenRegistry.register(this)
                     }
+                    if (current != null && !hideChrome) FloatingMiniPlayer(shell.dockCompact, Modifier.align(Alignment.BottomCenter))
                 }
                 AnimatedVisibility(visible = !hideChrome, enter = slideInVertically(tween(280)) { it } + fadeIn(tween(280)), exit = slideOutVertically(tween(220)) { it } + fadeOut(tween(220))) {
                     Dock(route)
@@ -165,6 +168,18 @@ private fun MainShell(pendingRoute: String?, pendingSeq: Int, onRouteConsumed: (
             ToastHost(Modifier.align(Alignment.TopCenter))
             SearchSheet(shell.searchOpen) { shell.searchOpen = false }
             AccountMenuSheet(shell.menuOpen) { shell.menuOpen = false }
+        }
+    }
+}
+
+@Composable
+private fun FloatingMiniPlayer(compact: Boolean, modifier: Modifier) {
+    Box(modifier) {
+        AnimatedVisibility(visible = !compact, enter = slideInVertically(tween(260)) { it }, exit = slideOutVertically(tween(220)) { it }) {
+            MiniPlayer()
+        }
+        AnimatedVisibility(visible = compact, modifier = Modifier.align(Alignment.BottomCenter), enter = fadeIn(tween(200)), exit = fadeOut(tween(120))) {
+            MiniProgressLine()
         }
     }
 }
