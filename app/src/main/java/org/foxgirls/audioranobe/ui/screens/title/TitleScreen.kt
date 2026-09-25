@@ -255,6 +255,18 @@ fun TitleScreen(slug: String, initialTab: String?) {
         when (tab) {
             "about" -> item {
                 Column(Modifier.padding(horizontal = 16.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
+                    if (title.description.isNotBlank()) Column {
+                        Eyebrow("Описание")
+                        Spacer(Modifier.height(6.dp))
+                        val long = title.description.length > 420
+                        ArMarkdown(if (long && !descOpen) Fmt.plainSummary(title.description, 420) else title.description)
+                        if (long) Text(if (descOpen) "Свернуть" else "Развернуть", color = Ar.accent, fontSize = 13.sp, fontWeight = FontWeight.SemiBold, modifier = Modifier.clickable { descOpen = !descOpen }.padding(vertical = 6.dp))
+                    }
+                    if (title.genres.isNotEmpty()) Column {
+                        Eyebrow("Теги")
+                        Spacer(Modifier.height(8.dp))
+                        TagsFlow(title.genres.map { it.name to it.slug }) { nav.go(Routes.catalog(genre = it)) }
+                    }
                     GlassPanel {
                         KeyValueRow("Автор", title.author?.name ?: "не указан", onClick = title.author?.let { a -> { nav.go(Routes.author(a.id)) } })
                         if (runtime > 0) KeyValueRow("Длительность", Fmt.duration(runtime))
@@ -279,18 +291,6 @@ fun TitleScreen(slug: String, initialTab: String?) {
                             }
                             n.narration_status?.let { StatusBadge(it) }
                         }
-                    }
-                    if (title.description.isNotBlank()) Column {
-                        Eyebrow("Описание")
-                        Spacer(Modifier.height(6.dp))
-                        val long = title.description.length > 420
-                        ArMarkdown(if (long && !descOpen) Fmt.plainSummary(title.description, 420) else title.description)
-                        if (long) Text(if (descOpen) "Свернуть" else "Развернуть", color = Ar.accent, fontSize = 13.sp, fontWeight = FontWeight.SemiBold, modifier = Modifier.clickable { descOpen = !descOpen }.padding(vertical = 6.dp))
-                    }
-                    if (title.genres.isNotEmpty()) Column {
-                        Eyebrow("Теги")
-                        Spacer(Modifier.height(8.dp))
-                        TagsFlow(title.genres.map { it.name to it.slug }) { nav.go(Routes.catalog(genre = it)) }
                     }
                     GlassPanel {
                         Eyebrow("Рейтинг", icon = Lucide.Star)
