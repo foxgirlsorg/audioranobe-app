@@ -136,6 +136,7 @@ private fun TitleInfoForm(title: TitleFull, nonce: Int, reload: suspend () -> Un
     var year by remember(title.id) { mutableStateOf(title.year?.toString() ?: "") }
     var status by remember(title.id) { mutableStateOf(title.release_status) }
     var country by remember(title.id) { mutableStateOf(title.country) }
+    var translator by remember(title.id) { mutableStateOf(title.translator) }
     var author by remember(title.id) { mutableStateOf(title.author?.let { Author(it.id, it.name, it.slug) }) }
     var genreIds by remember(title.id) { mutableStateOf(title.genres.map { it.id }) }
     var narrators by remember(title.id) { mutableStateOf(title.narrators.map { NarratorRef(it.id, it.slug, it.name, it.avatar_url) }) }
@@ -170,7 +171,11 @@ private fun TitleInfoForm(title: TitleFull, nonce: Int, reload: suspend () -> Un
             SelectMenu(status, Labels.statusValues.map { SelectOption(it, Labels.releaseStatus[it] ?: it) }, { status = it }, Modifier.weight(1f), label = "Статус тайтла")
         }
         Spacer(Modifier.height(10.dp))
-        SelectMenu(country, Labels.countryValues.map { SelectOption(it, Labels.country[it] ?: it) }, { country = it }, label = "Страна")
+        Row {
+            SelectMenu(country, Labels.countryValues.map { SelectOption(it, Labels.country[it] ?: it) }, { country = it }, Modifier.weight(1f), label = "Страна")
+            Spacer(Modifier.width(10.dp))
+            ArTextField(translator, { translator = it }, Modifier.weight(1f), label = "Переводчик", maxLength = 200, placeholder = "Команда или имя переводчика")
+        }
         Spacer(Modifier.height(10.dp))
         NarratorPicker(narrators, { narrators = it }, label = "Чтецы")
         Text("Можно добавить любого существующего чтеца. Отмечать чтецов по главам можно в управлении главами.", color = Ar.textMuted, fontSize = 12.sp, lineHeight = 16.sp, modifier = Modifier.padding(top = 4.dp))
@@ -248,6 +253,7 @@ private fun TitleInfoForm(title: TitleFull, nonce: Int, reload: suspend () -> Un
                         put("description", desc)
                         put("year", yearNum?.let { JsonPrimitive(it) } ?: JsonNull)
                         put("release_status", status); put("country", country)
+                        put("translator", translator.trim())
                         put("genre_ids", buildJsonArray { genreIds.forEach { add(JsonPrimitive(it)) } })
                         put("narration_statuses", buildJsonObject { narrationStatuses.forEach { (k, v) -> put(k.toString(), v) } })
                         if (isNsfw != title.is_nsfw) put("is_nsfw", isNsfw)

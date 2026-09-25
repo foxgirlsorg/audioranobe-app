@@ -166,7 +166,7 @@ fun TitleScreen(slug: String, initialTab: String?) {
     }
     val chaptersTotal = title.volumes.sumOf { v -> v.liveChapters.sumOf { c -> if (c.number_end != null) Math.round(c.number_end - c.number).toInt() + 1 else 1 } }
     val runtime = title.volumes.sumOf { volumeDuration(it) }
-    val narrationStatus = title.narrators.map { it.narration_status }.distinct().singleOrNull()
+    val narrationStatus = listOf("ongoing", "completed", "frozen", "abandoned").firstOrNull { st -> title.narrators.any { it.narration_status == st } } ?: "ongoing"
     val restricted = title.is_restricted
     val illustrations = title.illustrations
     val volumeCovers = title.volumes.filter { it.cover_url != null }.map { VolumeCover(it.id, it.cover_url!!, it.name.ifBlank { "${title.volume_label} ${it.number}" }) }
@@ -257,13 +257,14 @@ fun TitleScreen(slug: String, initialTab: String?) {
                 Column(Modifier.padding(horizontal = 16.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
                     GlassPanel {
                         KeyValueRow("Автор", title.author?.name ?: "не указан", onClick = title.author?.let { a -> { nav.go(Routes.author(a.id)) } })
-                        KeyValueRow("Тайтл", Labels.releaseStatus[title.release_status] ?: title.release_status)
-                        if (title.narrators.isNotEmpty()) KeyValueRow("Озвучка", narrationStatus?.let { Labels.narrationStatus[it] } ?: "Разная")
-                        if (title.year != null) KeyValueRow("Год", title.year.toString())
-                        KeyValueRow("Страна", Labels.country[title.country] ?: title.country)
                         if (runtime > 0) KeyValueRow("Длительность", Fmt.duration(runtime))
-                        if (chaptersTotal > 0) KeyValueRow("Глав", chaptersTotal.toString())
+                        Fmt.date(title.updated_at).takeIf { it.isNotEmpty() }?.let { KeyValueRow("Обновлён", it) }
+                        KeyValueRow("Страна", Labels.country[title.country] ?: title.country)
+                        KeyValueRow("Тайтл", Labels.releaseStatus[title.release_status] ?: title.release_status)
+                        if (title.narrators.isNotEmpty()) KeyValueRow("Озвучка", Labels.narrationStatus[narrationStatus] ?: narrationStatus)
                         KeyValueRow("Просмотров", Fmt.count(title.views_count))
+                        if (chaptersTotal > 0) KeyValueRow("Глав", chaptersTotal.toString())
+                        if (title.translator.isNotBlank()) KeyValueRow("Переводчик", title.translator)
                     }
                     if (title.narrators.isNotEmpty()) Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
                         for (n in title.narrators) Row(Modifier.fillMaxWidth().clip(RoundedCornerShape(10.dp)).background(Ar.fill04).clickable { nav.go(Routes.narrator(n.slug)) }.padding(10.dp), verticalAlignment = Alignment.CenterVertically) {

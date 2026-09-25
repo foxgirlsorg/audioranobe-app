@@ -385,6 +385,7 @@ data class TitleFull(
     val description: String = "",
     val bg_url: String? = null,
     val views_count: Long = 0,
+    val translator: String = "",
     val mod_status: String = "approved",
     val created_at: String = "",
     val updated_at: String = "",
