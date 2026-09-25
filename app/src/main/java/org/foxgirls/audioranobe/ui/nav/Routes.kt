@@ -44,7 +44,7 @@ object Routes {
     const val ME_RECAP_YEAR = "me/recap/{year}"
 
     const val LEGAL = "legal/{doc}"
-    const val MOD = "mod/{page}?arg={arg}"
+    const val MOD = "mod?path={path}"
 
     fun title(slug: String, tab: String? = null) = "title/${enc(slug)}" + (tab?.let { "?tab=$it" } ?: "")
     fun titleEdit(slug: String, tab: String? = null) = "title/${enc(slug)}/edit" + (tab?.let { "?tab=$it" } ?: "")
@@ -61,7 +61,7 @@ object Routes {
     fun settings(tab: String? = null) = "me/settings" + (tab?.let { "?tab=$it" } ?: "")
     fun recapYear(year: Int) = "me/recap/$year"
     fun legal(doc: String) = "legal/$doc"
-    fun mod(page: String = "dashboard", arg: String? = null) = "mod/$page" + (arg?.let { "?arg=${enc(it)}" } ?: "")
+    fun mod(path: String = "/mod") = "mod?path=${enc(path)}"
     fun oauth(provider: String, mode: String) = "auth/oauth/${enc(provider)}?mode=$mode"
     fun reset(token: String) = "auth/reset?token=${enc(token)}"
     fun verify(token: String) = "auth/verify?token=${enc(token)}"
@@ -116,7 +116,7 @@ object Routes {
                 "recap" -> if (seg.size == 3) seg[2].toIntOrNull()?.let { recapYear(it) } else ME_RECAP
                 else -> null
             }
-            seg[0] == "mod" -> mod(seg.getOrNull(1) ?: "dashboard", seg.getOrNull(2) ?: qp["id"] ?: qp["q"])
+            seg[0] == "mod" -> mod(raw.substringBefore('#'))
             else -> null
         }
     }

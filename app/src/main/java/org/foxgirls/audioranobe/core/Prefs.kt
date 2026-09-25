@@ -32,10 +32,6 @@ class Prefs(context: Context) {
         get() = p.getLong("mod_alert_hidden", 0L)
         set(v) = p.edit().putLong("mod_alert_hidden", v).apply()
 
-    var modSidebarCollapsed: Boolean
-        get() = p.getBoolean("mod_sidebar_collapsed", false)
-        set(v) = p.edit().putBoolean("mod_sidebar_collapsed", v).apply()
-
     var chatDraft: String?
         get() = p.getString("chat_draft", null)
         set(v) = p.edit().putString("chat_draft", v).apply()

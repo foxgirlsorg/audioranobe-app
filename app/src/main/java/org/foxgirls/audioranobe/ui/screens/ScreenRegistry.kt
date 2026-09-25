@@ -75,6 +75,6 @@ object ScreenRegistry {
         composable(Routes.ME_RECAP_YEAR, listOf(navArgument("year") { type = NavType.IntType })) { e -> RecapYearScreen(e.arguments?.getInt("year") ?: 0) }
 
         composable(Routes.LEGAL, listOf(navArgument("doc") { type = NavType.StringType })) { e -> LegalScreen(e.arguments?.getString("doc") ?: "rules") }
-        composable(Routes.MOD, listOf(navArgument("page") { type = NavType.StringType }, str("arg"))) { e -> ModScreen(e.arguments?.getString("page") ?: "dashboard", e.arguments?.getString("arg")) }
+        composable(Routes.MOD, listOf(str("path"))) { e -> ModScreen(e.arguments?.getString("path") ?: "/mod") }
     }
 }

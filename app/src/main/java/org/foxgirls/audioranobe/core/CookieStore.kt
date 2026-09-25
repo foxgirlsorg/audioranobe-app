@@ -59,5 +59,6 @@ class CookieStore(context: Context) : CookieJar {
     fun clear() {
         store.clear()
         prefs.edit().clear().apply()
+        android.webkit.CookieManager.getInstance().removeAllCookies(null)
     }
 }

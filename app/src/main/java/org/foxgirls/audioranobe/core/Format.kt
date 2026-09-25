@@ -59,11 +59,6 @@ object Fmt {
         return SimpleDateFormat("d MMM yyyy", ru).format(d).replace(".", "")
     }
 
-    fun dateTime(v: Any?): String {
-        val d = toDate(v) ?: return ""
-        return SimpleDateFormat("d MMM yyyy, HH:mm", ru).format(d).replace(".", "")
-    }
-
     fun time(v: Any?): String {
         val d = toDate(v) ?: return ""
         return SimpleDateFormat("HH:mm", ru).format(d)

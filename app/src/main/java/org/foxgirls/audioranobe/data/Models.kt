@@ -83,26 +83,6 @@ data class UserPublic(
 data class ProviderInfo(val id: String, val name: String = "", val icon_svg: String = "")
 
 @Serializable
-data class AuthProviderConfig(
-    val id: String,
-    val type: String = "oauth2",
-    val name: String = "",
-    val enabled: Boolean = false,
-    val builtin: Boolean = false,
-    val redirect_uri: String = "",
-    val icon_svg: String = "",
-    val client_id: String = "",
-    val has_secret: Boolean = false,
-    val user_agent: String = "",
-    val authorize_url: String = "",
-    val token_url: String = "",
-    val userinfo_url: String = "",
-    val scope: String = "",
-    val trust_email: Boolean = false,
-    @Serializable(with = StringMap::class) val map: Map<String, String> = emptyMap(),
-)
-
-@Serializable
 data class Identity(
     val provider: String,
     val email: String? = null,
@@ -553,37 +533,6 @@ data class NarratorPost(
 )
 
 @Serializable
-data class Report(
-    val id: Int,
-    val target_type: String = "",
-    val target_id: Int = 0,
-    val reason: String = "",
-    val status: String = "open",
-    val resolution_note: String = "",
-    val reporter: UserBrief? = null,
-    val target_preview: String = "",
-    val target_link: String = "",
-    val created_at: String = "",
-    val resolved_at: String? = null,
-)
-
-@Serializable
-data class AuditSource(val label: String = "", val href: String = "")
-
-@Serializable
-data class AuditEntry(
-    val id: Int,
-    val actor: UserBrief? = null,
-    val action: String = "",
-    val entity_type: String = "",
-    val entity_id: Int? = null,
-    val details: JsonObject = JsonObject(emptyMap()),
-    val target: UserBrief? = null,
-    val source: AuditSource? = null,
-    val created_at: String = "",
-)
-
-@Serializable
 data class ModRequest(
     val id: Int,
     val entity_type: String = "",
@@ -599,18 +548,6 @@ data class ModRequest(
     val reviewed_at: String? = null,
     val retry_count: Int = 0,
     val can_retry: Boolean = false,
-)
-
-@Serializable
-data class ModQueueCounts(val all: Int = 0, val transfer: Int = 0, val narrator: Int = 0, val title: Int = 0, val chapter: Int = 0, val author: Int = 0)
-
-@Serializable
-data class ModQueuePage(
-    val items: List<ModRequest> = emptyList(),
-    val page: Int = 1,
-    val per_page: Int = 20,
-    val total: Int = 0,
-    val counts: ModQueueCounts = ModQueueCounts(),
 )
 
 @Serializable
@@ -633,9 +570,6 @@ data class Job(
 data class JobsPage(val items: List<Job> = emptyList(), val page: Int = 1, val per_page: Int = 20, val total: Int = 0, val active: Int = 0)
 
 @Serializable
-data class ReservedUsername(val id: Int, val username: String = "", val note: String = "", val created_by_username: String? = null, val created_at: String = "")
-
-@Serializable
 data class Paginated<T>(
     val items: List<T> = emptyList(),
     val page: Int = 1,
@@ -646,31 +580,6 @@ data class Paginated<T>(
 ) {
     val pages get() = maxOf(1, (total + maxOf(1, per_page) - 1) / maxOf(1, per_page))
 }
-
-@Serializable
-data class ModNarratorOwner(val id: Int, val username: String = "", val role: String = "", val badges: List<Badge> = emptyList())
-
-@Serializable
-data class ModNarrator(
-    val id: Int,
-    val slug: String = "",
-    val name: String = "",
-    val avatar_url: String? = null,
-    val mod_status: String = "pending",
-    val is_self: Boolean = false,
-    val titles_count: Int = 0,
-    val subscribers_count: Int = 0,
-    val created_at: String = "",
-    val deleted_at: String? = null,
-    val owner: ModNarratorOwner? = null,
-    val admin_contact: String? = null,
-)
-
-@Serializable
-data class ModNarratorCounts(val pending: Int = 0, val approved: Int = 0, val rejected: Int = 0, val deleted: Int = 0)
-
-@Serializable
-data class ModNarratorList(val items: List<ModNarrator> = emptyList(), val page: Int = 1, val per_page: Int = 20, val total: Int = 0, val counts: ModNarratorCounts = ModNarratorCounts())
 
 @Serializable
 data class HomeCatalog(val items: List<TitleCard> = emptyList(), val total: Int = 0)
@@ -710,32 +619,6 @@ data class SearchSuggest(
 
 @Serializable
 data class OrderStatus(val authenticated: Boolean = false, val enabled: Boolean? = null, val can_order: Boolean = false, val next_at: String? = null)
-
-@Serializable
-data class NarrationJobTitle(val id: Int, val slug: String = "", val name: String = "")
-
-@Serializable
-data class NarrationJob(
-    val kind: String = "narration",
-    val id: Int,
-    val title: NarrationJobTitle,
-    val volume: String = "",
-    val number: Double = 0.0,
-    val name: String = "",
-    val status: String = "queued",
-    val attempts: Int = 0,
-    val error: String = "",
-    val chapter_id: Int? = null,
-    val created_at: String = "",
-    val claimed_at: String? = null,
-    val finished_at: String? = null,
-)
-
-@Serializable
-data class JobCounts(val queued: Int = 0, val processing: Int = 0, val done: Int = 0, val error: Int = 0)
-
-@Serializable
-data class NarrationJobList(val items: List<NarrationJob> = emptyList(), val page: Int = 1, val per_page: Int = 20, val total: Int = 0, val counts: JobCounts = JobCounts())
 
 @Serializable
 data class Banner(val id: Int, val image_url: String = "", val url: String = "", val is_enabled: Boolean? = null, val is_public: Boolean? = null, val sort_order: Int? = null)
@@ -808,75 +691,6 @@ data class AuthorFull(
 )
 
 @Serializable
-data class DmcaReporter(val id: Int, val username: String = "")
-
-@Serializable
-data class DmcaRequest(
-    val id: Int,
-    val name: String = "",
-    val email: String = "",
-    val country: String = "",
-    val content_url: String = "",
-    val content_urls: List<String> = emptyList(),
-    val original_urls: List<String> = emptyList(),
-    val proof_url: String = "",
-    val description: String = "",
-    val status: String = "open",
-    val resolution_note: String = "",
-    val reporter: DmcaReporter? = null,
-    val created_at: String = "",
-    val resolved_at: String? = null,
-)
-
-@Serializable
-data class DashboardStats(
-    val users: Int = 0,
-    val new_users_7d: Int = 0,
-    val titles_total: Int = 0,
-    val titles_pending: Int = 0,
-    val chapters_total: Int = 0,
-    val narrators_total: Int = 0,
-    val comments_total: Int = 0,
-    val collections_total: Int = 0,
-    val listens_total: Long = 0,
-    val pending_requests: Int = 0,
-    val open_reports: Int = 0,
-    val mods_online: Int = 0,
-    val jobs_queued: Int = 0,
-    val jobs_processing: Int = 0,
-    val jobs_error: Int = 0,
-    val review_queue: Int = 0,
-    val comments_unchecked: Int = 0,
-    val push_subscribers: Int = 0,
-    val open_dmca: Int = 0,
-    val narrators_pending: Int = 0,
-)
-
-@Serializable
-data class ReviewQueueItem(val id: Int, val slug: String = "", val name: String = "", val is_imported: Boolean = false, val created_by: String? = null, val created_by_skips_moderation: Boolean = false, val created_at: String = "")
-
-@Serializable
-data class ModPermission(val slug: String, val name: String = "", val category: String = "", val description: String = "")
-
-@Serializable
-data class ModRole(
-    val id: Int,
-    val slug: String = "",
-    val name: String = "",
-    val public_name: String = "",
-    val is_system: Boolean = false,
-    val priority: Int = 0,
-    val badge_id: Int? = null,
-    val badge: Badge? = null,
-    val permissions: List<String> = emptyList(),
-    val is_wildcard: Boolean = false,
-    val member_count: Int = 0,
-)
-
-@Serializable
-data class RoleOption(val slug: String, val name: String = "", val priority: Int = 0)
-
-@Serializable
 data class RecapTitle(val slug: String = "", val name: String = "", val cover_url: String? = null, val seconds: Long = 0)
 
 @Serializable
@@ -900,125 +714,6 @@ data class Recap(
     val top_narrators: List<RecapNarrator> = emptyList(),
     val design: RecapDesign? = null,
     val year: Int? = null,
-)
-
-@Serializable
-data class RecapDesignState(val year: Int = 0, val design: RecapDesign = RecapDesign(), val notify_text: String = "", val generated: Int = 0)
-
-@Serializable
-data class TrashEntry(val kind: String = "", val id: Int, val name: String = "", val context: String = "", val link: String = "", val deleted_at: String? = null)
-
-@Serializable
-data class BannedWord(val id: Int, val word: String = "", val match_mode: String = "substring", val note: String = "", val created_by: String? = null, val created_at: String = "")
-
-@Serializable
-data class WorkerNode(
-    val id: Int,
-    val name: String = "",
-    val type: String = "converter",
-    val rmq_username: String = "",
-    val enabled: Boolean = true,
-    val online: Boolean = false,
-    val state: String = "offline",
-    val current_job: Int? = null,
-    val job_timeout_seconds_per_minute: Int = 0,
-    val narration_words_per_minute: Int = 0,
-    val version: String = "",
-    val jobs_done: Int = 0,
-    val last_error: String = "",
-    val last_error_at: String? = null,
-    val last_seen_at: String? = null,
-    val created_at: String? = null,
-)
-
-@Serializable
-data class NodeCredentials(val rmq_username: String = "", val secret: String = "", val queue: String = "", val vhost: String = "")
-
-@Serializable
-data class NarrationSettings(
-    val enabled: Boolean = false,
-    val narrator_id: Int? = null,
-    val speaker: String = "",
-    val sample_rate: Int = 0,
-    val batch_size: Int = 0,
-    val batch_threshold: Int = 0,
-    val poll_interval_minutes: Int = 0,
-    val has_token: Boolean = false,
-)
-
-@Serializable
-data class BackupSchedule(
-    val enabled: Boolean = false,
-    val frequency: String = "daily",
-    val hour: Int = 3,
-    val minute: Int = 0,
-    val weekday: Int = 0,
-    val interval_days: Int = 1,
-    val last_run_at: String? = null,
-)
-
-@Serializable
-data class HeaderKv(val key: String = "", val value: String = "")
-
-@Serializable
-data class BackupDestination(
-    val id: String = "",
-    val label: String = "",
-    val type: String = "local",
-    val path: String = "",
-    val bucket: String? = null,
-    val region: String? = null,
-    val endpoint: String? = null,
-    val account_id: String? = null,
-    val access_key_id: String? = null,
-    val secret_access_key: String? = null,
-    val url: String? = null,
-    val username: String? = null,
-    val password: String? = null,
-    val headers: List<HeaderKv>? = null,
-    val mirror: Boolean? = null,
-    val db_keep: Int = 7,
-    val files_keep: Int? = null,
-    val db_path: String? = null,
-    val files_path: String? = null,
-)
-
-@Serializable
-data class BackupSettings(
-    val db: BackupSchedule = BackupSchedule(),
-    val files: BackupSchedule = BackupSchedule(),
-    val destinations: List<BackupDestination> = emptyList(),
-    val notify_on_success: Boolean = false,
-    val retention: Int = 7,
-)
-
-@Serializable
-data class BackupRunItem(
-    val id: Int,
-    val type: String = "db",
-    val status: String = "running",
-    val destination: String = "",
-    val error: String? = null,
-    val size_bytes: Long? = null,
-    val started_at: String? = null,
-    val finished_at: String? = null,
-)
-
-@Serializable
-data class BackupRestorePoint(val name: String = "", val at: String = "")
-
-@Serializable
-data class StorageSettings(
-    val driver: String = "",
-    val effective_driver: String = "local",
-    val env_driver: String = "",
-    val s3_account_id: String = "",
-    val s3_bucket: String = "",
-    val s3_access_key_id: String = "",
-    val s3_public_url: String = "",
-    val s3_endpoint: String = "",
-    val s3_region: String = "",
-    val has_secret: Boolean = false,
 )
 
 @Serializable

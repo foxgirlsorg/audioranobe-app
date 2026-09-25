@@ -40,10 +40,4 @@ object ModNav {
     )
 
     fun countable() = GROUPS.flatMap { it.tabs }.filter { it.countKey != null }
-    fun find(page: String) = GROUPS.flatMap { it.tabs }.firstOrNull { it.page == page }
-    fun visible(tab: Tab, can: (String) -> Boolean): Boolean = when {
-        tab.perm != null -> can(tab.perm)
-        tab.anyPerm != null -> tab.anyPerm.any { can(it) }
-        else -> true
-    }
 }

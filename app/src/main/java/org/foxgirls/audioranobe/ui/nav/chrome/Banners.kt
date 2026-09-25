@@ -160,7 +160,7 @@ fun CornerAlerts(modifier: Modifier = Modifier) {
                     IconBtn(Lucide.X, "Скрыть", { Stores.prefs.modAlertHiddenAt = System.currentTimeMillis() / 1000; modItems = null }, size = 28.dp, iconSize = 14.dp)
                 }
                 for ((page, label, count) in items) {
-                    Row(Modifier.fillMaxWidth().clip(RoundedCornerShape(6.dp)).clickable { modItems = null; nav.go(Routes.mod(page)) }.padding(vertical = 6.dp, horizontal = 4.dp), verticalAlignment = Alignment.CenterVertically) {
+                    Row(Modifier.fillMaxWidth().clip(RoundedCornerShape(6.dp)).clickable { modItems = null; nav.go(Routes.mod("/mod/$page")) }.padding(vertical = 6.dp, horizontal = 4.dp), verticalAlignment = Alignment.CenterVertically) {
                         Text(label, color = Ar.textSecondary, fontSize = 13.sp, modifier = Modifier.weight(1f))
                         Text(if (count > 99) "99+" else count.toString(), color = Ar.accent, fontSize = 12.sp, fontWeight = FontWeight.Bold)
                     }
