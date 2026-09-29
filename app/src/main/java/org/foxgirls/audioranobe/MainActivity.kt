@@ -12,6 +12,7 @@ import androidx.core.splashscreen.SplashScreen.Companion.installSplashScreen
 import org.foxgirls.audioranobe.player.PlayerController
 import org.foxgirls.audioranobe.ui.AppShell
 import org.foxgirls.audioranobe.ui.nav.Routes
+import org.foxgirls.audioranobe.ui.screens.auth.OAuthReturn
 import org.foxgirls.audioranobe.ui.theme.AudioRanobeTheme
 
 class MainActivity : ComponentActivity() {
@@ -45,6 +46,12 @@ class MainActivity : ComponentActivity() {
             intent.removeExtra("open_player")
         }
         val data = intent.data ?: return
+        if (data.scheme == "audioranobe" && data.host == "oauth") {
+            val provider = data.pathSegments.getOrNull(1) ?: "site"
+            OAuthReturn.result.value = data
+            if (!OAuthReturn.waiting) { pendingRoute = Routes.oauth(provider, "login"); pendingSeq++ }
+            return
+        }
         val path = (data.path ?: "/") + (data.query?.let { "?$it" } ?: "") + (data.fragment?.let { "#$it" } ?: "")
         val route = Routes.fromPath(path) ?: return
         pendingRoute = route

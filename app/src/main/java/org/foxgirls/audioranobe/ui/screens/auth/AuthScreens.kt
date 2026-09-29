@@ -1,10 +1,15 @@
 package org.foxgirls.audioranobe.ui.screens.auth
 
-import android.annotation.SuppressLint
+import android.content.ActivityNotFoundException
 import android.net.Uri
-import android.webkit.WebResourceRequest
-import android.webkit.WebView
-import android.webkit.WebViewClient
+import androidx.browser.customtabs.CustomTabColorSchemeParams
+import androidx.browser.customtabs.CustomTabsIntent
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.runtime.DisposableEffect
+import androidx.compose.ui.graphics.toArgb
+import androidx.compose.ui.platform.LocalContext
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.serialization.json.JsonObject
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -14,12 +19,9 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
-import androidx.compose.foundation.layout.width
 import androidx.compose.material3.Checkbox
 import androidx.compose.material3.CheckboxDefaults
-import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -31,12 +33,10 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.compose.ui.viewinterop.AndroidView
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import org.foxgirls.audioranobe.core.Api
 import org.foxgirls.audioranobe.core.ApiError
@@ -50,7 +50,6 @@ import org.foxgirls.audioranobe.ui.components.ArButton
 import org.foxgirls.audioranobe.ui.components.ArTextField
 import org.foxgirls.audioranobe.ui.components.ButtonKind
 import org.foxgirls.audioranobe.ui.components.EmptyState
-import org.foxgirls.audioranobe.ui.components.IconBtn
 import org.foxgirls.audioranobe.ui.icons.Lucide
 import org.foxgirls.audioranobe.ui.nav.LocalNav
 import org.foxgirls.audioranobe.ui.nav.Routes
@@ -336,36 +335,66 @@ fun SetupScreen() {
 }
 
 @Serializable
-private data class OAuthUrlRes(val url: String)
+private data class OAuthUrlRes(val url: String, val state: String)
 
 @Serializable
 private data class OAuthCallbackRes(val token: String? = null, val user: Me? = null, val ok: Boolean? = null, val identities: List<Identity>? = null)
 
 /**
- * OAuth sign-in / account linking inside a WebView. The provider redirects back to the site's
- * /auth/callback/{provider}; that navigation is intercepted and the code exchanged with the API,
- * exactly like app/auth/callback/[provider]/page.tsx does in the browser.
+ * The site hands the result back as audioranobe://oauth/callback/{provider}?code&state (provider sign-in)
+ * or audioranobe://oauth/session?handoff= (the browser's existing account); MainActivity drops it here.
  */
-@SuppressLint("SetJavaScriptEnabled")
+object OAuthReturn {
+    val result = MutableStateFlow<Uri?>(null)
+    var waiting = false
+}
+
+/**
+ * OAuth sign-in / account linking in a Custom Tab, so the provider sees the real browser with its
+ * saved sessions. The `app` param makes the site's callback page forward code+state to this app
+ * instead of exchanging them; the exchange then happens here, like app/auth/callback/[provider]/page.tsx.
+ */
 @Composable
 fun OAuthScreen(provider: String, mode: String) {
     val nav = LocalNav.current
     val auth = LocalAuth.current
+    val context = LocalContext.current
     var url by remember { mutableStateOf<String?>(null) }
     var error by remember { mutableStateOf<String?>(null) }
     var finishing by remember { mutableStateOf(false) }
     val scope = rememberCoroutineScope()
+    val returned by OAuthReturn.result.collectAsStateWithLifecycle()
 
-    LaunchedEffect(provider, mode) {
-        try { url = Api.get<OAuthUrlRes>("/auth/oauth/${Routes.enc(provider)}/url", mapOf("mode" to mode)).url } catch (e: Exception) { error = e.msg() }
+    fun openTab(u: String) {
+        try {
+            CustomTabsIntent.Builder()
+                .setDefaultColorSchemeParams(CustomTabColorSchemeParams.Builder().setToolbarColor(Ar.bg.toArgb()).build())
+                .build()
+                .launchUrl(context, Uri.parse(u))
+        } catch (_: ActivityNotFoundException) { error = "Не найден браузер для входа." }
     }
 
-    fun finish(code: String, state: String) {
+    DisposableEffect(Unit) {
+        OAuthReturn.waiting = true
+        onDispose { OAuthReturn.waiting = false }
+    }
+
+    LaunchedEffect(provider, mode) {
+        if (OAuthReturn.result.value != null) return@LaunchedEffect
+        try {
+            val res = Api.get<OAuthUrlRes>("/auth/oauth/${Routes.enc(provider)}/url", mapOf("mode" to mode, "app" to context.packageName))
+            val u = "${Api.siteUrl}/auth/app?state=${Uri.encode(res.state)}"
+            url = u
+            openTab(u)
+        } catch (e: Exception) { error = e.msg() }
+    }
+
+    fun finish(path: String, body: JsonObject) {
         if (finishing) return
         finishing = true
         scope.launch {
             try {
-                val res = Api.post<OAuthCallbackRes>("/auth/oauth/${Routes.enc(provider)}/callback", buildJsonObject { put("code", code); put("state", state) })
+                val res = Api.post<OAuthCallbackRes>(path, body)
                 if (res.token != null && res.user != null) {
                     auth.adoptSession(res.user)
                     nav.replace(if (res.user.needs_setup) Routes.SETUP else Routes.HOME)
@@ -378,45 +407,35 @@ fun OAuthScreen(provider: String, mode: String) {
         }
     }
 
+    LaunchedEffect(returned) {
+        val u = returned ?: return@LaunchedEffect
+        OAuthReturn.result.value = null
+        val code = u.getQueryParameter("code") ?: ""
+        val state = u.getQueryParameter("state") ?: ""
+        val handoff = u.getQueryParameter("handoff") ?: ""
+        when {
+            u.getQueryParameter("error") != null -> error = "Вход отменён."
+            u.pathSegments.firstOrNull() == "session" && handoff.isNotEmpty() ->
+                finish("/auth/oauth/handoff/redeem", buildJsonObject { put("handoff", handoff) })
+            code.isEmpty() || state.isEmpty() -> error = "Ссылка неполная — попробуйте войти заново."
+            else -> finish("/auth/oauth/${Routes.enc(u.pathSegments.getOrNull(1) ?: provider)}/callback", buildJsonObject { put("code", code); put("state", state) })
+        }
+    }
+
     val err = error
+    val u = url
     when {
         err != null -> Box(Modifier.fillMaxSize().statusBarsPadding()) {
             EmptyState("Не удалось войти", err, Lucide.ShieldAlert) { ArButton("Вернуться ко входу", { nav.replace(Routes.LOGIN) }, kind = ButtonKind.Primary) }
         }
-        url == null || finishing -> LoadingCard(if (finishing) "Завершаем вход…" else "Открываем $provider…")
-        else -> Column(Modifier.fillMaxSize().statusBarsPadding()) {
-            Row(Modifier.fillMaxWidth().padding(horizontal = 8.dp, vertical = 4.dp), verticalAlignment = Alignment.CenterVertically) {
-                IconBtn(Lucide.X, "Отмена", { nav.back() }, tint = Ar.text)
-                Spacer(Modifier.width(6.dp))
-                Icon(Lucide.Lock, null, tint = Ar.textMuted, modifier = Modifier.size(13.dp))
-                Spacer(Modifier.width(6.dp))
-                Text("Вход через $provider", color = Ar.textSecondary, fontSize = 13.sp, fontWeight = FontWeight.Medium)
-            }
-            AndroidView(modifier = Modifier.fillMaxSize(), factory = { ctx ->
-                WebView(ctx).apply {
-                    settings.javaScriptEnabled = true
-                    settings.domStorageEnabled = true
-                    settings.userAgentString = settings.userAgentString.replace("; wv", "")
-                    webViewClient = object : WebViewClient() {
-                        override fun shouldOverrideUrlLoading(view: WebView?, request: WebResourceRequest?): Boolean {
-                            val u = request?.url ?: return false
-                            return intercept(u)
-                        }
-
-                        private fun intercept(u: Uri): Boolean {
-                            val path = u.path ?: return false
-                            if (!path.startsWith("/auth/callback/")) return false
-                            if (u.getQueryParameter("error") != null) { error = "Вход отменён."; return true }
-                            val code = u.getQueryParameter("code") ?: ""
-                            val state = u.getQueryParameter("state") ?: ""
-                            if (code.isEmpty() || state.isEmpty()) { error = "Ссылка неполная — попробуйте войти заново."; return true }
-                            finish(code, state)
-                            return true
-                        }
-                    }
-                    loadUrl(url!!)
+        u == null || finishing -> LoadingCard(if (finishing) "Завершаем вход…" else "Открываем $provider…")
+        else -> Box(Modifier.fillMaxSize().statusBarsPadding()) {
+            EmptyState("Вход через $provider", "Завершите вход в открывшемся браузере.", Lucide.Lock) {
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    ArButton("Открыть снова", { openTab(u) }, kind = ButtonKind.Primary, fullWidth = true)
+                    ArButton("Отмена", { nav.back() }, fullWidth = true)
                 }
-            })
+            }
         }
     }
 }

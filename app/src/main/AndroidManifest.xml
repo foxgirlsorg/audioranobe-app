@@ -43,6 +43,13 @@
                 <data android:scheme="https" android:host="audioranobe.com" />
                 <data android:scheme="https" android:host="www.audioranobe.com" />
             </intent-filter>
+            <!-- OAuth handoff from the site's /auth/callback page (package-pinned intent:// URL). -->
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data android:scheme="audioranobe" android:host="oauth" />
+            </intent-filter>
         </activity>
 
         <service
