@@ -1,5 +1,7 @@
 package org.foxgirls.audioranobe.ui.components.social
 
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -101,7 +103,8 @@ fun RatingBars(distribution: Map<String, Int>, modifier: Modifier = Modifier) {
             Text(v.toString(), color = Ar.textMuted, fontSize = 10.sp, fontWeight = FontWeight.Bold, modifier = Modifier.width(20.dp))
             Spacer(Modifier.width(9.dp))
             Box(Modifier.weight(1f).height(6.dp).clip(CircleShape).background(Ar.fill06)) {
-                Box(Modifier.fillMaxWidth(n.toFloat() / max).height(6.dp).background(Brush.horizontalGradient(listOf(Ar.accent.copy(alpha = 0.55f), Ar.accent)), CircleShape))
+                val w by animateFloatAsState(n.toFloat() / max, tween(500), label = "ratingBar")
+                Box(Modifier.fillMaxWidth(w).height(6.dp).background(Brush.horizontalGradient(listOf(Ar.accent.copy(alpha = 0.55f), Ar.accent)), CircleShape))
             }
             Spacer(Modifier.width(9.dp))
             Text(n.toString(), color = Ar.textMuted, fontSize = 10.sp, modifier = Modifier.width(34.dp))

@@ -1,5 +1,8 @@
 package org.foxgirls.audioranobe.ui.screens.me
 
+import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.core.animateDpAsState
+import androidx.compose.animation.core.tween
 import android.content.ContentValues
 import android.content.Context
 import android.graphics.Bitmap
@@ -331,7 +334,10 @@ private fun RecapDeck(recap: Recap, loader: org.foxgirls.audioranobe.ui.componen
     Column(Modifier.fillMaxWidth(), horizontalAlignment = Alignment.CenterHorizontally) {
         Row(horizontalArrangement = Arrangement.spacedBy(6.dp), modifier = Modifier.padding(bottom = 10.dp)) {
             cards.indices.forEach { i ->
-                Box(Modifier.width(if (i == pager.currentPage) 18.dp else 7.dp).height(7.dp).clip(CircleShape).background(if (i == pager.currentPage) Ar.accent else Ar.fill08))
+                val on = i == pager.currentPage
+                val w by animateDpAsState(if (on) 18.dp else 7.dp, tween(200), label = "recapDotWidth")
+                val c by animateColorAsState(if (on) Ar.accent else Ar.fill08, tween(200), label = "recapDotColor")
+                Box(Modifier.width(w).height(7.dp).clip(CircleShape).background(c))
             }
         }
         HorizontalPager(pager, Modifier.fillMaxWidth(), pageSpacing = 12.dp) { i ->

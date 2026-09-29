@@ -1,5 +1,7 @@
 package org.foxgirls.audioranobe.ui.screens.me
 
+import androidx.compose.animation.core.Animatable
+import androidx.compose.foundation.border
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -178,6 +180,7 @@ private fun Thread(userId: Int) {
     var editing by remember(userId) { mutableStateOf<ChatMessage?>(null) }
     var plainText by remember { mutableStateOf(true) }
     var menuMsg by remember { mutableStateOf<ChatMessage?>(null) }
+    var highlight by remember { mutableStateOf<Int?>(null) }
     var viewerUrl by remember { mutableStateOf<String?>(null) }
     var lastId by remember(userId) { mutableStateOf(0) }
     val listState = rememberLazyListState()
@@ -293,7 +296,10 @@ private fun Thread(userId: Int) {
                             if (showDay) Box(Modifier.fillMaxWidth().padding(vertical = 8.dp), contentAlignment = Alignment.Center) {
                                 Text(dayLabel(m.created_at), color = Ar.textMuted, fontSize = 11.sp, modifier = Modifier.background(Ar.fill06, CircleShape).padding(horizontal = 10.dp, vertical = 3.dp))
                             }
-                            Bubble(m, t, onLongPress = { menuMsg = m }, onImage = { viewerUrl = it }, onQuoteTap = { id -> val idx = reversed.indexOfFirst { it.id == id }; if (idx >= 0) scope.launch { listState.animateScrollToItem(idx) } })
+                            Bubble(m, t, highlighted = highlight == m.id, onLongPress = { menuMsg = m }, onImage = { viewerUrl = it }, onQuoteTap = { id ->
+                                val idx = reversed.indexOfFirst { it.id == id }
+                                if (idx >= 0) scope.launch { listState.animateScrollToItem(idx); highlight = id; delay(1200); if (highlight == id) highlight = null }
+                            })
                         }
                         }
                     }
@@ -357,12 +363,16 @@ private fun Thread(userId: Int) {
 
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
-private fun Bubble(m: ChatMessage, t: ChatThread, onLongPress: () -> Unit, onImage: (String) -> Unit, onQuoteTap: (Int) -> Unit) {
+private fun Bubble(m: ChatMessage, t: ChatThread, highlighted: Boolean, onLongPress: () -> Unit, onImage: (String) -> Unit, onQuoteTap: (Int) -> Unit) {
+    val pulse = remember { Animatable(0f) }
+    LaunchedEffect(highlighted) { if (highlighted) { pulse.snapTo(0f); pulse.animateTo(1f, tween(300)); pulse.animateTo(0f, tween(900)) } }
     val nav = LocalNav.current
     val read = m.mine && m.id <= t.their_last_read_id
     Row(Modifier.fillMaxWidth().padding(vertical = 2.dp), horizontalArrangement = if (m.mine) Arrangement.End else Arrangement.Start) {
         Column(
-            Modifier.widthIn(max = 300.dp).clip(RoundedCornerShape(topStart = 14.dp, topEnd = 14.dp, bottomStart = if (m.mine) 14.dp else 4.dp, bottomEnd = if (m.mine) 4.dp else 14.dp))
+            Modifier.widthIn(max = 300.dp)
+                .border(3.dp, Ar.accent.copy(alpha = 0.45f * pulse.value), RoundedCornerShape(topStart = 14.dp, topEnd = 14.dp, bottomStart = if (m.mine) 14.dp else 4.dp, bottomEnd = if (m.mine) 4.dp else 14.dp))
+                .clip(RoundedCornerShape(topStart = 14.dp, topEnd = 14.dp, bottomStart = if (m.mine) 14.dp else 4.dp, bottomEnd = if (m.mine) 4.dp else 14.dp))
                 .background(if (m.mine) Ar.accent.copy(alpha = 0.22f) else Ar.surfaceRaised)
                 .combinedClickable(onClick = {}, onLongClick = onLongPress)
                 .padding(horizontal = 10.dp, vertical = 6.dp),

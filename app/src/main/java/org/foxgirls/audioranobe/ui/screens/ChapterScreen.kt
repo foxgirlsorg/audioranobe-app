@@ -1,5 +1,6 @@
 package org.foxgirls.audioranobe.ui.screens
 
+import org.foxgirls.audioranobe.ui.components.PlayPauseIcon
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -111,7 +112,7 @@ fun ChapterScreen(id: Int, startAt: Double?) {
                     Text(chapterLabel, color = Ar.white, fontSize = 20.sp, fontWeight = FontWeight.Medium, textAlign = TextAlign.Center, modifier = Modifier.padding(top = 6.dp))
                     Spacer(Modifier.height(18.dp))
                     Box(Modifier.size(76.dp).clip(CircleShape).background(if (isPlaying) Ar.accent else Ar.accentSoft).clickable { if (isCurrent) PlayerController.toggle() else PlayerController.play(ch.id) }, contentAlignment = Alignment.Center) {
-                        Icon(if (isPlaying) Lucide.Pause else Lucide.Play, null, tint = if (isPlaying) Ar.accentOn else Ar.accent, modifier = Modifier.size(32.dp).padding(start = if (isPlaying) 0.dp else 3.dp))
+                        PlayPauseIcon(isPlaying, if (isPlaying) Ar.accentOn else Ar.accent, 32.dp, 3.dp)
                     }
                     Text(if (isPlaying) "Играет" else if (isCurrent) "На паузе" else "Слушать главу", color = Ar.textMuted, fontSize = 11.sp, modifier = Modifier.padding(top = 8.dp))
                     Spacer(Modifier.height(16.dp))

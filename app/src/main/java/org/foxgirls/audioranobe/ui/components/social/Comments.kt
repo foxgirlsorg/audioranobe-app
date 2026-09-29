@@ -1,5 +1,10 @@
 package org.foxgirls.audioranobe.ui.components.social
 
+import androidx.compose.animation.animateContentSize
+import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.animation.core.tween
+import org.foxgirls.audioranobe.ui.components.enterRise
+import org.foxgirls.audioranobe.ui.components.bottomFade
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -282,7 +287,7 @@ private fun NestedComment(
         }
     }
 
-    Column(Modifier.fillMaxWidth()) {
+    Column(Modifier.fillMaxWidth().enterRise(6.dp, 300)) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             UserAvatar(comment.user?.username, comment.user?.avatar_url, avatarSize, presence = comment.user?.presence, thumbUrl = comment.user?.avatar_thumb_url, onClick = comment.user?.let { u -> { nav.go(Routes.user(u.username)) } })
             Spacer(Modifier.width(8.dp))
@@ -307,7 +312,9 @@ private fun NestedComment(
             }
             st.editingId == comment.id -> Composer("", "Сохранить", comment.body, { onSubmitEdit(comment.id, it) }, onCancel = { st.editingId = null })
             else -> {
-                ArMarkdown(if (bodyExpanded) comment.body else comment.body.take(600) + "…", compact = true)
+                Box(Modifier.animateContentSize(tween(350, easing = FastOutSlowInEasing)).then(if (bodyExpanded) Modifier else Modifier.bottomFade(0.35f))) {
+                    ArMarkdown(if (bodyExpanded) comment.body else comment.body.take(600) + "…", compact = true)
+                }
                 if (!bodyExpanded) Text("Показать полностью", color = Ar.accent, fontSize = 12.sp, modifier = Modifier.clickable { bodyExpanded = true }.padding(vertical = 4.dp))
             }
         }

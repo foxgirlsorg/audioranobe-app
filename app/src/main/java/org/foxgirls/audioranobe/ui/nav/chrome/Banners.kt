@@ -1,5 +1,6 @@
 package org.foxgirls.audioranobe.ui.nav.chrome
 
+import org.foxgirls.audioranobe.ui.components.enterRise
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -152,7 +153,7 @@ fun CornerAlerts(modifier: Modifier = Modifier) {
 
     Column(modifier.widthIn(max = 300.dp), verticalArrangement = Arrangement.spacedBy(10.dp), horizontalAlignment = Alignment.End) {
         modItems?.let { items ->
-            GlassPanel(background = Ar.surfaceStrong, borderColor = Ar.borderStrong) {
+            GlassPanel(Modifier.enterRise(), background = Ar.surfaceStrong, borderColor = Ar.borderStrong) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Icon(Lucide.Bell, null, tint = Ar.accent, modifier = Modifier.size(15.dp))
                     Spacer(Modifier.width(8.dp))
@@ -168,7 +169,7 @@ fun CornerAlerts(modifier: Modifier = Modifier) {
             }
         }
         recap?.let {
-            GlassPanel(background = Ar.surfaceStrong, borderColor = Ar.borderStrong) {
+            GlassPanel(Modifier.enterRise(), background = Ar.surfaceStrong, borderColor = Ar.borderStrong) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Icon(Lucide.Sparkles, null, tint = Ar.accent, modifier = Modifier.size(15.dp))
                     Spacer(Modifier.width(8.dp))

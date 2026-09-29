@@ -1,5 +1,6 @@
 package org.foxgirls.audioranobe.ui.player
 
+import org.foxgirls.audioranobe.ui.components.PlayPauseIcon
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
@@ -75,9 +76,7 @@ fun MiniPlayer() {
             }
             IconBtn(Lucide.RotateCcw, "Назад на 10 секунд", { PlayerController.skip(-10.0) }, size = 36.dp, iconSize = 20.dp)
             Box(Modifier.size(36.dp).clip(CircleShape).background(Ar.accent).clickable { PlayerController.toggle() }, contentAlignment = Alignment.Center) {
-                AnimatedContent(playing, transitionSpec = { (scaleIn(tween(160)) + fadeIn(tween(160))) togetherWith (scaleOut(tween(120)) + fadeOut(tween(120))) }, label = "miniPlayPause") { p ->
-                    Icon(if (p) Lucide.Pause else Lucide.Play, if (p) "Пауза" else "Воспроизвести", tint = Ar.accentOn, modifier = Modifier.size(18.dp).padding(start = if (p) 0.dp else 1.dp))
-                }
+                PlayPauseIcon(playing, Ar.accentOn, 18.dp, 1.dp)
             }
             IconBtn(Lucide.RotateCw, "Вперёд на 10 секунд", { PlayerController.skip(10.0) }, size = 36.dp, iconSize = 20.dp)
         }

@@ -1,5 +1,14 @@
 package org.foxgirls.audioranobe.ui.screens
 
+import androidx.compose.foundation.lazy.rememberLazyListState
+import org.foxgirls.audioranobe.ui.components.edgeFade
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.tween
+import androidx.compose.ui.draw.rotate
+import androidx.compose.foundation.border
+import androidx.compose.ui.graphics.Color
+import org.foxgirls.audioranobe.ui.components.SelectMenu
+import org.foxgirls.audioranobe.ui.components.SelectOption
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -65,7 +74,6 @@ import org.foxgirls.audioranobe.ui.components.Eyebrow
 import org.foxgirls.audioranobe.ui.components.GlassPanel
 import org.foxgirls.audioranobe.ui.components.IconBtn
 import org.foxgirls.audioranobe.ui.components.Load
-import org.foxgirls.audioranobe.ui.components.Pill
 import org.foxgirls.audioranobe.ui.components.ProgressTrack
 import org.foxgirls.audioranobe.ui.components.Section
 import org.foxgirls.audioranobe.ui.components.SectionTitle
@@ -146,7 +154,8 @@ fun HomeScreen() {
                     }
                     if (data.continueItems.isNotEmpty()) item {
                         Section("Продолжить", "слушать", "Вернитесь к тому, на чём остановились", Modifier.padding(start = 16.dp, top = 18.dp)) {
-                            LazyRow(Modifier.fillMaxWidth(), contentPadding = PaddingValues(end = 16.dp), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                            val continueState = rememberLazyListState()
+                            LazyRow(Modifier.fillMaxWidth().edgeFade(continueState), state = continueState, contentPadding = PaddingValues(end = 16.dp), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                                 items(data.continueItems, key = { it.chapter.id }) { c ->
                                     val pct = if (c.chapter.duration_seconds > 0) (c.position_seconds / c.chapter.duration_seconds).toFloat().coerceAtMost(1f) else 0f
                                     GlassPanel(Modifier.width(300.dp), padding = PaddingValues(10.dp)) {
@@ -184,12 +193,7 @@ fun HomeScreen() {
                         Column(Modifier.padding(horizontal = 16.dp, vertical = 8.dp)) {
                             Eyebrow("библиотека", bar = true)
                             SectionTitle("Весь", "каталог", Modifier.padding(top = 6.dp, bottom = 12.dp), size = 22)
-                            Text("Сортировать по".uppercase(), color = Ar.textMuted, fontSize = 10.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.5.sp)
-                            LazyRow(Modifier.padding(vertical = 8.dp), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                                items(SORTS) { s -> Pill(s.label, active = sort == s.key, onClick = { sort = s.key }) }
-                                item { Pill(if (asc) "по возр." else "по убыв.", icon = if (asc) Lucide.ArrowUpNarrowWide else Lucide.ArrowDownWideNarrow, onClick = { asc = !asc }) }
-                                item { Pill("Только завершённые", active = finished, icon = Lucide.CheckCheck, onClick = { finished = !finished }) }
-                            }
+                            CatalogControls(sort, { sort = it }, asc, { asc = !asc }, finished, { finished = !finished })
                         }
                     }
                     item {
@@ -273,6 +277,35 @@ fun BannerCarousel(banners: List<Banner>, modifier: Modifier = Modifier) {
         }
         if (banners.size > 1) Row(Modifier.fillMaxWidth().padding(top = 8.dp), horizontalArrangement = Arrangement.Center) {
             for (i in banners.indices) Box(Modifier.padding(3.dp).size(6.dp).background(if (i == pager.currentPage) Ar.accent else Ar.borderStrong, CircleShape))
+        }
+    }
+}
+
+/** components/CatalogGrid .controls at phone width: sort dropdown, direction toggle, finished-only toggle. */
+@Composable
+private fun CatalogControls(sort: String, onSort: (String) -> Unit, asc: Boolean, onFlip: () -> Unit, finished: Boolean, onFinished: () -> Unit) {
+    val arrow by animateFloatAsState(if (asc) 0f else 180f, tween(200), label = "sortArrow")
+    val green = Color(0xFF6FAE86)
+    Row(Modifier.fillMaxWidth().padding(bottom = 16.dp), verticalAlignment = Alignment.Bottom, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+        Column(Modifier.weight(1f)) {
+            Text("СОРТИРОВАТЬ ПО", color = Ar.textMuted, fontSize = 9.5.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.7.sp)
+            Spacer(Modifier.height(5.dp))
+            SelectMenu(sort, SORTS.map { SelectOption(it.key, it.label) }, onSort)
+        }
+        Box(
+            Modifier.size(40.dp).clip(RoundedCornerShape(9.dp)).background(Ar.fill04).border(1.dp, Ar.border, RoundedCornerShape(9.dp)).clickable(onClick = onFlip),
+            contentAlignment = Alignment.Center,
+        ) {
+            Icon(Lucide.ArrowUpNarrowWide, if (asc) "Сортировать по убыванию" else "Сортировать по возрастанию", tint = Ar.textSecondary, modifier = Modifier.size(15.dp).rotate(arrow))
+        }
+        Row(
+            Modifier.height(40.dp).clip(RoundedCornerShape(9.dp)).background(if (finished) green.copy(alpha = 0.12f) else Ar.fill04)
+                .border(1.dp, if (finished) green.copy(alpha = 0.5f) else Ar.border, RoundedCornerShape(9.dp)).clickable(onClick = onFinished).padding(horizontal = 14.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Icon(Lucide.CheckCheck, null, tint = if (finished) green else Ar.textSecondary, modifier = Modifier.size(13.dp))
+            Spacer(Modifier.width(6.dp))
+            Text("ЗАВЕРШЁННЫЕ", color = if (finished) Ar.white else Ar.textSecondary, fontSize = 11.sp, fontWeight = FontWeight.Bold, letterSpacing = 0.9.sp)
         }
     }
 }

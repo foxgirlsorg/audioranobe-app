@@ -1,5 +1,7 @@
 package org.foxgirls.audioranobe.ui.components
 
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.horizontalScroll
@@ -189,7 +191,8 @@ private fun DistributionPie(title: String, slices: List<Triple<String, Int, Colo
 /** Simple horizontal stat bar (donate goal etc.). */
 @Composable
 fun GoalBar(pct: Double, modifier: Modifier = Modifier) {
+    val w by animateFloatAsState((pct / 100).toFloat().coerceIn(0f, 1f), tween(600), label = "goalBar")
     Box(modifier.fillMaxWidth().height(8.dp).background(Ar.fill06, RoundedCornerShape(4.dp))) {
-        Box(Modifier.fillMaxWidth((pct / 100).toFloat().coerceIn(0f, 1f)).height(8.dp).background(Brush.horizontalGradient(listOf(Ar.accent.copy(alpha = 0.6f), Ar.accent)), RoundedCornerShape(4.dp)))
+        Box(Modifier.fillMaxWidth(w).height(8.dp).background(Brush.horizontalGradient(listOf(Ar.accent.copy(alpha = 0.6f), Ar.accent)), RoundedCornerShape(4.dp)))
     }
 }

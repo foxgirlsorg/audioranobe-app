@@ -1,5 +1,14 @@
 package org.foxgirls.audioranobe.ui.screens.title
 
+import org.foxgirls.audioranobe.ui.components.PlayPauseIcon
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.animateContentSize
+import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.expandVertically
+import androidx.compose.animation.shrinkVertically
+import org.foxgirls.audioranobe.ui.components.Chevron
+import org.foxgirls.audioranobe.ui.components.bottomFade
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -259,7 +268,9 @@ fun TitleScreen(slug: String, initialTab: String?) {
                         Eyebrow("Описание")
                         Spacer(Modifier.height(6.dp))
                         val long = title.description.length > 420
-                        ArMarkdown(if (long && !descOpen) Fmt.plainSummary(title.description, 420) else title.description)
+                        Box(Modifier.animateContentSize(tween(350, easing = FastOutSlowInEasing)).then(if (long && !descOpen) Modifier.bottomFade(0.4f) else Modifier)) {
+                            ArMarkdown(if (long && !descOpen) Fmt.plainSummary(title.description, 420) else title.description)
+                        }
                         if (long) Text(if (descOpen) "Свернуть" else "Развернуть", color = Ar.accent, fontSize = 13.sp, fontWeight = FontWeight.SemiBold, modifier = Modifier.clickable { descOpen = !descOpen }.padding(vertical = 6.dp))
                     }
                     if (title.genres.isNotEmpty()) Column {
@@ -298,9 +309,11 @@ fun TitleScreen(slug: String, initialTab: String?) {
                         RatingStars(title.avg_rating, title.rating_count, title.my_rating, if (user != null) ({ rate(it) }) else null)
                         Row(Modifier.clickable { ratingOpen = !ratingOpen }.padding(top = 8.dp), verticalAlignment = Alignment.CenterVertically) {
                             Text(if (ratingOpen) "Свернуть распределение" else "Показать распределение", color = Ar.textMuted, fontSize = 12.sp)
-                            Icon(if (ratingOpen) Lucide.ChevronUp else Lucide.ChevronDown, null, tint = Ar.textMuted, modifier = Modifier.size(14.dp))
+                            Chevron(ratingOpen, 14.dp, openTint = Ar.textMuted)
                         }
-                        if (ratingOpen) RatingBars(title.rating_distribution, Modifier.padding(top = 8.dp))
+                        AnimatedVisibility(ratingOpen, enter = expandVertically(tween(350, easing = FastOutSlowInEasing)), exit = shrinkVertically(tween(350, easing = FastOutSlowInEasing))) {
+                            RatingBars(title.rating_distribution, Modifier.padding(top = 8.dp))
+                        }
                     }
                     LibraryWidget(title.id, title.my_library, { e -> loader.update { it.copy(my_library = e) } })
                 }
@@ -331,40 +344,42 @@ fun TitleScreen(slug: String, initialTab: String?) {
                                     val volManifest = offlineTitles.firstOrNull { it.titleId == title.id }
                                     val volDone = volReady.isNotEmpty() && volReady.all { volManifest?.chapters?.containsKey(it.id) == true }
                                     if (volReady.isNotEmpty()) IconBtn(if (volDone) Lucide.CircleCheck else Lucide.Download, if (volDone) "Том скачан" else "Скачать том", { if (volDone) OfflineStore.removeVolume(title.id, v) else { OfflineStore.downloadVolume(title, v); toast("Том ${v.number} добавлен в загрузки") } }, size = 30.dp, iconSize = 14.dp, tint = if (volDone) Ar.accent else Ar.textSecondary)
-                                    Icon(if (open) Lucide.ChevronUp else Lucide.ChevronDown, null, tint = Ar.textMuted, modifier = Modifier.size(16.dp))
+                                    Chevron(open, 16.dp)
                                 }
-                                if (open) {
-                                    if (chapters.isEmpty()) Text("В этом томе пока нет глав.", color = Ar.textMuted, fontSize = 13.sp, modifier = Modifier.padding(12.dp))
-                                    for ((ch, defaulted) in chapters) {
-                                        val isCurrent = current?.id == ch.id
-                                        val chPlayable = ch.audio_status == "ready"
-                                        val staticPct = if (ch.duration_seconds > 0) ((ch.my_position ?: 0.0) / ch.duration_seconds).toFloat() else 0f
-                                        Column(Modifier.fillMaxWidth().background(if (isCurrent) Ar.accentSoft.copy(alpha = 0.5f) else androidx.compose.ui.graphics.Color.Transparent)) {
-                                            Row(Modifier.fillMaxWidth().clickable { nav.go(Routes.chapter(ch.id)) }.padding(horizontal = 10.dp, vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
-                                                if (chPlayable) Box(Modifier.size(30.dp).clip(CircleShape).background(if (isCurrent) Ar.accent else Ar.fill08).clickable { playChapter(ch) }, contentAlignment = Alignment.Center) {
-                                                    Icon(if (isCurrent && playing) Lucide.Pause else Lucide.Play, null, tint = if (isCurrent) Ar.accentOn else Ar.text, modifier = Modifier.size(13.dp))
-                                                } else Box(Modifier.size(30.dp), contentAlignment = Alignment.Center) { Icon(Lucide.Headphones, "Аудио ещё не готово", tint = Ar.textMuted, modifier = Modifier.size(13.dp)) }
-                                                Spacer(Modifier.width(8.dp))
-                                                Text(Fmt.chapterNumber(ch.number, ch.number_end), color = Ar.textMuted, fontSize = 12.sp, modifier = Modifier.width(34.dp))
-                                                Column(Modifier.weight(1f)) {
-                                                    Text(Fmt.chapterLabel(ch.number, ch.number_end, ch.name), color = if (isCurrent) Ar.accentHover else Ar.text, fontSize = 13.sp, maxLines = 2, overflow = TextOverflow.Ellipsis)
-                                                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                                                        if (defaulted && selectedVersion != 0) Text("из основной", color = Ar.textMuted, fontSize = 10.sp)
-                                                        if (ch.narrators.isNotEmpty()) Text(ch.narrators.joinToString(", ") { it.name }, color = Ar.textMuted, fontSize = 10.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                                                        if (ch.mod_status != "approved") StatusBadge(ch.mod_status)
-                                                        if (ch.audio_status != "ready" && (title.can_edit || ch.audio_status != "none")) StatusBadge(ch.audio_status)
+                                AnimatedVisibility(open, enter = expandVertically(tween(350, easing = FastOutSlowInEasing)), exit = shrinkVertically(tween(350, easing = FastOutSlowInEasing))) {
+                                    Column {
+                                        if (chapters.isEmpty()) Text("В этом томе пока нет глав.", color = Ar.textMuted, fontSize = 13.sp, modifier = Modifier.padding(12.dp))
+                                        for ((ch, defaulted) in chapters) {
+                                            val isCurrent = current?.id == ch.id
+                                            val chPlayable = ch.audio_status == "ready"
+                                            val staticPct = if (ch.duration_seconds > 0) ((ch.my_position ?: 0.0) / ch.duration_seconds).toFloat() else 0f
+                                            Column(Modifier.fillMaxWidth().background(if (isCurrent) Ar.accentSoft.copy(alpha = 0.5f) else androidx.compose.ui.graphics.Color.Transparent)) {
+                                                Row(Modifier.fillMaxWidth().clickable { nav.go(Routes.chapter(ch.id)) }.padding(horizontal = 10.dp, vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
+                                                    if (chPlayable) Box(Modifier.size(30.dp).clip(CircleShape).background(if (isCurrent) Ar.accent else Ar.fill08).clickable { playChapter(ch) }, contentAlignment = Alignment.Center) {
+                                                        PlayPauseIcon(isCurrent && playing, if (isCurrent) Ar.accentOn else Ar.text, 13.dp, 0.dp)
+                                                    } else Box(Modifier.size(30.dp), contentAlignment = Alignment.Center) { Icon(Lucide.Headphones, "Аудио ещё не готово", tint = Ar.textMuted, modifier = Modifier.size(13.dp)) }
+                                                    Spacer(Modifier.width(8.dp))
+                                                    Text(Fmt.chapterNumber(ch.number, ch.number_end), color = Ar.textMuted, fontSize = 12.sp, modifier = Modifier.width(34.dp))
+                                                    Column(Modifier.weight(1f)) {
+                                                        Text(Fmt.chapterLabel(ch.number, ch.number_end, ch.name), color = if (isCurrent) Ar.accentHover else Ar.text, fontSize = 13.sp, maxLines = 2, overflow = TextOverflow.Ellipsis)
+                                                        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                                                            if (defaulted && selectedVersion != 0) Text("из основной", color = Ar.textMuted, fontSize = 10.sp)
+                                                            if (ch.narrators.isNotEmpty()) Text(ch.narrators.joinToString(", ") { it.name }, color = Ar.textMuted, fontSize = 10.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                                                            if (ch.mod_status != "approved") StatusBadge(ch.mod_status)
+                                                            if (ch.audio_status != "ready" && (title.can_edit || ch.audio_status != "none")) StatusBadge(ch.audio_status)
+                                                        }
                                                     }
+                                                    if (ch.duration_seconds > 0) Text(Fmt.duration(ch.duration_seconds), color = Ar.textMuted, fontSize = 11.sp)
+                                                    if (isMod && title.is_imported && title.is_ai) IconBtn(Lucide.RefreshCw, "Переозвучить главу", {
+                                                        if (reNarrating != null) return@IconBtn
+                                                        reNarrating = ch.id
+                                                        scope.launch { try { Api.post<Unit>("/mod/chapters/${ch.id}/re-narrate"); toast("Глава ${Fmt.trimNum(ch.number)} отправлена на переозвучку") } catch (e: Exception) { toastError(e) } finally { reNarrating = null } }
+                                                    }, size = 30.dp, iconSize = 12.dp)
+                                                    if (chPlayable) ChapterDownloadButton(title, ch, dlStates[ch.id], offlineTitles.any { it.chapters.containsKey(ch.id) })
                                                 }
-                                                if (ch.duration_seconds > 0) Text(Fmt.duration(ch.duration_seconds), color = Ar.textMuted, fontSize = 11.sp)
-                                                if (isMod && title.is_imported && title.is_ai) IconBtn(Lucide.RefreshCw, "Переозвучить главу", {
-                                                    if (reNarrating != null) return@IconBtn
-                                                    reNarrating = ch.id
-                                                    scope.launch { try { Api.post<Unit>("/mod/chapters/${ch.id}/re-narrate"); toast("Глава ${Fmt.trimNum(ch.number)} отправлена на переозвучку") } catch (e: Exception) { toastError(e) } finally { reNarrating = null } }
-                                                }, size = 30.dp, iconSize = 12.dp)
-                                                if (chPlayable) ChapterDownloadButton(title, ch, dlStates[ch.id], offlineTitles.any { it.chapters.containsKey(ch.id) })
+                                                val pct = if (isCurrent) { val d = if (liveDuration > 0) liveDuration else ch.duration_seconds; if (d > 0) (position / d).toFloat() else 0f } else staticPct
+                                                if (pct > 0f) ProgressTrack(pct, Modifier.padding(horizontal = 10.dp).padding(bottom = 6.dp), height = 2.dp)
                                             }
-                                            val pct = if (isCurrent) { val d = if (liveDuration > 0) liveDuration else ch.duration_seconds; if (d > 0) (position / d).toFloat() else 0f } else staticPct
-                                            if (pct > 0f) ProgressTrack(pct, Modifier.padding(horizontal = 10.dp).padding(bottom = 6.dp), height = 2.dp)
                                         }
                                     }
                                 }

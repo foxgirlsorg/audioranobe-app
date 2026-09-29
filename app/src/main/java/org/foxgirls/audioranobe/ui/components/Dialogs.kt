@@ -1,5 +1,32 @@
 package org.foxgirls.audioranobe.ui.components
 
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.animation.core.CubicBezierEasing
+import androidx.compose.animation.core.animateDp
+import androidx.compose.animation.core.animateFloat
+import androidx.compose.animation.core.rememberTransition
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.core.MutableTransitionState
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.slideInVertically
+import androidx.compose.animation.slideOutVertically
+import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.ui.draw.rotate
+import androidx.compose.ui.draw.shadow
+import androidx.compose.ui.layout.onSizeChanged
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.IntOffset
+import androidx.compose.ui.unit.IntRect
+import androidx.compose.ui.unit.IntSize
+import androidx.compose.ui.unit.LayoutDirection
+import androidx.compose.ui.window.Popup
+import androidx.compose.ui.window.PopupPositionProvider
+import androidx.compose.ui.window.PopupProperties
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -52,11 +79,18 @@ fun ArModal(
     scrollable: Boolean = true,
     content: @Composable ColumnScope.() -> Unit,
 ) {
-    if (!open) return
+    val shown = remember { MutableTransitionState(false) }
+    shown.targetState = open
+    if (!shown.currentState && !shown.targetState) return
     Dialog(onDismissRequest = onClose, properties = DialogProperties(usePlatformDefaultWidth = false, decorFitsSystemWindows = false)) {
+        val pop = rememberTransition(shown, label = "modal")
+        val alpha by pop.animateFloat({ if (targetState) tween(260) else tween(160) }, label = "modalAlpha") { if (it) 1f else 0f }
+        val lift by pop.animateDp({ if (targetState) tween(260, easing = Overshoot) else tween(160) }, label = "modalLift") { if (it) 0.dp else if (pop.targetState) 20.dp else 12.dp }
+        val scale by pop.animateFloat({ if (targetState) tween(260, easing = Overshoot) else tween(160) }, label = "modalScale") { if (it) 1f else 0.97f }
         Box(Modifier.fillMaxWidth().padding(14.dp).imePadding(), contentAlignment = Alignment.Center) {
             Column(
-                Modifier.fillMaxWidth().clip(RoundedCornerShape(16.dp)).background(Ar.surfaceSolid).border(1.dp, Ar.borderStrong, RoundedCornerShape(16.dp)),
+                Modifier.fillMaxWidth().graphicsLayer { this.alpha = alpha; translationY = lift.toPx(); scaleX = scale; scaleY = scale }
+                    .clip(RoundedCornerShape(16.dp)).background(Ar.surfaceSolid).border(1.dp, Ar.borderStrong, RoundedCornerShape(16.dp)),
             ) {
                 Box(Modifier.fillMaxWidth().height(3.dp).background(Ar.accent))
                 Row(Modifier.fillMaxWidth().padding(start = 18.dp, end = 8.dp, top = 10.dp), verticalAlignment = Alignment.CenterVertically) {
@@ -72,6 +106,9 @@ fun ArModal(
         }
     }
 }
+
+/** --ease-overshoot in globals.css. */
+val Overshoot = CubicBezierEasing(0.34f, 1.56f, 0.64f, 1f)
 
 /** components/ConfirmDialog */
 @Composable
@@ -99,8 +136,10 @@ fun ConfirmDialog(
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ArSheet(open: Boolean, onClose: () -> Unit, title: String? = null, content: @Composable ColumnScope.() -> Unit) {
-    if (!open) return
     val state = rememberModalBottomSheetState(skipPartiallyExpanded = true)
+    var shown by remember { mutableStateOf(false) }
+    LaunchedEffect(open) { if (open) shown = true else if (shown) { state.hide(); shown = false } }
+    if (!open && !shown) return
     ModalBottomSheet(
         onDismissRequest = onClose,
         sheetState = state,
@@ -118,7 +157,7 @@ fun ArSheet(open: Boolean, onClose: () -> Unit, title: String? = null, content: 
 
 data class SelectOption<T>(val value: T, val label: String, val hint: String? = null, val disabled: Boolean = false)
 
-/** components/Select: a dropdown that opens a bottom sheet with the options. */
+/** components/Select: a button with a dropdown menu anchored under it (above when there is no room). */
 @Composable
 fun <T> SelectMenu(
     value: T,
@@ -132,34 +171,72 @@ fun <T> SelectMenu(
 ) {
     var open by remember { mutableStateOf(false) }
     val selected = options.firstOrNull { it.value == value }
+    val chevron by animateFloatAsState(if (open) 180f else 0f, tween(200), label = "selectChevron")
+    var anchorWidth by remember { mutableIntStateOf(0) }
+    val menu = remember { MutableTransitionState(false) }
+    menu.targetState = open
     Column(modifier) {
         if (label != null) FieldLabel(label)
-        Row(
-            Modifier.fillMaxWidth().clip(RoundedCornerShape(9.dp)).background(Ar.fill04).border(1.dp, if (open) Ar.accent.copy(alpha = 0.45f) else Ar.border, RoundedCornerShape(9.dp))
-                .clickable(enabled = enabled) { open = true }
-                .padding(horizontal = 12.dp, vertical = if (small) 7.dp else 11.dp),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            Text(selected?.label ?: placeholder, color = if (selected != null) Ar.text else Ar.textMuted, fontSize = if (small) 13.sp else 14.sp, modifier = Modifier.weight(1f), maxLines = 1)
-            Icon(Lucide.ChevronDown, null, tint = Ar.textMuted, modifier = Modifier.size(14.dp))
-        }
-    }
-    ArSheet(open, { open = false }, label) {
-        for (o in options) {
-            val on = o.value == value
+        Box {
             Row(
-                Modifier.fillMaxWidth().clip(RoundedCornerShape(8.dp)).background(if (on) Ar.accentSoft else Color.Transparent)
-                    .clickable(enabled = !o.disabled) { open = false; if (!on) onChange(o.value) }
-                    .padding(horizontal = 12.dp, vertical = 12.dp),
+                Modifier.fillMaxWidth().onSizeChanged { anchorWidth = it.width }
+                    .clip(RoundedCornerShape(if (small) 8.dp else 9.dp)).background(if (open) Ar.fill06 else Ar.fill04)
+                    .border(1.dp, if (open) Ar.accent.copy(alpha = 0.45f) else Ar.border, RoundedCornerShape(if (small) 8.dp else 9.dp))
+                    .clickable(enabled = enabled) { open = !open }
+                    .padding(start = if (small) 11.dp else 14.dp, end = if (small) 8.dp else 12.dp, top = if (small) 6.dp else 10.dp, bottom = if (small) 6.dp else 10.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
-                Column(Modifier.weight(1f)) {
-                    Text(o.label, color = if (o.disabled) Ar.textMuted else if (on) Ar.accentHover else Ar.text, fontSize = 14.sp)
-                    if (o.hint != null) Text(o.hint, color = Ar.textMuted, fontSize = 12.sp)
+                Text(selected?.label ?: placeholder, color = if (selected != null) Ar.text else Ar.textMuted, fontSize = if (small) 12.sp else 14.sp, fontWeight = if (small) FontWeight.SemiBold else FontWeight.Normal, modifier = Modifier.weight(1f), maxLines = 1, overflow = TextOverflow.Ellipsis)
+                Icon(Lucide.ChevronDown, null, tint = if (open) Ar.accent else Ar.textMuted, modifier = Modifier.size(14.dp).rotate(chevron))
+            }
+            if (menu.currentState || menu.targetState) SelectDropdown(menu, anchorWidth, options, value, { open = false; if (it != value) onChange(it) }, { open = false })
+        }
+    }
+}
+
+@Composable
+private fun <T> SelectDropdown(menu: MutableTransitionState<Boolean>, anchorWidth: Int, options: List<SelectOption<T>>, value: T, onPick: (T) -> Unit, onDismiss: () -> Unit) {
+    val density = LocalDensity.current
+    val gap = with(density) { 4.dp.roundToPx() }
+    Popup(popupPositionProvider = remember(gap) { AnchorBelow(gap) }, onDismissRequest = onDismiss, properties = PopupProperties(focusable = true)) {
+        AnimatedVisibility(
+            menu,
+            enter = fadeIn(tween(140)) + slideInVertically(tween(140)) { -gap },
+            exit = fadeOut(tween(120)) + slideOutVertically(tween(120)) { -gap },
+        ) {
+            Column(
+                Modifier.width(with(density) { anchorWidth.toDp() }).heightIn(max = 280.dp)
+                    .shadow(18.dp, RoundedCornerShape(10.dp)).clip(RoundedCornerShape(10.dp))
+                    .background(Color(0xF7161618)).border(1.dp, Color(0x1AFFFFFF), RoundedCornerShape(10.dp))
+                    .verticalScroll(rememberScrollState()).padding(4.dp),
+            ) {
+                for (o in options) {
+                    val on = o.value == value
+                    Row(
+                        Modifier.fillMaxWidth().clip(RoundedCornerShape(7.dp)).background(if (on) Ar.accentSoft else Color.Transparent)
+                            .clickable(enabled = !o.disabled) { onPick(o.value) }
+                            .padding(horizontal = 10.dp, vertical = 8.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        Column(Modifier.weight(1f)) {
+                            Text(o.label, color = if (o.disabled) Ar.textMuted else if (on) Ar.accent else Ar.textSecondary, fontSize = 13.sp)
+                            if (o.hint != null) Text(o.hint, color = Ar.textMuted, fontSize = 11.sp)
+                        }
+                        if (on) Icon(Lucide.Check, null, tint = Ar.accent, modifier = Modifier.size(14.dp))
+                    }
                 }
-                if (on) Icon(Lucide.Check, null, tint = Ar.accent, modifier = Modifier.size(15.dp))
             }
         }
+    }
+}
+
+/** Places a popup under its anchor, or above it when it would run off the bottom of the window. */
+private class AnchorBelow(private val gap: Int) : PopupPositionProvider {
+    override fun calculatePosition(anchorBounds: IntRect, windowSize: IntSize, layoutDirection: LayoutDirection, popupContentSize: IntSize): IntOffset {
+        val below = anchorBounds.bottom + gap
+        val above = anchorBounds.top - gap - popupContentSize.height
+        val y = if (below + popupContentSize.height > windowSize.height && above >= 0) above else below
+        return IntOffset(anchorBounds.left, y)
     }
 }
 

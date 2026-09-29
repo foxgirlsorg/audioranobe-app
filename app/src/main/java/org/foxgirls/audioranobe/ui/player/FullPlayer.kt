@@ -1,5 +1,8 @@
 package org.foxgirls.audioranobe.ui.player
 
+import org.foxgirls.audioranobe.ui.components.PlayPauseIcon
+import androidx.compose.foundation.basicMarquee
+import androidx.compose.foundation.MarqueeSpacing
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -131,7 +134,9 @@ fun FullPlayer() {
 
             Spacer(Modifier.height(22.dp))
             Text(cur.title.name, color = Ar.white, fontSize = 19.sp, fontWeight = FontWeight.SemiBold, textAlign = TextAlign.Center, maxLines = 2, overflow = TextOverflow.Ellipsis, modifier = Modifier.fillMaxWidth().clickable { PlayerController.setFull(false); nav.go(Routes.title(cur.title.slug)) })
-            Text(chapterLabel, color = Ar.textSecondary, fontSize = 13.sp, textAlign = TextAlign.Center, maxLines = 2, overflow = TextOverflow.Ellipsis, modifier = Modifier.fillMaxWidth().padding(top = 4.dp))
+            Box(Modifier.fillMaxWidth().padding(top = 4.dp), contentAlignment = Alignment.Center) {
+                Text(chapterLabel, color = Ar.textSecondary, fontSize = 13.sp, maxLines = 1, modifier = Modifier.basicMarquee(iterations = Int.MAX_VALUE, initialDelayMillis = 1500, repeatDelayMillis = 0, spacing = MarqueeSpacing(39.dp)))
+            }
 
             Spacer(Modifier.height(18.dp))
             Box(Modifier.fillMaxWidth()) {
@@ -157,7 +162,7 @@ fun FullPlayer() {
                 IconBtn(Lucide.RotateCcw, "Назад на 10 секунд", { PlayerController.skip(-10.0) }, tint = Ar.text, size = 48.dp, iconSize = 26.dp)
                 Box(Modifier.size(72.dp).clip(CircleShape).background(Ar.accent).clickable { PlayerController.toggle() }, contentAlignment = Alignment.Center) {
                     if (loading && !playing) org.foxgirls.audioranobe.ui.components.Spinner(size = 28.dp)
-                    else Icon(if (playing) Lucide.Pause else Lucide.Play, if (playing) "Пауза" else "Воспроизвести", tint = Ar.accentOn, modifier = Modifier.size(32.dp).padding(start = if (playing) 0.dp else 3.dp))
+                    else PlayPauseIcon(playing, Ar.accentOn, 32.dp, 3.dp)
                 }
                 IconBtn(Lucide.RotateCw, "Вперёд на 10 секунд", { PlayerController.skip(10.0) }, tint = Ar.text, size = 48.dp, iconSize = 26.dp)
                 IconBtn(Lucide.SkipForward, "Следующая глава", { PlayerController.next() }, tint = Ar.text, size = 48.dp, iconSize = 24.dp, enabled = cur.next_id != null)

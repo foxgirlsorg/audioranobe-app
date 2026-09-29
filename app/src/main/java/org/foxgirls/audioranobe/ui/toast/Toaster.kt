@@ -1,10 +1,22 @@
 package org.foxgirls.audioranobe.ui.toast
 
+import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.CubicBezierEasing
+import androidx.compose.animation.core.LinearEasing
+import androidx.compose.animation.core.MutableTransitionState
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.scaleIn
+import androidx.compose.animation.scaleOut
+import androidx.compose.animation.slideInHorizontally
+import androidx.compose.animation.slideOutHorizontally
+import androidx.compose.foundation.layout.height
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.key
+import androidx.compose.runtime.remember
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
-import androidx.compose.animation.slideInVertically
-import androidx.compose.animation.slideOutVertically
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -38,7 +50,9 @@ import kotlinx.coroutines.launch
 
 enum class ToastKind { OK, INFO, ERROR }
 
-class ToastItem(val id: Long, val message: String, val kind: ToastKind)
+class ToastItem(val id: Long, val message: String, val kind: ToastKind, val durationMs: Long) {
+    val visible = MutableTransitionState(false).apply { targetState = true }
+}
 
 /** Global toast queue, like lib/toast.tsx. Call toast() from anywhere. */
 object Toaster {
@@ -48,15 +62,18 @@ object Toaster {
     private const val MAX_VISIBLE = 4
 
     fun show(message: String, kind: ToastKind = ToastKind.OK) {
-        val item = ToastItem(nextId++, message, kind)
+        val ms = when (kind) { ToastKind.OK -> 4500L; ToastKind.INFO -> 5500L; ToastKind.ERROR -> 8000L }
+        val item = ToastItem(nextId++, message, kind, ms)
         items.add(item)
         while (items.size > MAX_VISIBLE) items.removeAt(0)
-        val ms = when (kind) { ToastKind.OK -> 4500L; ToastKind.INFO -> 5500L; ToastKind.ERROR -> 8000L }
-        scope.launch { delay(ms); items.remove(item) }
+        scope.launch { delay(ms); dismiss(item) }
     }
 
-    fun dismiss(item: ToastItem) { items.remove(item) }
+    /** Starts the leave animation; the host drops the item once it has played. */
+    fun dismiss(item: ToastItem) { item.visible.targetState = false }
 }
+
+private val ToastEase = CubicBezierEasing(0.2f, 0.9f, 0.3f, 1f)
 
 fun toast(message: String, kind: ToastKind = ToastKind.OK) = Toaster.show(message, kind)
 fun toastError(message: String) = Toaster.show(message, ToastKind.ERROR)
@@ -68,25 +85,30 @@ fun ToastHost(modifier: Modifier = Modifier) {
         modifier = modifier.statusBarsPadding().padding(horizontal = 10.dp, vertical = 14.dp).fillMaxWidth(),
         verticalArrangement = Arrangement.spacedBy(8.dp),
     ) {
-        for (t in Toaster.items) {
-            AnimatedVisibility(visible = true, enter = slideInVertically { -it } + fadeIn(), exit = slideOutVertically { -it } + fadeOut()) {
+        val slide = with(LocalDensity.current) { 18.dp.roundToPx() }
+        for (t in Toaster.items) key(t.id) {
+            LaunchedEffect(t.visible.isIdle, t.visible.currentState) { if (t.visible.isIdle && !t.visible.currentState) Toaster.items.remove(t) }
+            AnimatedVisibility(
+                t.visible,
+                enter = fadeIn(tween(280, easing = ToastEase)) + slideInHorizontally(tween(280, easing = ToastEase)) { slide } + scaleIn(tween(280, easing = ToastEase), 0.97f),
+                exit = fadeOut(tween(180)) + slideOutHorizontally(tween(180)) { slide } + scaleOut(tween(180), 0.97f),
+            ) {
                 val accent = when (t.kind) { ToastKind.OK -> Ar.ok; ToastKind.INFO -> Ar.blue; ToastKind.ERROR -> Ar.danger }
                 val icon = when (t.kind) { ToastKind.OK -> Lucide.CircleCheck; ToastKind.INFO -> Lucide.Info; ToastKind.ERROR -> Lucide.CircleAlert }
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .clip(RoundedCornerShape(10.dp))
-                        .background(Ar.surfaceStrong)
-                        .border(1.dp, accent.copy(alpha = 0.45f), RoundedCornerShape(10.dp))
-                        .clickable { Toaster.dismiss(t) }
-                        .padding(horizontal = 12.dp, vertical = 11.dp),
-                    verticalAlignment = Alignment.CenterVertically,
+                val remaining = remember { Animatable(1f) }
+                LaunchedEffect(Unit) { remaining.animateTo(0f, tween(t.durationMs.toInt(), easing = LinearEasing)) }
+                Box(
+                    Modifier.fillMaxWidth().clip(RoundedCornerShape(10.dp)).background(Ar.surfaceStrong)
+                        .border(1.dp, accent.copy(alpha = 0.45f), RoundedCornerShape(10.dp)).clickable { Toaster.dismiss(t) },
                 ) {
-                    Box(Modifier.width(3.dp).size(3.dp, 18.dp).background(accent, RoundedCornerShape(2.dp)))
-                    Spacer(Modifier.width(10.dp))
-                    Icon(icon, null, tint = accent, modifier = Modifier.size(16.dp))
-                    Spacer(Modifier.width(8.dp))
-                    Text(t.message, color = Ar.text, fontSize = 13.sp, lineHeight = 18.sp, modifier = Modifier.weight(1f))
+                    Row(Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 11.dp), verticalAlignment = Alignment.CenterVertically) {
+                        Box(Modifier.width(3.dp).size(3.dp, 18.dp).background(accent, RoundedCornerShape(2.dp)))
+                        Spacer(Modifier.width(10.dp))
+                        Icon(icon, null, tint = accent, modifier = Modifier.size(16.dp))
+                        Spacer(Modifier.width(8.dp))
+                        Text(t.message, color = Ar.text, fontSize = 13.sp, lineHeight = 18.sp, modifier = Modifier.weight(1f))
+                    }
+                    Box(Modifier.align(Alignment.BottomStart).fillMaxWidth(remaining.value).height(2.dp).background(accent.copy(alpha = 0.6f)))
                 }
             }
         }

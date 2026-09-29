@@ -1,13 +1,12 @@
 package org.foxgirls.audioranobe.ui.components
 
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.ExperimentalLayoutApi
-import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -85,25 +84,27 @@ fun TitleRail(titles: List<TitleCard>, modifier: Modifier = Modifier, cardWidth:
         Text("Здесь пока пусто.", color = Ar.textMuted, fontSize = 13.sp, modifier = modifier.padding(contentPadding))
         return
     }
-    LazyRow(modifier.fillMaxWidth(), contentPadding = contentPadding, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+    val state = rememberLazyListState()
+    LazyRow(modifier.fillMaxWidth().edgeFade(state), state = state, contentPadding = contentPadding, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
         items(titles, key = { it.id }) { t -> TitleCardC(t, Modifier.width(cardWidth)) }
     }
 }
 
 /** Responsive card grid: N columns by width (components/CardGrid). Non-lazy, for use inside scrolling columns. */
-@OptIn(ExperimentalLayoutApi::class)
 @Composable
-fun CardGrid(titles: List<TitleCard>, modifier: Modifier = Modifier, minCard: Dp = 118.dp, gap: Dp = 14.dp) {
-    val width = LocalConfiguration.current.screenWidthDp.dp - 32.dp
-    val cols = maxOf(2, ((width + gap) / (minCard + gap)).toInt())
-    val cardW = (width - gap * (cols - 1)) / cols
-    FlowRow(modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(gap), verticalArrangement = Arrangement.spacedBy(18.dp), maxItemsInEachRow = cols) {
-        for (t in titles) TitleCardC(t, Modifier.width(cardW))
+fun CardGrid(titles: List<TitleCard>, modifier: Modifier = Modifier) {
+    val cols = gridColumns(LocalConfiguration.current.screenWidthDp)
+    Column(modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(18.dp)) {
+        for (row in titles.chunked(cols)) Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(14.dp)) {
+            for (t in row) TitleCardC(t, Modifier.weight(1f))
+            repeat(cols - row.size) { Spacer(Modifier.weight(1f)) }
+        }
     }
 }
 
-fun gridColumns(screenWidthDp: Int, minCard: Int = 118, gap: Int = 14, gutter: Int = 32): Int =
-    maxOf(2, ((screenWidthDp - gutter + gap) / (minCard + gap)))
+/** components/CardGrid: two columns up to 768dp like the site's phone layout, auto-fill of [minCard] above. */
+fun gridColumns(screenWidthDp: Int, minCard: Int = 152, gap: Int = 20, gutter: Int = 32): Int =
+    if (screenWidthDp <= 768) 2 else maxOf(2, (screenWidthDp - gutter + gap) / (minCard + gap))
 
 /** Catalog "people" card for a narrator. */
 @Composable

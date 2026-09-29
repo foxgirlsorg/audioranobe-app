@@ -1,5 +1,33 @@
 package org.foxgirls.audioranobe.ui.components
 
+import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.scaleIn
+import androidx.compose.animation.scaleOut
+import androidx.compose.animation.togetherWith
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.ui.draw.rotate
+import androidx.compose.animation.core.Animatable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.mutableStateMapOf
+import androidx.compose.ui.layout.onPlaced
+import androidx.compose.ui.layout.positionInParent
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.unit.IntOffset
+import androidx.compose.foundation.layout.offset
+import kotlin.math.roundToInt
+import kotlinx.coroutines.launch
+import androidx.compose.animation.core.tween
+import androidx.compose.foundation.ScrollState
+import androidx.compose.foundation.lazy.LazyListState
+import androidx.compose.ui.draw.drawWithContent
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Size
+import androidx.compose.ui.graphics.BlendMode
+import androidx.compose.ui.graphics.CompositingStrategy
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.foundation.BorderStroke
@@ -8,7 +36,6 @@ import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.interaction.MutableInteractionSource
-import androidx.compose.foundation.layout.IntrinsicSize
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxScope
@@ -452,28 +479,43 @@ fun ArTabs(
 ) {
     when (variant) {
         TabsVariant.Underline -> Column(modifier.fillMaxWidth()) {
-            Row(
-                Modifier.fillMaxWidth().then(if (scrollable) Modifier.horizontalScroll(rememberScrollState()) else Modifier),
-            ) {
-                for (t in tabs) {
-                    val on = t.key == active
-                    val fg = if (on) Ar.white else if (t.accent) Ar.accent else Ar.textMuted
-                    Column(
-                        Modifier.then(if (!scrollable) Modifier.weight(1f) else Modifier.width(IntrinsicSize.Max))
-                            .clickable(interactionSource = remember { MutableInteractionSource() }, indication = null) { onChange(t.key) }
-                            .padding(horizontal = 12.dp),
-                        horizontalAlignment = Alignment.CenterHorizontally,
-                    ) {
-                        Row(Modifier.padding(vertical = 10.dp), verticalAlignment = Alignment.CenterVertically) {
+            val scroll = rememberScrollState()
+            val bounds = remember { mutableStateMapOf<String, Pair<Int, Int>>() }
+            val inset = with(LocalDensity.current) { 12.dp.roundToPx() }
+            val indicatorX = remember { Animatable(0f) }
+            val indicatorW = remember { Animatable(0f) }
+            val target = bounds[active]
+            LaunchedEffect(target) {
+                val (x, w) = target ?: return@LaunchedEffect
+                val nx = (x + inset).toFloat()
+                val nw = (w - inset * 2).toFloat()
+                if (indicatorW.value == 0f) { indicatorX.snapTo(nx); indicatorW.snapTo(nw) }
+                else { launch { indicatorX.animateTo(nx, tween(180)) }; indicatorW.animateTo(nw, tween(180)) }
+            }
+            Box(Modifier.fillMaxWidth().then(if (scrollable) Modifier.edgeFade(scroll).horizontalScroll(scroll) else Modifier)) {
+                Row(if (scrollable) Modifier else Modifier.fillMaxWidth()) {
+                    for (t in tabs) {
+                        val on = t.key == active
+                        val fg = if (on) Ar.white else if (t.accent) Ar.accent else Ar.textMuted
+                        Row(
+                            Modifier.then(if (!scrollable) Modifier.weight(1f) else Modifier)
+                                .onPlaced { bounds[t.key] = it.positionInParent().x.roundToInt() to it.size.width }
+                                .clickable(interactionSource = remember { MutableInteractionSource() }, indication = null) { onChange(t.key) }
+                                .padding(horizontal = 12.dp, vertical = 10.dp),
+                            horizontalArrangement = Arrangement.Center, verticalAlignment = Alignment.CenterVertically,
+                        ) {
                             Text(t.label, color = fg, fontSize = 13.sp, fontWeight = FontWeight.SemiBold, maxLines = 1)
                             if (t.count != null) {
                                 Spacer(Modifier.width(6.dp))
                                 Text(t.count.toString(), color = if (on || t.accent) Ar.accent else Ar.textMuted, fontSize = 11.sp, fontWeight = FontWeight.Bold)
                             }
                         }
-                        Box(Modifier.fillMaxWidth().height(2.dp).background(if (on) Ar.accent else Color.Transparent, RoundedCornerShape(1.dp)))
                     }
                 }
+                if (target != null) Box(
+                    Modifier.align(Alignment.BottomStart).offset { IntOffset(indicatorX.value.roundToInt(), 0) }
+                        .width(with(LocalDensity.current) { indicatorW.value.toDp() }).height(2.dp).background(Ar.accent, RoundedCornerShape(1.dp)),
+                )
             }
             HairlineDivider()
         }
@@ -491,7 +533,7 @@ fun ArTabs(
             }
         }
         TabsVariant.Pill -> Row(
-            modifier.then(if (scrollable) Modifier.horizontalScroll(rememberScrollState()) else Modifier)
+            modifier.then(if (scrollable) rememberScrollState().let { Modifier.edgeFade(it).horizontalScroll(it) } else Modifier)
                 .clip(CircleShape).background(Color.White.copy(alpha = 0.035f)).border(1.dp, Ar.border, CircleShape).padding(4.dp),
             horizontalArrangement = Arrangement.spacedBy(4.dp),
         ) {
@@ -628,4 +670,64 @@ fun OutlineChip(text: String, modifier: Modifier = Modifier, onClick: (() -> Uni
     var m = modifier.clip(RoundedCornerShape(6.dp)).border(BorderStroke(1.dp, Ar.border), RoundedCornerShape(6.dp))
     if (onClick != null) m = m.clickable(onClick = onClick)
     Text(text, color = color, fontSize = 12.sp, modifier = m.padding(horizontal = 8.dp, vertical = 4.dp))
+}
+
+/**
+ * ScrollRail / Tabs .scrollFade: fades a horizontal scroller's edge on whichever side still has content
+ * to scroll to; each fade grows in over 0.2 s as that side becomes scrollable.
+ */
+@Composable
+fun Modifier.edgeFade(canStart: Boolean, canEnd: Boolean, fade: Dp): Modifier {
+    val start by animateDpAsState(if (canStart) fade else 0.dp, tween(200), label = "edgeFadeStart")
+    val end by animateDpAsState(if (canEnd) fade else 0.dp, tween(200), label = "edgeFadeEnd")
+    return this.graphicsLayer { compositingStrategy = CompositingStrategy.Offscreen }.drawWithContent {
+        drawContent()
+        val w = size.width
+        val s = start.toPx().coerceAtMost(w / 2)
+        val e = end.toPx().coerceAtMost(w / 2)
+        if (s > 0f) drawRect(Brush.horizontalGradient(listOf(Color.Transparent, Color.Black), startX = 0f, endX = s), size = Size(s, size.height), blendMode = BlendMode.DstIn)
+        if (e > 0f) drawRect(Brush.horizontalGradient(listOf(Color.Black, Color.Transparent), startX = w - e, endX = w), topLeft = Offset(w - e, 0f), size = Size(e, size.height), blendMode = BlendMode.DstIn)
+    }
+}
+
+@Composable
+fun Modifier.edgeFade(state: LazyListState, fade: Dp = 88.dp): Modifier = edgeFade(state.canScrollBackward, state.canScrollForward, fade)
+
+@Composable
+fun Modifier.edgeFade(state: ScrollState, fade: Dp = 32.dp): Modifier = edgeFade(state.canScrollBackward, state.canScrollForward, fade)
+
+/** One-shot entrance like the site's `…In` keyframes: fades in while rising [rise] (and growing from [fromScale]). */
+@Composable
+fun Modifier.enterRise(rise: Dp = 8.dp, durationMs: Int = 220, fromScale: Float = 1f): Modifier {
+    val p = remember { Animatable(0f) }
+    LaunchedEffect(Unit) { p.animateTo(1f, tween(durationMs)) }
+    return graphicsLayer {
+        alpha = p.value
+        translationY = (1 - p.value) * rise.toPx()
+        val sc = fromScale + (1 - fromScale) * p.value
+        scaleX = sc; scaleY = sc
+    }
+}
+
+/** Collapsible / clamped text mask: the last [fraction] of the height fades out. */
+fun Modifier.bottomFade(fraction: Float): Modifier = this.graphicsLayer { compositingStrategy = CompositingStrategy.Offscreen }.drawWithContent {
+    drawContent()
+    val h = size.height * fraction
+    drawRect(Brush.verticalGradient(listOf(Color.Black, Color.Transparent), startY = size.height - h, endY = size.height), topLeft = Offset(0f, size.height - h), size = Size(size.width, h), blendMode = BlendMode.DstIn)
+}
+
+/** Accordion chevron: turns over (and takes [openTint]) as its section opens, 0.3 s like the site's .chev. */
+@Composable
+fun Chevron(open: Boolean, size: Dp = 16.dp, tint: Color = Ar.textMuted, openTint: Color = Ar.accent) {
+    val turn by animateFloatAsState(if (open) 180f else 0f, tween(300, easing = FastOutSlowInEasing), label = "chevron")
+    val color by animateColorAsState(if (open) openTint else tint, tween(300), label = "chevronTint")
+    Icon(Lucide.ChevronDown, null, tint = color, modifier = Modifier.size(size).rotate(turn))
+}
+
+/** components/PlayPauseIcon: the two glyphs cross-fade and scale over 120 ms; play is nudged right to look centered. */
+@Composable
+fun PlayPauseIcon(playing: Boolean, tint: Color, size: Dp, nudge: Dp = size / 10) {
+    AnimatedContent(playing, transitionSpec = { (scaleIn(tween(120), 0.6f) + fadeIn(tween(120))) togetherWith (scaleOut(tween(120), 0.6f) + fadeOut(tween(120))) }, label = "playPause") { p ->
+        Icon(if (p) Lucide.Pause else Lucide.Play, if (p) "Пауза" else "Воспроизвести", tint = tint, modifier = Modifier.size(size).padding(start = if (p) 0.dp else nudge))
+    }
 }
