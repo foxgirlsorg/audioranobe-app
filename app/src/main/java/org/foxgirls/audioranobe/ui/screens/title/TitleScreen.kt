@@ -251,7 +251,7 @@ fun TitleScreen(slug: String, initialTab: String?) {
             }
         }
         item {
-            Column(Modifier.padding(horizontal = 16.dp)) {
+            Column(Modifier.padding(horizontal = 16.dp).padding(top = 18.dp)) {
                 val banner = title.info_banner
                 if (banner != null && banner.enabled && (banner.title.isNotBlank() || banner.text.isNotBlank() || banner.url.isNotBlank())) Banner(Lucide.Info, banner.title, banner.text, banner.url.takeIf { it.isNotBlank() }?.let { "Открыть" to it })
                 if (title.narration_pending) Banner(Lucide.Headphones, "Идёт ИИ-озвучка", "Главы появляются по мере готовности — уже озвученные можно слушать, остальные в работе.", null)

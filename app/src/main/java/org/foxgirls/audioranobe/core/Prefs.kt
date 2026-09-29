@@ -11,10 +11,6 @@ class Prefs(context: Context) {
         get() = p.getFloat("rate", 1f)
         set(v) = p.edit().putFloat("rate", v).apply()
 
-    var volume: Float
-        get() = p.getFloat("volume", 1f)
-        set(v) = p.edit().putFloat("volume", v).apply()
-
     /** "chapterId:positionSeconds" of the last open chapter, like the audioranobe_player cookie. */
     var openChapter: String?
         get() = p.getString("open_chapter", null)

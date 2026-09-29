@@ -20,6 +20,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.foundation.shape.CircleShape
@@ -41,6 +42,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
@@ -107,29 +109,29 @@ fun FullPlayer() {
                 IconBtn(Lucide.X, "Закрыть плеер", { PlayerController.stop() }, tint = Ar.text)
             }
 
-            Spacer(Modifier.weight(1f))
-
-            // Artwork: chapter illustrations if present, else the cover.
-            val ills = cur.illustrations
-            if (ills.isNotEmpty()) {
-                val pager = rememberPagerState(pageCount = { ills.size })
-                LaunchedEffect(cur.id) { pager.scrollToPage(0) }
-                HorizontalPager(pager, Modifier.fillMaxWidth().aspectRatio(1f).clip(RoundedCornerShape(18.dp))) { i ->
-                    val ill = ills[i]
-                    Box(Modifier.fillMaxSize().clickable { viewer = i }) {
-                        ArImage(ill.thumb_url, Modifier.fillMaxSize().blur(24.dp), contentScale = ContentScale.Crop)
-                        ArImage(ill.url, Modifier.fillMaxSize(), contentScale = ContentScale.Fit, blurred = ill.blurred && !revealed)
-                        if (ill.caption.isNotBlank()) {
-                            Text(ill.caption, color = Ar.white, fontSize = 12.sp, modifier = Modifier.align(Alignment.BottomCenter).fillMaxWidth().background(Color.Black.copy(alpha = 0.5f)).padding(8.dp), textAlign = TextAlign.Center, maxLines = 2, overflow = TextOverflow.Ellipsis)
+            // Artwork: chapter illustrations if present, else the cover; centered in the free space.
+            Column(Modifier.weight(1f).fillMaxWidth(), verticalArrangement = Arrangement.Center, horizontalAlignment = Alignment.CenterHorizontally) {
+                val ills = cur.illustrations
+                if (ills.isNotEmpty()) {
+                    val pager = rememberPagerState(pageCount = { ills.size })
+                    LaunchedEffect(cur.id) { pager.scrollToPage(0) }
+                    HorizontalPager(pager, Modifier.widthIn(max = 720.dp).fillMaxWidth().weight(1f, fill = false).aspectRatio(1f, matchHeightConstraintsFirst = true).clip(RoundedCornerShape(18.dp))) { i ->
+                        val ill = ills[i]
+                        Box(Modifier.fillMaxSize().clickable { viewer = i }) {
+                            ArImage(ill.thumb_url, Modifier.fillMaxSize().blur(24.dp), contentScale = ContentScale.Crop)
+                            ArImage(ill.url, Modifier.fillMaxSize(), contentScale = ContentScale.Fit, blurred = ill.blurred && !revealed)
+                            if (ill.caption.isNotBlank()) {
+                                Text(ill.caption, color = Ar.white, fontSize = 12.sp, modifier = Modifier.align(Alignment.BottomCenter).fillMaxWidth().background(Color.Black.copy(alpha = 0.5f)).padding(8.dp), textAlign = TextAlign.Center, maxLines = 2, overflow = TextOverflow.Ellipsis)
+                            }
                         }
                     }
+                    if (ills.size > 1) Row(Modifier.fillMaxWidth().padding(top = 8.dp), horizontalArrangement = Arrangement.Center) {
+                        for (i in ills.indices) Box(Modifier.padding(3.dp).size(6.dp).background(if (i == pager.currentPage) Ar.accent else Ar.borderStrong, CircleShape))
+                    }
+                    ImageViewer(viewer != null, ills.map { it.url }, viewer ?: 0, captions = ills.map { it.caption }) { viewer = null }
+                } else {
+                    ArImage(cur.coverUrl, Modifier.width(minOf((LocalConfiguration.current.screenWidthDp - 40).dp * 0.78f, 400.dp)).align(Alignment.CenterHorizontally).weight(1f, fill = false).aspectRatio(2f / 3f, matchHeightConstraintsFirst = true).clickable { PlayerController.setFull(false); nav.go(Routes.title(cur.title.slug)) }, fallbackIcon = Lucide.Music, shape = RoundedCornerShape(16.dp))
                 }
-                if (ills.size > 1) Row(Modifier.fillMaxWidth().padding(top = 8.dp), horizontalArrangement = Arrangement.Center) {
-                    for (i in ills.indices) Box(Modifier.padding(3.dp).size(6.dp).background(if (i == pager.currentPage) Ar.accent else Ar.borderStrong, CircleShape))
-                }
-                ImageViewer(viewer != null, ills.map { it.url }, viewer ?: 0, captions = ills.map { it.caption }) { viewer = null }
-            } else {
-                ArImage(cur.coverUrl, Modifier.fillMaxWidth(0.78f).align(Alignment.CenterHorizontally).aspectRatio(2f / 3f).clickable { PlayerController.setFull(false); nav.go(Routes.title(cur.title.slug)) }, fallbackIcon = Lucide.Music, shape = RoundedCornerShape(16.dp))
             }
 
             Spacer(Modifier.height(22.dp))
@@ -157,7 +159,7 @@ fun FullPlayer() {
             }
 
             Spacer(Modifier.height(10.dp))
-            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceEvenly, verticalAlignment = Alignment.CenterVertically) {
+            Row(Modifier.widthIn(max = 380.dp).fillMaxWidth().align(Alignment.CenterHorizontally), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
                 IconBtn(Lucide.SkipBack, "Предыдущая глава", { PlayerController.prev() }, tint = Ar.text, size = 48.dp, iconSize = 24.dp)
                 IconBtn(Lucide.RotateCcw, "Назад на 10 секунд", { PlayerController.skip(-10.0) }, tint = Ar.text, size = 48.dp, iconSize = 26.dp)
                 Box(Modifier.size(72.dp).clip(CircleShape).background(Ar.accent).clickable { PlayerController.toggle() }, contentAlignment = Alignment.Center) {
@@ -179,7 +181,6 @@ fun FullPlayer() {
                         Text(Fmt.duration(sleepRemaining), color = Ar.accent, fontSize = 12.sp)
                     }
                 }
-                VolumeButton()
             }
             Spacer(Modifier.height(14.dp))
         }
@@ -195,25 +196,5 @@ fun FullPlayer() {
             if (v == sleep) Icon(Lucide.Check, null, tint = Ar.accent, modifier = Modifier.size(15.dp))
         }
         if (sleep != null && sleepRemaining != null) Text("Осталось ${Fmt.duration(sleepRemaining)}", color = Ar.textMuted, fontSize = 12.sp, modifier = Modifier.padding(12.dp))
-    }
-}
-
-@Composable
-private fun VolumeButton() {
-    val volume by PlayerController.volume.collectAsStateWithLifecycle()
-    var open by remember { mutableStateOf(false) }
-    var last by remember { mutableStateOf(1f) }
-    Row(Modifier.clip(CircleShape).clickable { open = true }.padding(horizontal = 14.dp, vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
-        Icon(if (volume == 0f) Lucide.VolumeX else Lucide.Volume2, "Громкость", tint = Ar.textSecondary, modifier = Modifier.size(20.dp))
-    }
-    ArSheet(open, { open = false }, "Громкость") {
-        Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(horizontal = 8.dp)) {
-            IconBtn(if (volume == 0f) Lucide.VolumeX else Lucide.Volume2, "Выключить звук", {
-                if (volume > 0f) { last = volume; PlayerController.setVolume(0f) } else PlayerController.setVolume(if (last > 0f) last else 1f)
-            })
-            Slider(value = volume, onValueChange = { PlayerController.setVolume(it) }, valueRange = 0f..1f, modifier = Modifier.weight(1f),
-                colors = SliderDefaults.colors(thumbColor = Ar.accent, activeTrackColor = Ar.accent, inactiveTrackColor = Ar.fill08))
-            Text("${(volume * 100).toInt()}%", color = Ar.textMuted, fontSize = 12.sp, modifier = Modifier.width(40.dp), textAlign = TextAlign.End)
-        }
     }
 }

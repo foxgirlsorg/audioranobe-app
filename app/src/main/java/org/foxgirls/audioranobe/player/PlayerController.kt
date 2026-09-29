@@ -30,7 +30,6 @@ import kotlinx.coroutines.launch
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.put
 import kotlin.math.max
-import kotlin.math.pow
 
 sealed class Sleep {
     data class Minutes(val minutes: Int) : Sleep()
@@ -58,8 +57,6 @@ object PlayerController {
     val duration: StateFlow<Double> = _duration.asStateFlow()
     private val _rate = MutableStateFlow(1f)
     val rate: StateFlow<Float> = _rate.asStateFlow()
-    private val _volume = MutableStateFlow(1f)
-    val volume: StateFlow<Float> = _volume.asStateFlow()
     private val _sleep = MutableStateFlow<Sleep?>(null)
     val sleep: StateFlow<Sleep?> = _sleep.asStateFlow()
     private val _sleepRemaining = MutableStateFlow<Int?>(null)
@@ -81,7 +78,6 @@ object PlayerController {
     fun init(context: Context) {
         appContext = context.applicationContext
         _rate.value = Stores.prefs.rate.coerceIn(0.5f, 3f)
-        _volume.value = Stores.prefs.volume.coerceIn(0f, 1f)
         connect()
     }
 
@@ -94,7 +90,7 @@ object PlayerController {
                 controller = c
                 c.addListener(listener)
                 c.playbackParameters = PlaybackParameters(_rate.value)
-                c.volume = toGain(_volume.value)
+                c.volume = 1f
                 // The service may already be playing (app process was recreated).
                 if (c.mediaItemCount > 0) {
                     val id = c.currentMediaItem?.mediaId?.toIntOrNull()
@@ -153,7 +149,6 @@ object PlayerController {
 
     private var switching = false
 
-    private fun toGain(v: Float): Float = v.toDouble().pow(2.5).toFloat()
 
     private fun startTicker() {
         if (ticker?.isActive == true) return
@@ -267,7 +262,6 @@ object PlayerController {
         pendingStart = null
         c.setMediaItem(mediaItem(ch), (start * 1000).toLong())
         c.playbackParameters = PlaybackParameters(_rate.value)
-        c.volume = toGain(_volume.value)
         c.prepare()
         c.playWhenReady = autoplay
         persistOpen()
@@ -318,13 +312,6 @@ object PlayerController {
         _rate.value = clamped
         controller?.playbackParameters = PlaybackParameters(clamped)
         Stores.prefs.rate = clamped
-    }
-
-    fun setVolume(v: Float) {
-        val clamped = v.coerceIn(0f, 1f)
-        _volume.value = clamped
-        controller?.volume = toGain(clamped)
-        Stores.prefs.volume = clamped
     }
 
     fun setSleep(s: Sleep?) {
