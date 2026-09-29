@@ -56,6 +56,7 @@ data class NotificationPrefs(
     val entity_modified: Boolean = true,
     val entity_deleted: Boolean = true,
     val narration_ready: Boolean = true,
+    val dm: Boolean = true,
 )
 
 @Serializable

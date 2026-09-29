@@ -31,6 +31,8 @@ The API powering the content is maintained separately: [foxgirlsorg/audioranobe-
 * **Creator tools** — add books, narrators and authors; edit titles (info, artwork, illustrations); manage volumes, chapters and chunked audio uploads; alternate narrations; bulk upload.
 * **Moderation panel** — `/mod/*` tools gated by the backend permission system: queue, reports, review, comments, word filter, reserved names, trash, titles import, users, narrators, authors, tags, badges, DMCA, banners, donations, audit log and jobs.
 * **Motion** — the dock and mini player fold while you scroll and unfold on the first scroll up; screens, sheets and the player slide in and out.
+* **Push notifications** — replies, mentions, friends, new chapters, moderation and direct messages as system notifications, split into channels you can mute separately. Delivered by FCM on devices with Google Play services, otherwise by [UnifiedPush](https://unifiedpush.org/) through a distributor app such as ntfy. The permission is asked once after sign-in; «Настройки → Уведомления» shows the state and re-requests it (or opens the system settings once Android stops asking).
+* **Third-party sign-in** — Google, Discord and other providers open in a Custom Tab with the browser's saved sessions, and the site hands the result back to the app. If the browser is already signed in to the site, you can continue with that account instead.
 * **In-app updates** — the app polls the GitHub Releases of the repository it was built from, shows a popup with the release notes, downloads the APK and hands it to the system installer. «Позже» hides it until the next check, «Пропустить версию» silences that release. A manual check lives under «Другое».
 
 ## 🚀 Local Development
@@ -62,6 +64,13 @@ The API powering the content is maintained separately: [foxgirlsorg/audioranobe-
    | `updateRepo` / `UPDATE_REPO` | No | `owner/name` of the GitHub repository whose Releases the in-app updater polls. Empty (the default for local builds) disables the updater. CI passes its own repository. |
    | `versionName` / `VERSION_NAME` | No | Version string (`v` prefix is stripped). Defaults to `0.1.0`; the release workflow passes the tag. |
    | `versionCode` / `VERSION_CODE` | No | Integer version code. Defaults to `1`; CI passes the run number. |
+   | `fcmAppId` / `FCM_APP_ID` | No | Firebase Android app ID for FCM push. With `fcmApiKey`, `fcmProjectId` and `fcmSenderId` empty (the default) the app uses UnifiedPush only. |
+   | `fcmApiKey` / `FCM_API_KEY` | No | Firebase Web API key. |
+   | `fcmProjectId` / `FCM_PROJECT_ID` | No | Firebase project ID. |
+   | `fcmSenderId` / `FCM_SENDER_ID` | No | Firebase sender (project number). |
+   | `fcmDebugAppId` / `FCM_DEBUG_APP_ID` | No | App ID of the `org.foxgirls.audioranobe.debug` app in the same Firebase project, used by debug builds. |
+
+   The Firebase values come from the Android app entries in the Firebase console (no `google-services.json` is needed). The backend needs the matching `FCM_SERVICE_ACCOUNT`.
 
 3. **Build and install**
    ```bash
@@ -82,7 +91,7 @@ The release build type minifies and shrinks resources. Signing is read from the 
 Two GitHub Actions workflows are included:
 
 * **Android CI** (`.github/workflows/android.yml`) — builds a debug APK on every push and uploads it as the `audioranobe-debug` artifact. No keys or secrets are needed.
-* **Release** (`.github/workflows/release.yml`) — on a `v*` tag builds a signed release APK and publishes it as a GitHub Release, which is what the in-app updater picks up. It needs the secrets `SIGNING_KEYSTORE_BASE64`, `SIGNING_KEYSTORE_PASSWORD`, `SIGNING_KEY_ALIAS` and `SIGNING_KEY_PASSWORD`. Use the same key for every release: Android refuses to install an update signed with a different key.
+* **Release** (`.github/workflows/release.yml`) — on a `v*` tag builds a signed release APK and publishes it as a GitHub Release, which is what the in-app updater picks up. It needs the secrets `SIGNING_KEYSTORE_BASE64`, `SIGNING_KEYSTORE_PASSWORD`, `SIGNING_KEY_ALIAS` and `SIGNING_KEY_PASSWORD`, and reads the optional repository variables `FCM_APP_ID`, `FCM_API_KEY`, `FCM_PROJECT_ID` and `FCM_SENDER_ID` for push. Use the same key for every release: Android refuses to install an update signed with a different key.
 
 ```bash
 git tag v1.0.0 && git push origin v1.0.0
@@ -97,6 +106,7 @@ app/src/main/java/org/foxgirls/audioranobe/
 ├── data/                      # Serializable models, Auth / badges / config stores
 ├── offline/                   # OfflineStore (manifests, download queue, progress sync) + DownloadService
 ├── player/                    # PlaybackService (Media3) + PlayerController
+├── push/                      # FCM / UnifiedPush registration, receiving services, notification permission
 └── ui/
     ├── AppShell.kt            # Auth gate, NavHost, dock, full player, sheets
     ├── Gestures.kt            # Swipe tabs, swipe back, swipe-down-to-dismiss, dock scroll

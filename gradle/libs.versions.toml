@@ -21,8 +21,12 @@ charts = "0.2.0"
 zoomable = "2.9.0"
 cropper = "4.7.0"
 zxing = "3.5.4"
+firebaseMessaging = "25.1.3"
+unifiedpush = "3.3.5"
 
 [libraries]
+firebase-messaging = { group = "com.google.firebase", name = "firebase-messaging", version.ref = "firebaseMessaging" }
+unifiedpush-connector = { group = "org.unifiedpush.android", name = "connector", version.ref = "unifiedpush" }
 androidx-core-ktx = { group = "androidx.core", name = "core-ktx", version.ref = "coreKtx" }
 androidx-activity-compose = { group = "androidx.activity", name = "activity-compose", version.ref = "activityCompose" }
 androidx-compose-ui = { group = "androidx.compose.ui", name = "ui", version.ref = "compose" }

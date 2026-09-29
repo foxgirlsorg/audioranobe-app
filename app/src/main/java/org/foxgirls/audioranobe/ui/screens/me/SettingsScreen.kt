@@ -1,5 +1,9 @@
 package org.foxgirls.audioranobe.ui.screens.me
 
+import org.foxgirls.audioranobe.ui.nav.Links
+import org.foxgirls.audioranobe.push.rememberPushPermission
+import org.foxgirls.audioranobe.push.Push
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
@@ -72,6 +76,7 @@ private val EMAIL_RE = Regex("^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$")
 private data class PrefDef(val key: String, val label: String, val hint: String)
 
 private val PREF_DEFS = listOf(
+    PrefDef("dm", "Личные сообщения", "Push-уведомление о новом сообщении в чате"),
     PrefDef("new_chapter", "Новые главы", "Выходит новая глава тайтла из вашей библиотеки"),
     PrefDef("narration_ready", "Озвучка готова", "Заказанная вами озвучка готова к прослушиванию"),
     PrefDef("narrator_release", "Релизы чтецов", "Чтец, на которого вы подписаны, публикует что-то новое"),
@@ -175,7 +180,7 @@ fun SettingsBody(scopeUserId: Int?, onSaved: (Me) -> Unit) {
                 identities = m.identities
                 val np = m.notification_prefs
                 if (np != null) prefs = mapOf(
-                    "new_chapter" to np.new_chapter, "narration_ready" to np.narration_ready, "narrator_release" to np.narrator_release, "comment_reply" to np.comment_reply,
+                    "dm" to np.dm, "new_chapter" to np.new_chapter, "narration_ready" to np.narration_ready, "narrator_release" to np.narrator_release, "comment_reply" to np.comment_reply,
                     "friend_request" to np.friend_request, "request_reviewed" to np.request_reviewed, "entity_modified" to np.entity_modified, "entity_deleted" to np.entity_deleted,
                 )
             }
@@ -274,6 +279,7 @@ fun SettingsBody(scopeUserId: Int?, onSaved: (Me) -> Unit) {
         }
 
         Panel(Lucide.Bell, "Уведомления", "Выберите, какие уведомления вы хотите получать.") {
+            if (!scoped) PushStatus()
             for (def in PREF_DEFS) ArToggle(prefs[def.key] ?: true, { v ->
                 if (prefBusy) return@ArToggle
                 prefBusy = true; prefs = prefs + (def.key to v)
@@ -348,5 +354,23 @@ fun SettingsBody(scopeUserId: Int?, onSaved: (Me) -> Unit) {
                 run { Api.delete<Unit>("/me", buildJsonObject { put("password", delPw) }); delOpen = false; auth.logout(); toast("Ваш аккаунт удалён. До встречи."); nav.tab(Routes.HOME) }
             }, kind = ButtonKind.Danger)
         }
+    }
+}
+
+@Composable
+private fun PushStatus() {
+    val ctx = LocalContext.current
+    val perm = rememberPushPermission()
+    val method by Push.method.collectAsStateWithLifecycle()
+    val (text, action) = when {
+        !perm.granted -> "Push-уведомления на этом устройстве выключены." to ("Включить" to { perm.request() })
+        method == Push.Method.FCM -> "Push-уведомления включены." to null
+        method == Push.Method.UNIFIED -> "Push-уведомления приходят через UnifiedPush." to null
+        !Push.hasDistributor(ctx) -> "Сервисы Google недоступны. Для push-уведомлений установите UnifiedPush-дистрибьютор, например ntfy." to ("Подробнее" to { Links.external(ctx, "https://unifiedpush.org/users/distributors/") })
+        else -> "Push-уведомления не подключены." to null
+    }
+    Row(Modifier.fillMaxWidth().padding(bottom = 10.dp), verticalAlignment = Alignment.CenterVertically) {
+        Text(text, color = Ar.textSecondary, fontSize = 13.sp, modifier = Modifier.weight(1f))
+        action?.let { (label, onClick) -> Spacer(Modifier.width(10.dp)); ArButton(label, onClick, kind = ButtonKind.Primary, small = true) }
     }
 }

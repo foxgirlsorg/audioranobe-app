@@ -16,6 +16,7 @@ import org.foxgirls.audioranobe.core.Updater
 import org.foxgirls.audioranobe.data.Stores
 import org.foxgirls.audioranobe.offline.OfflineStore
 import org.foxgirls.audioranobe.player.PlayerController
+import org.foxgirls.audioranobe.push.Push
 
 class App : Application(), ImageLoaderFactory {
     override fun onCreate() {
@@ -26,6 +27,7 @@ class App : Application(), ImageLoaderFactory {
         OfflineStore.init(this)
         Updater.init(this)
         PlayerController.init(this)
+        Push.init(this)
         ProcessLifecycleOwner.get().lifecycle.addObserver(object : DefaultLifecycleObserver {
             override fun onStart(owner: LifecycleOwner) {
                 Stores.badges.foreground = true

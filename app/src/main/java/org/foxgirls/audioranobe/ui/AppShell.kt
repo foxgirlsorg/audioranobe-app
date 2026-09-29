@@ -1,6 +1,7 @@
 package org.foxgirls.audioranobe.ui
 
 import androidx.activity.compose.BackHandler
+import org.foxgirls.audioranobe.push.PushBootstrap
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.tween
@@ -125,6 +126,9 @@ private fun MainShell(pendingRoute: String?, pendingSeq: Int, onRouteConsumed: (
     LaunchedEffect(route) { shell.dockCompact = false }
 
     BackHandler(enabled = full) { PlayerController.setFull(false) }
+
+    val me by Stores.auth.user.collectAsStateWithLifecycle()
+    me?.let { PushBootstrap(it.id) }
 
     CompositionLocalProvider(LocalNav provides nav, LocalAuth provides Stores.auth, LocalShell provides shell, LocalBottomInset provides miniH) {
         Box(Modifier.fillMaxSize().background(Ar.bg)) {

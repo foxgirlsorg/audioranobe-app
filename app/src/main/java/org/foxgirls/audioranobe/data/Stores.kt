@@ -91,6 +91,7 @@ class AuthStore(private val scope: CoroutineScope) {
     fun logout() {
         _user.value = null
         scope.launch {
+            runCatching { org.foxgirls.audioranobe.push.Push.unregister(org.foxgirls.audioranobe.App.instance) }
             runCatching { Api.post<Unit>("/auth/logout") }
             Api.cookies.clear()
         }

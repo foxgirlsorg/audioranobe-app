@@ -34,6 +34,14 @@ android {
         buildConfigField("String", "API_URL", "\"$apiUrl\"")
         buildConfigField("String", "SITE_URL", "\"$siteUrl\"")
         buildConfigField("String", "UPDATE_REPO", "\"$updateRepo\"")
+
+        // Firebase (FCM push) client config from the Firebase console's Android app. All empty disables
+        // FCM and the app uses UnifiedPush only. -PfcmAppId=… or FCM_APP_ID, etc.
+        fun prop(name: String, env: String) = (project.findProperty(name) as String?) ?: System.getenv(env) ?: ""
+        buildConfigField("String", "FCM_APP_ID", "\"${prop("fcmAppId", "FCM_APP_ID")}\"")
+        buildConfigField("String", "FCM_API_KEY", "\"${prop("fcmApiKey", "FCM_API_KEY")}\"")
+        buildConfigField("String", "FCM_PROJECT_ID", "\"${prop("fcmProjectId", "FCM_PROJECT_ID")}\"")
+        buildConfigField("String", "FCM_SENDER_ID", "\"${prop("fcmSenderId", "FCM_SENDER_ID")}\"")
     }
 
     // Release signing from the environment (CI secrets). Without a keystore the release build stays
@@ -59,6 +67,9 @@ android {
         }
         debug {
             applicationIdSuffix = ".debug"
+            // The .debug package is a separate app in Firebase, with its own app id.
+            val debugAppId = (project.findProperty("fcmDebugAppId") as String?) ?: System.getenv("FCM_DEBUG_APP_ID")
+            if (!debugAppId.isNullOrBlank()) buildConfigField("String", "FCM_APP_ID", "\"$debugAppId\"")
         }
     }
 
@@ -113,5 +124,7 @@ dependencies {
     implementation(libs.zoomable)
     implementation(libs.image.cropper)
     implementation(libs.zxing.core)
+    implementation(libs.firebase.messaging)
+    implementation(libs.unifiedpush.connector)
     debugImplementation(libs.androidx.compose.ui.tooling)
 }
