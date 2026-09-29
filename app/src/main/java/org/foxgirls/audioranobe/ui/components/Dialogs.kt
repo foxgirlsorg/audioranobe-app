@@ -231,7 +231,7 @@ private fun <T> SelectDropdown(menu: MutableTransitionState<Boolean>, anchorWidt
 }
 
 /** Places a popup under its anchor, or above it when it would run off the bottom of the window. */
-private class AnchorBelow(private val gap: Int) : PopupPositionProvider {
+internal class AnchorBelow(private val gap: Int) : PopupPositionProvider {
     override fun calculatePosition(anchorBounds: IntRect, windowSize: IntSize, layoutDirection: LayoutDirection, popupContentSize: IntSize): IntOffset {
         val below = anchorBounds.bottom + gap
         val above = anchorBounds.top - gap - popupContentSize.height

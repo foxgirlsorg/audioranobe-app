@@ -279,6 +279,8 @@ data class NarratorCard(
     val is_deleted: Boolean = false,
     // Present on TitleFull.narrators
     val narration_status: String? = null,
+    // Present on /panel/narrators
+    val mod_status: String? = null,
 )
 
 @Serializable
@@ -426,6 +428,7 @@ data class ChapterPlay(
 data class Comment(
     val id: Int,
     val user: UserBrief? = null,
+    val narrator: CommentNarrator? = null,
     val target_type: String = "title",
     val target_id: Int = 0,
     val parent_id: Int? = null,
@@ -440,6 +443,9 @@ data class Comment(
     val target: CommentTarget? = null,
     val mod_reviewed: Boolean = false,
 )
+
+@Serializable
+data class CommentNarrator(val id: Int, val slug: String = "", val name: String = "", val avatar_url: String? = null, val is_verified: Boolean = false)
 
 @Serializable
 data class CommentTarget(val type: String = "", val id: Int = 0, val name: String = "", val link: String = "")

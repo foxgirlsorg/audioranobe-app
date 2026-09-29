@@ -55,6 +55,20 @@ import org.foxgirls.audioranobe.ui.components.TabItem
 import org.foxgirls.audioranobe.ui.components.TabsVariant
 import org.foxgirls.audioranobe.ui.components.UserAvatar
 import org.foxgirls.audioranobe.ui.components.UserBadgesRow
+import org.foxgirls.audioranobe.ui.components.AnchorBelow
+import org.foxgirls.audioranobe.ui.components.NarratorAvatar
+import org.foxgirls.audioranobe.ui.components.VerifiedBadge
+import org.foxgirls.audioranobe.data.Stores
+import androidx.compose.foundation.border
+import androidx.compose.foundation.layout.widthIn
+import androidx.compose.foundation.layout.IntrinsicSize
+import androidx.compose.ui.draw.alpha
+import org.foxgirls.audioranobe.data.Badge
+import androidx.compose.ui.draw.rotate
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.window.Popup
+import androidx.compose.ui.window.PopupProperties
 import org.foxgirls.audioranobe.ui.icons.Lucide
 import org.foxgirls.audioranobe.ui.nav.LocalNav
 import org.foxgirls.audioranobe.ui.nav.Routes
@@ -154,6 +168,20 @@ fun CommentSection(targetType: String, targetId: Int, initial: Paginated<Comment
     }
     val mentionUsers = remember(st.items) { st.items.mapNotNull { it.user }.distinctBy { it.id } }
 
+    val canAnyNarrator = auth.can("comments.as_narrator")
+    val canNarrator = canAnyNarrator || auth.can("comments.as_verified_narrator")
+    val myNarrators by Stores.myNarrators.narrators.collectAsStateWithLifecycle()
+    LaunchedEffect(canNarrator, user?.id) { if (canNarrator) Stores.myNarrators.ensureLoaded() }
+    val personas = remember(user, myNarrators, canNarrator, canAnyNarrator) {
+        val u = user
+        val own = if (u == null || !canNarrator) emptyList() else myNarrators.filter { !it.is_deleted && it.mod_status == "approved" && (canAnyNarrator || it.is_verified) }
+        if (u == null || own.isEmpty()) emptyList()
+        else listOf(Persona(null, u.shownName, u.avatar_thumb_url ?: u.avatar_url, badges = u.badges, banned = u.is_banned)) + own.map { Persona(it.id, it.name, it.avatar_thumb_url ?: it.avatar_url, it.is_verified) }
+    }
+    var personaId by remember { mutableStateOf<Int?>(null) }
+    val narratorId = personaId.takeIf { id -> personas.any { it.id == id } }
+    val personaPicker: (@Composable () -> Unit)? = personas.takeIf { it.isNotEmpty() }?.let { ps -> @Composable { PersonaPicker(ps, narratorId) { personaId = it } } }
+
     fun vote(c: Comment, dir: Int) {
         if (user == null) { toastError("Войдите, чтобы голосовать за комментарии"); return }
         val next = if (c.my_vote == dir) 0 else dir
@@ -173,7 +201,7 @@ fun CommentSection(targetType: String, targetId: Int, initial: Paginated<Comment
         if (b.length > Limits.commentBody) { toastError("Комментарий слишком длинный (максимум ${Limits.commentBody} символов)"); return false }
         return try {
             val c = Api.post<Comment>("/comments", buildJsonObject {
-                put("target_type", targetType); put("target_id", targetId); put("body", b); if (parentId != null) put("parent_id", parentId)
+                put("target_type", targetType); put("target_id", targetId); put("body", b); if (parentId != null) put("parent_id", parentId); if (narratorId != null) put("narrator_id", narratorId)
             })
             if (parentId != null) { st.items = st.items + c; st.replyingId = null } else { st.items = if (st.sort == "old") st.items + c else listOf(c) + st.items; st.total++ }
             true
@@ -201,7 +229,7 @@ fun CommentSection(targetType: String, targetId: Int, initial: Paginated<Comment
             ArTabs(listOf(TabItem("new", "Новые"), TabItem("old", "Старые"), TabItem("top", "Топ")), st.sort, { st.sort = it }, scrollable = false, modifier = if (showHeading) Modifier else Modifier.fillMaxWidth(), variant = if (showHeading) TabsVariant.Pill else TabsVariant.Square)
         }
         if (user != null) {
-            Composer(placeholder = "Поделитесь впечатлениями… (спойлеры оборачивайте в ||двойные палочки||)", submitLabel = "Опубликовать", onSubmit = { post(it, null) })
+            Composer(placeholder = "Поделитесь впечатлениями… (спойлеры оборачивайте в ||двойные палочки||)", submitLabel = "Опубликовать", onSubmit = { post(it, null) }, persona = personaPicker)
         } else {
             Row(Modifier.fillMaxWidth().clip(RoundedCornerShape(10.dp)).background(Ar.fill04).padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
                 Icon(Lucide.LogIn, null, tint = Ar.textMuted, modifier = Modifier.size(15.dp))
@@ -222,7 +250,7 @@ fun CommentSection(targetType: String, targetId: Int, initial: Paginated<Comment
                     NestedComment(root, children, descendantCount, 0, false, null, st, user?.id, isMod, isAdmin, mentionUsers,
                         onVote = ::vote, onDelete = { toDelete = it },
                         onRestore = { c -> scope.launch { try { Api.post<Unit>("/mod/trash/comment/${c.id}/restore"); st.patch(c.id) { it.copy(is_deleted = false) }; toast("Комментарий восстановлен") } catch (e: Exception) { toastError(e) } } },
-                        onSubmitReply = { b, pid -> post(b, pid) }, onSubmitEdit = { id, b -> saveEdit(id, b) })
+                        onSubmitReply = { b, pid -> post(b, pid) }, onSubmitEdit = { id, b -> saveEdit(id, b) }, persona = personaPicker)
                     Spacer(Modifier.height(14.dp))
                 }
                 if (st.hasMore) Box(Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
@@ -240,12 +268,14 @@ fun CommentSection(targetType: String, targetId: Int, initial: Paginated<Comment
 @Composable
 private fun Composer(
     placeholder: String, submitLabel: String, initial: String = "", onSubmit: suspend (String) -> Boolean, onCancel: (() -> Unit)? = null,
+    persona: (@Composable () -> Unit)? = null,
 ) {
     var value by remember { mutableStateOf(initial) }
     var busy by remember { mutableStateOf(false) }
     val scope = rememberCoroutineScope()
     MarkdownEditor(value, { value = it }, placeholder = placeholder, maxLength = Limits.commentBody, slim = true) {
-        Row(Modifier.fillMaxWidth().padding(top = 8.dp), horizontalArrangement = Arrangement.End) {
+        Row(Modifier.fillMaxWidth().padding(top = 8.dp), horizontalArrangement = Arrangement.End, verticalAlignment = Alignment.CenterVertically) {
+            if (persona != null) { Box(Modifier.weight(1f)) { persona() } }
             if (onCancel != null) { ArButton("Отмена", onCancel, kind = ButtonKind.Ghost, small = true); Spacer(Modifier.width(6.dp)) }
             ArButton(if (busy) "Отправка…" else submitLabel, {
                 if (busy) return@ArButton
@@ -273,6 +303,7 @@ private fun NestedComment(
     onRestore: (Comment) -> Unit,
     onSubmitReply: suspend (String, Int) -> Boolean,
     onSubmitEdit: suspend (Int, String) -> Boolean,
+    persona: (@Composable () -> Unit)? = null,
 ) {
     val nav = LocalNav.current
     val own = currentUserId != null && comment.user?.id == currentUserId
@@ -283,22 +314,28 @@ private fun NestedComment(
     @Composable
     fun child(c: Comment, force: Boolean, preview: Set<Int>?) {
         Column(Modifier.padding(start = 14.dp, top = 12.dp)) {
-            NestedComment(c, children, descendantCount, depth + 1, force, preview, st, currentUserId, canModerate, isAdmin, mentionUsers, onVote, onDelete, onRestore, onSubmitReply, onSubmitEdit)
+            NestedComment(c, children, descendantCount, depth + 1, force, preview, st, currentUserId, canModerate, isAdmin, mentionUsers, onVote, onDelete, onRestore, onSubmitReply, onSubmitEdit, persona)
         }
     }
 
     Column(Modifier.fillMaxWidth().enterRise(6.dp, 300)) {
         Row(verticalAlignment = Alignment.CenterVertically) {
-            UserAvatar(comment.user?.username, comment.user?.avatar_url, avatarSize, presence = comment.user?.presence, thumbUrl = comment.user?.avatar_thumb_url, onClick = comment.user?.let { u -> { nav.go(Routes.user(u.username)) } })
+            val n = comment.narrator
+            if (n != null) NarratorAvatar(n.name, n.avatar_url, avatarSize, Modifier.clickable { nav.go(Routes.narrator(n.slug)) })
+            else UserAvatar(comment.user?.username, comment.user?.avatar_url, avatarSize, presence = comment.user?.presence, thumbUrl = comment.user?.avatar_thumb_url, onClick = comment.user?.let { u -> { nav.go(Routes.user(u.username)) } })
             Spacer(Modifier.width(8.dp))
             Column(Modifier.weight(1f)) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     val u = comment.user
-                    if (u != null) Text(u.shownName, color = Ar.text, fontSize = 13.sp, fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.clickable { nav.go(Routes.user(u.username)) })
+                    if (n != null) {
+                        Text(n.name, color = Ar.text, fontSize = 13.sp, fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f, fill = false).clickable { nav.go(Routes.narrator(n.slug)) })
+                        if (n.is_verified) { Spacer(Modifier.width(4.dp)); VerifiedBadge(size = 11.dp) }
+                    } else if (u != null) Text(u.shownName, color = Ar.text, fontSize = 13.sp, fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.clickable { nav.go(Routes.user(u.username)) })
                     else Text("удалённый пользователь", color = Ar.textMuted, fontSize = 13.sp)
                     if (u != null) { Spacer(Modifier.width(4.dp)); UserBadgesRow(u.badges, u.is_banned, 13.dp) }
                 }
                 Row {
+                    if (n != null) Text("чтец · ", color = Ar.textMuted, fontSize = 11.sp)
                     Text(Fmt.timeAgoShort(comment.created_at), color = Ar.textMuted, fontSize = 11.sp)
                     if (comment.updated_at != null && !comment.is_deleted) Text("  · ${if (comment.edited_by_staff) "изменено модерацией" else "изменено"}", color = Ar.textMuted, fontSize = 11.sp)
                 }
@@ -337,7 +374,7 @@ private fun NestedComment(
             }
         }
         if (st.replyingId == comment.id) Box(Modifier.padding(top = 8.dp)) {
-            Composer(comment.user?.let { "Ответ для ${it.shownName}…" } ?: "Напишите ответ…", "Ответить", onSubmit = { onSubmitReply(it, comment.id) }, onCancel = { st.replyingId = null })
+            Composer((comment.narrator?.name ?: comment.user?.shownName)?.let { "Ответ для $it…" } ?: "Напишите ответ…", "Ответить", onSubmit = { onSubmitReply(it, comment.id) }, onCancel = { st.replyingId = null }, persona = persona)
         }
 
         if (depth < MAX_DEPTH) {
@@ -384,5 +421,54 @@ private fun ActionBtn(icon: androidx.compose.ui.graphics.vector.ImageVector, lab
         Icon(icon, label, tint = if (danger) Ar.danger.copy(alpha = 0.8f) else Ar.textMuted, modifier = Modifier.size(13.dp))
         Spacer(Modifier.width(4.dp))
         Text(label, color = if (danger) Ar.danger.copy(alpha = 0.8f) else Ar.textMuted, fontSize = 12.sp)
+    }
+}
+
+private data class Persona(val id: Int?, val name: String, val avatarUrl: String?, val verified: Boolean = false, val badges: List<Badge> = emptyList(), val banned: Boolean = false)
+
+@Composable
+private fun PersonaLabel(p: Persona, color: androidx.compose.ui.graphics.Color, fontSize: androidx.compose.ui.unit.TextUnit, modifier: Modifier = Modifier) {
+    Row(modifier, verticalAlignment = Alignment.CenterVertically) {
+        Text(p.name, color = color, fontSize = fontSize, fontWeight = FontWeight.SemiBold, maxLines = 1)
+        if (p.verified) { Spacer(Modifier.width(4.dp)); VerifiedBadge(size = 11.dp) }
+        if (p.badges.isNotEmpty() || p.banned) { Spacer(Modifier.width(4.dp)); UserBadgesRow(p.badges, p.banned, 12.dp) }
+    }
+}
+
+/** Borderless "post as" switcher: avatar, name, chevron; opens the persona list. */
+@Composable
+private fun PersonaPicker(personas: List<Persona>, value: Int?, onChange: (Int?) -> Unit) {
+    var open by remember { mutableStateOf(false) }
+    val current = personas.firstOrNull { it.id == value } ?: personas.first()
+    val gap = with(LocalDensity.current) { 4.dp.roundToPx() }
+    Box {
+        Row(Modifier.clip(RoundedCornerShape(8.dp)).clickable { open = !open }.padding(horizontal = 4.dp, vertical = 4.dp), verticalAlignment = Alignment.CenterVertically) {
+            NarratorAvatar(current.name, current.avatarUrl, 20.dp)
+            Spacer(Modifier.width(6.dp))
+            Box {
+                for (p in personas) PersonaLabel(p, if (open) Ar.text else Ar.textSecondary, 12.sp, if (p.id == current.id) Modifier else Modifier.alpha(0f))
+            }
+            Spacer(Modifier.width(4.dp))
+            Icon(Lucide.ChevronDown, null, tint = Ar.textMuted, modifier = Modifier.size(13.dp).rotate(if (open) 180f else 0f))
+        }
+        if (open) Popup(popupPositionProvider = remember(gap) { AnchorBelow(gap) }, onDismissRequest = { open = false }, properties = PopupProperties(focusable = true)) {
+            Column(
+                Modifier.width(IntrinsicSize.Max).widthIn(min = 180.dp).clip(RoundedCornerShape(10.dp))
+                    .background(Color(0xF7161618)).border(1.dp, Color(0x1AFFFFFF), RoundedCornerShape(10.dp)).padding(4.dp),
+            ) {
+                for (p in personas) {
+                    val on = p.id == current.id
+                    Row(
+                        Modifier.fillMaxWidth().clip(RoundedCornerShape(7.dp)).background(if (on) Ar.accentSoft else Color.Transparent)
+                            .clickable { open = false; onChange(p.id) }.padding(horizontal = 10.dp, vertical = 8.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        NarratorAvatar(p.name, p.avatarUrl, 22.dp)
+                        Spacer(Modifier.width(8.dp))
+                        PersonaLabel(p, if (on) Ar.accent else Ar.textSecondary, 13.sp)
+                    }
+                }
+            }
+        }
     }
 }
