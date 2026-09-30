@@ -231,7 +231,7 @@ fun UserScreen(userRef: String, initialTab: String?) {
                         if (user.bio.isNotBlank()) { Spacer(Modifier.height(6.dp)); ArMarkdown(user.bio, media = "image") }
                         SocialLinks(user.socials, Modifier.padding(top = 8.dp))
                     }
-                    GlassPanel {
+                    GlassPanel(Modifier.fillMaxWidth()) {
                         StatRow(Lucide.Headphones, String.format(java.util.Locale.US, "%.2f", stats.seconds_listened / 3600.0).trimEnd('0').trimEnd('.'), "часов прослушано")
                         StatRow(Lucide.Library, Fmt.count(libraryTotal), "${Fmt.plural(libraryTotal, "книга", "книги", "книг")} в библиотеке")
                         StatRow(Lucide.MessageSquare, Fmt.count(stats.comments), Fmt.plural(stats.comments, "комментарий", "комментария", "комментариев"))

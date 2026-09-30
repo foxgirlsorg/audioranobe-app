@@ -84,7 +84,15 @@ fun ListeningHeatmap(userRef: String, initial: ListeningHeatmapData, modifier: M
             else Text(data.year.toString(), color = Ar.textMuted, fontSize = 12.sp)
         }
         Spacer(Modifier.height(10.dp))
-        Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState())) {
+        val scroll = rememberScrollState()
+        val density = androidx.compose.ui.platform.LocalDensity.current
+        LaunchedEffect(data.year, scroll.maxValue) {
+            if (!isCurrentYear || scroll.maxValue == 0) return@LaunchedEffect
+            val todayCol = (today.get(Calendar.DAY_OF_YEAR) - 1 + startDow) / 7
+            val todayRight = with(density) { (24.dp + (cell + gap) * (todayCol + 2)).roundToPx() }
+            scroll.scrollTo((todayRight - scroll.viewportSize).coerceIn(0, scroll.maxValue))
+        }
+        Row(Modifier.fillMaxWidth().horizontalScroll(scroll)) {
             Column(Modifier.padding(end = 4.dp, top = 14.dp)) {
                 for (i in 0 until 7) Box(Modifier.height(cell + gap), contentAlignment = Alignment.CenterStart) {
                     if (i == 1 || i == 3 || i == 5) Text(listOf("Пн", "Вт", "Ср", "Чт", "Пт", "Сб", "Вс")[i], color = Ar.textMuted, fontSize = 9.sp, lineHeight = 9.sp)
