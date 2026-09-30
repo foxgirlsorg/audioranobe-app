@@ -125,7 +125,8 @@ object OfflineStore {
         _pending.value = runCatching { AppJson.decodeFromString(PendingFile.serializer(), pendingFile().readText()).items }.getOrDefault(emptyList())
     }
 
-    private suspend fun save(m: OfflineManifest) = io.withLock {
+    private suspend fun save(manifest: OfflineManifest) = io.withLock {
+        val m = if (manifest.title.comments != null) manifest.copy(title = manifest.title.copy(comments = null)) else manifest
         titleDir(m.titleId).mkdirs()
         manifestFile(m.titleId).writeText(AppJson.encodeToString(m))
         m.images.forEach { (url, f) -> imageIndex[url] = File(titleDir(m.titleId), f).absolutePath }
