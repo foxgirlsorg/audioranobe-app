@@ -1,5 +1,6 @@
 package org.foxgirls.audioranobe.ui.components
 
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -117,9 +118,9 @@ fun BadgeIcon(badge: Badge, size: Dp = 18.dp, modifier: Modifier = Modifier) {
 @Composable
 fun UserBadgesRow(badges: List<Badge>, isBanned: Boolean = false, size: Dp = 16.dp, modifier: Modifier = Modifier) {
     if (badges.isEmpty() && !isBanned) return
-    Row(modifier, verticalAlignment = Alignment.CenterVertically) {
+    Row(modifier, verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(3.dp)) {
         if (isBanned) Icon(Lucide.Hammer, "Заблокирован", tint = Ar.danger, modifier = Modifier.size(size))
-        for (b in badges) BadgeIcon(b, size, Modifier.offset(x = 3.dp))
+        for (b in badges) BadgeIcon(b, size)
     }
 }
 
