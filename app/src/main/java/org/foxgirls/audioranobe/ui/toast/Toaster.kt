@@ -1,6 +1,13 @@
 package org.foxgirls.audioranobe.ui.toast
 
 import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.VectorConverter
+import androidx.compose.animation.core.spring
+import androidx.compose.foundation.gestures.detectDragGestures
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.animation.core.CubicBezierEasing
 import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.core.MutableTransitionState
@@ -97,8 +104,29 @@ fun ToastHost(modifier: Modifier = Modifier) {
                 val icon = when (t.kind) { ToastKind.OK -> Lucide.CircleCheck; ToastKind.INFO -> Lucide.Info; ToastKind.ERROR -> Lucide.CircleAlert }
                 val remaining = remember { Animatable(1f) }
                 LaunchedEffect(Unit) { remaining.animateTo(0f, tween(t.durationMs.toInt(), easing = LinearEasing)) }
+                val drag = remember { Animatable(Offset.Zero, Offset.VectorConverter) }
+                val scope = rememberCoroutineScope()
+                val threshold = with(LocalDensity.current) { 72.dp.toPx() }
                 Box(
-                    Modifier.fillMaxWidth().clip(RoundedCornerShape(10.dp)).background(Ar.surfaceStrong)
+                    Modifier.fillMaxWidth()
+                        .graphicsLayer {
+                            translationX = drag.value.x; translationY = drag.value.y
+                            alpha = 1f - (drag.value.getDistance() / (threshold * 3)).coerceIn(0f, 0.8f)
+                        }
+                        .pointerInput(t.id) {
+                            detectDragGestures(
+                                onDragEnd = {
+                                    scope.launch {
+                                        val v = drag.value
+                                        val d = v.getDistance()
+                                        if (d > threshold) { drag.animateTo(v * (size.width * 1.2f / d), tween(160)); Toaster.items.remove(t) }
+                                        else drag.animateTo(Offset.Zero, spring())
+                                    }
+                                },
+                                onDragCancel = { scope.launch { drag.animateTo(Offset.Zero, spring()) } },
+                            ) { change, amount -> change.consume(); scope.launch { drag.snapTo(drag.value + amount) } }
+                        }
+                        .clip(RoundedCornerShape(10.dp)).background(Ar.surfaceStrong)
                         .border(1.dp, accent.copy(alpha = 0.45f), RoundedCornerShape(10.dp)).clickable { Toaster.dismiss(t) },
                 ) {
                     Row(Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 11.dp), verticalAlignment = Alignment.CenterVertically) {
