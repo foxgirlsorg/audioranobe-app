@@ -331,7 +331,7 @@ private fun Thread(userId: Int) {
             Row(Modifier.fillMaxWidth().padding(horizontal = 6.dp, vertical = 6.dp), verticalAlignment = Alignment.Bottom) {
                 IconBtn(Lucide.ImagePlus, "Прикрепить изображение по ссылке", { showImage = !showImage }, tint = if (showImage) Ar.accent else Ar.textSecondary)
                 if (isMod) IconBtn(if (plainText) Lucide.Type else Lucide.Sparkles, if (plainText) "Разрешить форматирование" else "Отправить как обычный текст", { plainText = !plainText }, tint = if (plainText) Ar.textSecondary else Ar.accent)
-                ArTextField(text, { text = it.take(Limits.dmBody) }, Modifier.weight(1f), placeholder = if (editing != null) "Изменить сообщение…" else "Сообщение…", singleLine = false, maxLines = 6)
+                ArTextField(text, { text = it.take(Limits.dmBody) }, Modifier.weight(1f), placeholder = if (editing != null) "Изменить сообщение…" else "Сообщение…", singleLine = false, maxLines = 6, compact = true)
                 Spacer(Modifier.width(4.dp))
                 val ready = text.isNotBlank() || imageUrl.isNotBlank() || editing != null
                 val sendBg by animateColorAsState(if (ready) Ar.accent else Ar.fill08, tween(200), label = "sendBg")

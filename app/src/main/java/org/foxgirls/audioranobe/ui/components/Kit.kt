@@ -1,5 +1,7 @@
 package org.foxgirls.audioranobe.ui.components
 
+import androidx.compose.ui.graphics.SolidColor
+import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
@@ -369,10 +371,41 @@ fun ArTextField(
     trailing: (@Composable () -> Unit)? = null,
     onImeAction: (() -> Unit)? = null,
     showCounter: Boolean = false,
+    compact: Boolean = false,
 ) {
     Column(modifier) {
         if (label != null) FieldLabel(label)
-        OutlinedTextField(
+        if (compact) {
+            val colors = arFieldColors()
+            val interaction = remember { MutableInteractionSource() }
+            val transformation = if (password) PasswordVisualTransformation() else VisualTransformation.None
+            BasicTextField(
+                value = value,
+                onValueChange = { v -> if (maxLength == null || v.length <= maxLength) onValueChange(v) },
+                modifier = Modifier.fillMaxWidth().heightIn(min = 44.dp),
+                enabled = enabled,
+                singleLine = singleLine,
+                minLines = minLines,
+                maxLines = maxLines,
+                visualTransformation = transformation,
+                keyboardOptions = KeyboardOptions(keyboardType = if (password) KeyboardType.Password else keyboardType, imeAction = imeAction),
+                keyboardActions = KeyboardActions(onAny = { onImeAction?.invoke() }),
+                textStyle = LocalTextStyle.current.copy(fontSize = 14.sp, color = Ar.text),
+                cursorBrush = SolidColor(colors.cursorColor),
+                interactionSource = interaction,
+                decorationBox = { inner ->
+                    OutlinedTextFieldDefaults.DecorationBox(
+                        value = value, innerTextField = inner, enabled = enabled, singleLine = singleLine,
+                        visualTransformation = transformation, interactionSource = interaction, isError = error != null,
+                        placeholder = placeholder?.let { { Text(it, color = Ar.textMuted, fontSize = 14.sp) } },
+                        leadingIcon = leading?.let { { Icon(it, null, tint = Ar.textMuted, modifier = Modifier.size(16.dp)) } },
+                        trailingIcon = trailing, colors = colors,
+                        contentPadding = PaddingValues(horizontal = 14.dp, vertical = 12.dp),
+                        container = { OutlinedTextFieldDefaults.Container(enabled, error != null, interaction, colors = colors, shape = RoundedCornerShape(9.dp)) },
+                    )
+                },
+            )
+        } else OutlinedTextField(
             value = value,
             onValueChange = { v -> if (maxLength == null || v.length <= maxLength) onValueChange(v) },
             modifier = Modifier.fillMaxWidth(),
