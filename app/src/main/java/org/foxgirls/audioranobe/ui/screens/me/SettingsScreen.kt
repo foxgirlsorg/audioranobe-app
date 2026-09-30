@@ -35,6 +35,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import org.foxgirls.audioranobe.core.Api
+import org.foxgirls.audioranobe.core.Fmt
 import org.foxgirls.audioranobe.core.Limits
 import org.foxgirls.audioranobe.data.Genre
 import org.foxgirls.audioranobe.data.Identity
@@ -95,6 +96,14 @@ private data class CommentSubs(val items: List<CommentSubTitle> = emptyList())
 
 @Serializable
 private data class IdentitiesRes(val identities: List<Identity> = emptyList())
+
+@Serializable
+private data class UserSession(val id: String, val created_at: Long = 0, val last_seen_at: Long = 0, val device: String = "", val ip: String = "", val current: Boolean = false)
+
+@Serializable
+private data class SessionList(val sessions: List<UserSession> = emptyList(), val can_revoke: Boolean = false, val revoke_after: Long = 0)
+
+private fun fmtDateTime(v: Long) = "${Fmt.date(v)}, ${Fmt.time(v)}"
 
 @Composable
 fun SettingsScreen(tab: String?) {
@@ -159,6 +168,8 @@ fun SettingsBody(scopeUserId: Int?, onSaved: (Me) -> Unit) {
     var totpModal by remember { mutableStateOf(false) }
     var totpDisableOpen by remember { mutableStateOf(false) }
     var totpDisablePw by remember { mutableStateOf("") }
+    var sessions by remember { mutableStateOf<SessionList?>(null) }
+    var revoking by remember { mutableStateOf<String?>(null) }
     var delOpen by remember { mutableStateOf(false) }
     var delPw by remember { mutableStateOf("") }
     var resending by remember { mutableStateOf(false) }
@@ -184,6 +195,7 @@ fun SettingsBody(scopeUserId: Int?, onSaved: (Me) -> Unit) {
                     "friend_request" to np.friend_request, "request_reviewed" to np.request_reviewed, "entity_modified" to np.entity_modified, "entity_deleted" to np.entity_deleted,
                 )
             }
+            sessions = runCatching { Api.get<SessionList>("/me/sessions", asParam) }.getOrNull()
             if (!scoped) commentTitles = runCatching { Api.get<CommentSubs>("/me/comment-subscriptions").items }.getOrDefault(emptyList())
             sensitiveGenres = runCatching { Api.get<Paginated<Genre>>("/genres", mapOf("per_page" to 200)).items.filter { it.is_sensitive } }.getOrDefault(emptyList())
         } catch (e: Exception) { toastError(e) }
@@ -260,6 +272,22 @@ fun SettingsBody(scopeUserId: Int?, onSaved: (Me) -> Unit) {
             }
         }
         TotpSetupModal(totpModal, { totpModal = false }) { u -> me = u; if (!scoped) auth.setUser(u) }
+
+        sessions?.let { sl ->
+            Panel(Lucide.Smartphone, "Сессии", if (sl.can_revoke) "Устройства, на которых выполнен вход. Незнакомую сессию завершите и смените пароль." else "Завершать другие сессии можно через сутки после входа на этом устройстве — ${fmtDateTime(sl.revoke_after)}.") {
+                for (s in sl.sessions) Row(Modifier.padding(top = 8.dp), verticalAlignment = Alignment.CenterVertically) {
+                    Column(Modifier.weight(1f)) {
+                        Text(s.device, color = Ar.text, fontSize = 14.sp)
+                        Text((if (s.current) "Эта сессия" else "Активность ${Fmt.timeAgo(s.last_seen_at)}") + (if (s.ip.isNotEmpty()) " · ${s.ip}" else "") + " · вход ${fmtDateTime(s.created_at)}", color = Ar.textMuted, fontSize = 12.sp)
+                    }
+                    if (!s.current && sl.can_revoke) ArButton(if (revoking == s.id) "Завершаем…" else "Завершить", {
+                        if (revoking != null) return@ArButton
+                        revoking = s.id
+                        run { try { Api.delete<Unit>("/me/sessions/${s.id}", params = asParam); sessions = sl.copy(sessions = sl.sessions.filter { it.id != s.id }); toast("Сессия завершена") } finally { revoking = null } }
+                    }, kind = ButtonKind.Ghost, small = true, busy = revoking == s.id)
+                }
+            }
+        }
 
         Panel(Lucide.Link, "Способы входа", if (hasPassword) "Привяжите сервисы, чтобы входить в один клик." else "У аккаунта пока нет пароля — вход возможен только через привязанные сервисы. Задайте пароль выше, чтобы отвязать последний из них.") {
             Row(verticalAlignment = Alignment.CenterVertically) {
