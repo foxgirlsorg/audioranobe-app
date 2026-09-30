@@ -1,5 +1,8 @@
 package org.foxgirls.audioranobe.ui.components
 
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
+import androidx.compose.runtime.collectAsState
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.animation.AnimatedContent
@@ -619,6 +622,21 @@ fun EmptyState(title: String, body: String? = null, icon: ImageVector? = null, m
 
 @Composable
 fun ErrorState(message: String, onRetry: (() -> Unit)?, title: String = "Не удалось загрузить", modifier: Modifier = Modifier) {
+    val online by org.foxgirls.audioranobe.offline.OfflineStore.online.collectAsState()
+    if (onRetry != null) {
+        var wasOffline by remember { mutableStateOf(!online) }
+        LaunchedEffect(online) { if (!online) wasOffline = true else if (wasOffline) { wasOffline = false; onRetry() } }
+    }
+    if (!online) {
+        val nav = org.foxgirls.audioranobe.ui.nav.LocalNav.current
+        EmptyState("Нет подключения", "Без интернета доступны только скачанные книги.", Lucide.WifiOff, modifier) {
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                ArButton("Загрузки", { nav.tab(org.foxgirls.audioranobe.ui.nav.Routes.OFFLINE) }, kind = ButtonKind.Primary, icon = Lucide.Download)
+                if (onRetry != null) ArButton("Повторить", onRetry, icon = Lucide.RefreshCw)
+            }
+        }
+        return
+    }
     EmptyState(title, message, Lucide.TriangleAlert, modifier) {
         if (onRetry != null) ArButton("Попробовать ещё раз", onRetry, icon = Lucide.RefreshCw)
     }

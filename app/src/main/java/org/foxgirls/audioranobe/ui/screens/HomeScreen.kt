@@ -55,6 +55,12 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import org.foxgirls.audioranobe.data.ContinueItem
+import org.foxgirls.audioranobe.data.ContinueChapter
+import org.foxgirls.audioranobe.data.ContinueTitle
+import kotlinx.serialization.builtins.ListSerializer
+import org.foxgirls.audioranobe.core.AppJson
+import org.foxgirls.audioranobe.offline.OfflineStore
 import org.foxgirls.audioranobe.core.Api
 import org.foxgirls.audioranobe.core.Fmt
 import org.foxgirls.audioranobe.data.Banner
@@ -131,12 +137,51 @@ fun HomeScreen() {
         } catch (e: Exception) { catalogError = e.message ?: "Ошибка" } finally { catalogLoading = false }
     }
 
+    val online by OfflineStore.online.collectAsStateWithLifecycle()
+    val offlineTitles by OfflineStore.titles.collectAsStateWithLifecycle()
+    val pending by OfflineStore.pending.collectAsStateWithLifecycle()
+    val continueKey = "home_continue_${user?.id ?: 0}"
+    val cachedContinue = remember(continueKey, loader.state) {
+        Stores.prefs.getString(continueKey)?.let { runCatching { AppJson.decodeFromString(ListSerializer(ContinueItem.serializer()), it) }.getOrNull() } ?: emptyList()
+    }
+    LaunchedEffect(loader.state) {
+        (loader.state as? Load.Ok)?.data?.let { Stores.prefs.putString(continueKey, AppJson.encodeToString(ListSerializer(ContinueItem.serializer()), it.continueItems)) }
+    }
+    LaunchedEffect(online) { if (online && loader.state is Load.Err) loader.reload() }
+
     PullToRefreshBox(isRefreshing = loader.state is Load.Loading && loader.data != null, onRefresh = { loader.reload() }, modifier = Modifier.fillMaxSize()) {
         LazyColumn(Modifier.fillMaxSize().dockScrollAware(), contentPadding = PaddingValues(bottom = bottom + 24.dp)) {
             item { TopBar(onSearch = { shell.searchOpen = true }) }
             when (val s = loader.state) {
                 is Load.Loading -> item { CenterSpinner(minHeight = 300.dp) }
-                is Load.Err -> item { ErrorState(s.message, { loader.reload() }, "Не удалось загрузить главную") }
+                is Load.Err -> {
+                    val local = offlineTitles.sortedByDescending { m -> pending.filter { it.titleId == m.titleId }.maxOfOrNull { it.updatedAt } ?: 0L }.mapNotNull { m ->
+                        val t = OfflineStore.offlineTitle(m)
+                        val ch = t.volumes.flatMap { it.liveChapters }.filter { m.chapters.containsKey(it.id) && (it.my_position ?: 0.0) > 0 }.maxByOrNull { it.number } ?: return@mapNotNull null
+                        ContinueItem(ContinueTitle(t.id, t.slug, t.name, t.cover_url), ContinueChapter(ch.id, ch.name, ch.number, ch.duration_seconds), ch.my_position ?: 0.0)
+                    }
+                    val cont = local + cachedContinue.filter { c -> local.none { it.title.id == c.title.id } }
+                        .map { c -> pending.firstOrNull { it.chapterId == c.chapter.id }?.let { c.copy(position_seconds = it.position) } ?: c }
+                    if (cont.isEmpty() && offlineTitles.isEmpty()) item { ErrorState(s.message, { loader.reload() }, "Не удалось загрузить главную") }
+                    else {
+                        item {
+                            GlassPanel(Modifier.padding(horizontal = 16.dp, vertical = 5.dp), padding = PaddingValues(12.dp), borderColor = Ar.amber.copy(alpha = 0.4f)) {
+                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                    Icon(if (online) Lucide.TriangleAlert else Lucide.WifiOff, null, tint = Ar.amber, modifier = Modifier.size(16.dp))
+                                    Spacer(Modifier.width(8.dp))
+                                    Text(if (online) "Сервер недоступен" else "Нет подключения", color = Ar.text, fontSize = 13.sp, modifier = Modifier.weight(1f))
+                                    ArButton("Повторить", { loader.reload() }, kind = ButtonKind.Ghost, small = true)
+                                }
+                            }
+                        }
+                        if (cont.isNotEmpty()) item { ContinueSection(cont) }
+                        if (offlineTitles.isNotEmpty()) item {
+                            Section("Скачано", "на устройство", "Доступно без сети", Modifier.padding(start = 16.dp, top = 22.dp)) {
+                                TitleRail(offlineTitles.map { m -> TitleCard(id = m.titleId, slug = m.slug, name = m.name, cover_url = m.title.cover_url, cover_thumb_url = m.title.cover_thumb_url) }, contentPadding = PaddingValues(end = 16.dp))
+                            }
+                        }
+                    }
+                }
                 is Load.Ok -> {
                     val data = s.data
                     if (!authLoading && user == null) item { Hero() }
@@ -155,37 +200,7 @@ fun HomeScreen() {
                             }
                         }
                     }
-                    if (data.continueItems.isNotEmpty()) item {
-                        Section("Продолжить", "слушать", "Вернитесь к тому, на чём остановились", Modifier.padding(start = 16.dp, top = 18.dp)) {
-                            val continueState = rememberLazyListState()
-                            LazyRow(Modifier.fillMaxWidth().edgeFade(continueState), state = continueState, contentPadding = PaddingValues(end = 16.dp), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                                items(data.continueItems, key = { it.chapter.id }) { c ->
-                                    val pct = if (c.chapter.duration_seconds > 0) (c.position_seconds / c.chapter.duration_seconds).toFloat().coerceAtMost(1f) else 0f
-                                    GlassPanel(Modifier.width(300.dp), padding = PaddingValues(10.dp)) {
-                                        Row {
-                                            ArImage(c.title.cover_url, Modifier.size(64.dp, 88.dp).clickable { nav.go(Routes.title(c.title.slug)) }, fallbackIcon = Lucide.Play, shape = RoundedCornerShape(8.dp))
-                                            Spacer(Modifier.width(10.dp))
-                                            Column(Modifier.weight(1f)) {
-                                                Text(c.title.name, color = Ar.text, fontSize = 14.sp, fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.clickable { nav.go(Routes.title(c.title.slug)) })
-                                                Text("Гл. ${Fmt.trimNum(c.chapter.number)}" + (if (c.chapter.name.isNotBlank()) " — ${c.chapter.name}" else ""), color = Ar.textSecondary, fontSize = 12.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                                                Spacer(Modifier.height(8.dp))
-                                                ProgressTrack(pct)
-                                                Spacer(Modifier.height(8.dp))
-                                                Row(verticalAlignment = Alignment.CenterVertically) {
-                                                    Text("${Fmt.duration(c.position_seconds)} / ${Fmt.duration(c.chapter.duration_seconds)}", color = Ar.textMuted, fontSize = 11.sp, modifier = Modifier.weight(1f))
-                                                    Row(Modifier.clip(CircleShape).background(Ar.accent).clickable { PlayerController.play(c.chapter.id) }.padding(horizontal = 10.dp, vertical = 5.dp), verticalAlignment = Alignment.CenterVertically) {
-                                                        Icon(Lucide.Play, null, tint = Ar.accentOn, modifier = Modifier.size(12.dp))
-                                                        Spacer(Modifier.width(4.dp))
-                                                        Text("Продолжить", color = Ar.accentOn, fontSize = 11.sp, fontWeight = FontWeight.SemiBold)
-                                                    }
-                                                }
-                                            }
-                                        }
-                                    }
-                                }
-                            }
-                        }
-                    }
+                    if (data.continueItems.isNotEmpty()) item { ContinueSection(data.continueItems) }
                     item {
                         Section("Новые", "тайтлы", "Свежее на полке", Modifier.padding(start = 16.dp, top = 22.dp)) {
                             TitleRail(data.new_titles, contentPadding = PaddingValues(end = 16.dp))
@@ -307,6 +322,40 @@ private fun CatalogControls(sort: String, onSort: (String) -> Unit, asc: Boolean
             Icon(Lucide.CheckCheck, null, tint = if (finished) green else Ar.textSecondary, modifier = Modifier.size(13.dp))
             Spacer(Modifier.width(6.dp))
             Text("ЗАВЕРШЁННЫЕ", color = if (finished) Ar.white else Ar.textSecondary, fontSize = 11.sp, fontWeight = FontWeight.Bold, letterSpacing = 0.9.sp)
+        }
+    }
+}
+
+@Composable
+private fun ContinueSection(list: List<ContinueItem>) {
+    val nav = LocalNav.current
+    Section("Продолжить", "слушать", "Вернитесь к тому, на чём остановились", Modifier.padding(start = 16.dp, top = 18.dp)) {
+        val continueState = rememberLazyListState()
+        LazyRow(Modifier.fillMaxWidth().edgeFade(continueState), state = continueState, contentPadding = PaddingValues(end = 16.dp), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+            items(list, key = { it.chapter.id }) { c ->
+                val pct = if (c.chapter.duration_seconds > 0) (c.position_seconds / c.chapter.duration_seconds).toFloat().coerceAtMost(1f) else 0f
+                GlassPanel(Modifier.width(300.dp), padding = PaddingValues(10.dp)) {
+                    Row {
+                        ArImage(c.title.cover_url, Modifier.size(64.dp, 88.dp).clickable { nav.go(Routes.title(c.title.slug)) }, fallbackIcon = Lucide.Play, shape = RoundedCornerShape(8.dp))
+                        Spacer(Modifier.width(10.dp))
+                        Column(Modifier.weight(1f)) {
+                            Text(c.title.name, color = Ar.text, fontSize = 14.sp, fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.clickable { nav.go(Routes.title(c.title.slug)) })
+                            Text("Гл. ${Fmt.trimNum(c.chapter.number)}" + (if (c.chapter.name.isNotBlank()) " — ${c.chapter.name}" else ""), color = Ar.textSecondary, fontSize = 12.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                            Spacer(Modifier.height(8.dp))
+                            ProgressTrack(pct)
+                            Spacer(Modifier.height(8.dp))
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Text("${Fmt.duration(c.position_seconds)} / ${Fmt.duration(c.chapter.duration_seconds)}", color = Ar.textMuted, fontSize = 11.sp, modifier = Modifier.weight(1f))
+                                Row(Modifier.clip(CircleShape).background(Ar.accent).clickable { PlayerController.play(c.chapter.id) }.padding(horizontal = 10.dp, vertical = 5.dp), verticalAlignment = Alignment.CenterVertically) {
+                                    Icon(Lucide.Play, null, tint = Ar.accentOn, modifier = Modifier.size(12.dp))
+                                    Spacer(Modifier.width(4.dp))
+                                    Text("Продолжить", color = Ar.accentOn, fontSize = 11.sp, fontWeight = FontWeight.SemiBold)
+                                }
+                            }
+                        }
+                    }
+                }
+            }
         }
     }
 }
