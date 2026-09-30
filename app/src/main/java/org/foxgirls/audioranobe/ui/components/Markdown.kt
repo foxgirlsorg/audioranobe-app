@@ -67,6 +67,7 @@ private val SIZED_IMG = Regex("!\\[([^\\]]*)]\\(\\s*([^\\s\")]+)\\s+\"(\\d+)\\s*
  */
 @Composable
 fun ArMarkdown(source: String, modifier: Modifier = Modifier, compact: Boolean = false, media: String? = null) {
+    if (RAW_HTML.containsMatchIn(source)) return HtmlMarkdown(source, modifier, compact, media)
     val nav = LocalNav.current
     var revealed by remember(source) { mutableStateOf(setOf<Int>()) }
 
@@ -129,6 +130,86 @@ fun ArMarkdown(source: String, modifier: Modifier = Modifier, compact: Boolean =
             imageTransformer = Coil2ImageTransformerImpl,
         )
     }
+}
+
+// ---------- raw HTML (only stored when the author holds markup.html; the server strips it otherwise) ----------
+
+private val RAW_HTML = Regex("<(?:/?[a-zA-Z][\\w-]*(?=[\\s/>])|!--)")
+
+private fun esc(s: String) = s.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;").replace("\"", "&quot;").replace("'", "&#39;")
+
+/** Same preprocessing as the site's Markdown.tsx, then GFM → HTML with raw HTML passed through. */
+private fun markdownToHtml(source: String, media: String?): String {
+    var s = source
+    if (media == "image" || media == "both") s = SIZED_IMG.replace(s) { m ->
+        val size = m.groupValues[4].takeIf { it.isNotEmpty() }?.let { "width=\"${m.groupValues[3]}\" height=\"$it\"" } ?: "width=\"${m.groupValues[3]}\""
+        "<img src=\"${esc(m.groupValues[2])}\" alt=\"${esc(m.groupValues[1])}\" $size loading=\"lazy\">"
+    }
+    if (media == "video" || media == "both") s = YOUTUBE.replace(s) { m ->
+        "\n\n<div class=\"md-video\"><iframe src=\"https://www.youtube-nocookie.com/embed/${esc(m.groupValues[1])}\" title=\"YouTube\" frameborder=\"0\" allow=\"encrypted-media; picture-in-picture\" allowfullscreen></iframe></div>\n\n"
+    }
+    s = SPOILER.replace(s) { m -> "<span class=\"md-spoiler\">${m.groupValues[1]}</span>" }
+    s = MENTION.replace(s) { m -> "<a class=\"md-mention\" href=\"${Links.site}/user/${m.groupValues[1]}\">@${m.groupValues[1]}</a>" }
+    val flavour = org.intellij.markdown.flavours.gfm.GFMFlavourDescriptor()
+    val tree = org.intellij.markdown.parser.MarkdownParser(flavour).buildMarkdownTreeFromString(s)
+    return org.intellij.markdown.html.HtmlGenerator(s, tree, flavour).generateHtml()
+}
+
+private fun htmlPage(body: String, compact: Boolean) = """<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><style>
+@font-face{font-family:Inter;src:url(file:///android_res/font/inter.ttf)}
+html,body{margin:0;padding:0;background:transparent}
+#md{font-family:Inter,sans-serif;font-size:${if (compact) 14 else 15}px;line-height:${if (compact) 1.45 else 1.55};color:#a6acb2;overflow-wrap:anywhere;word-break:break-word}
+#md>*:first-child{margin-top:0}#md>*:last-child{margin-bottom:0}
+#md p{margin:${if (compact) "0 0 .5em" else "14px 0"}}
+#md h1,#md h2,#md h3,#md h4,#md h5,#md h6{color:#fff;font-weight:600;line-height:1.25;margin:1.2em 0 .6em}
+#md h1{font-size:1.6em}#md h2{font-size:1.35em}#md h3{font-size:1.15em}#md h6{color:#7b8087}
+#md a{color:#de6161;text-decoration:none}#md .md-mention{font-weight:500}
+#md b,#md strong{font-weight:600;color:#e8e8e8}
+#md img{max-width:100%;height:auto;border-radius:8px}
+#md blockquote{margin:0 0 1em;padding:0 1em;color:#7b8087;border-left:.25em solid rgba(222,97,97,.4)}
+#md ul,#md ol{padding-left:1.6em;margin:0 0 1em}
+#md code{font-family:monospace;font-size:85%;padding:.2em .4em;background:rgba(255,255,255,.08);border-radius:6px}
+#md pre{padding:1em;overflow:auto;background:rgba(0,0,0,.3);border-radius:6px}#md pre code{padding:0;background:none}
+#md table{display:block;max-width:100%;overflow-x:auto;border-collapse:collapse}
+#md th,#md td{padding:6px 13px;border:1px solid rgba(255,255,255,.08)}
+#md hr{height:1px;border:0;background:linear-gradient(to right,rgba(222,97,97,.3),transparent);margin:1.5em 0}
+#md .md-spoiler{padding:0 .15em;border-radius:3px;background:rgba(255,255,255,.05);filter:blur(5px);transition:filter .3s}
+#md .md-spoiler-open{filter:none;background:rgba(222,97,97,.12)}
+#md .md-video{position:relative;width:100%;aspect-ratio:16/9;margin:.75em 0;border-radius:10px;overflow:hidden;background:#000}
+#md .md-video iframe{position:absolute;inset:0;width:100%;height:100%;border:0}
+</style></head><body><div id="md">$body</div><script>
+document.addEventListener('click',function(e){var s=e.target.closest&&e.target.closest('.md-spoiler');if(s)s.classList.add('md-spoiler-open')});
+var md=document.getElementById('md');function h(){AR.height(md.getBoundingClientRect().height)}
+new ResizeObserver(h).observe(md);window.addEventListener('load',h);h();
+</script></body></html>"""
+
+/** Content with raw HTML in it renders like the site does: through a WebView sized to its content. */
+@Composable
+private fun HtmlMarkdown(source: String, modifier: Modifier, compact: Boolean, media: String?) {
+    val nav = LocalNav.current
+    val page = remember(source, compact, media) { htmlPage(markdownToHtml(source, media), compact) }
+    var contentHeight by remember { mutableStateOf(0f) }
+    androidx.compose.ui.viewinterop.AndroidView(
+        modifier = modifier.fillMaxWidth().height(contentHeight.dp),
+        factory = { ctx ->
+            android.webkit.WebView(ctx).apply {
+                setBackgroundColor(android.graphics.Color.TRANSPARENT)
+                isVerticalScrollBarEnabled = false
+                settings.javaScriptEnabled = true
+                settings.allowFileAccess = true
+                addJavascriptInterface(object {
+                    @android.webkit.JavascriptInterface
+                    fun height(px: Float) { post { contentHeight = px } }
+                }, "AR")
+                webViewClient = object : android.webkit.WebViewClient() {
+                    override fun shouldOverrideUrlLoading(view: android.webkit.WebView, request: android.webkit.WebResourceRequest): Boolean {
+                        Links.open(nav, request.url.toString()); return true
+                    }
+                }
+            }
+        },
+        update = { web -> if (web.tag != page) { web.tag = page; web.loadDataWithBaseURL(Links.site, page, "text/html", "utf-8", null) } },
+    )
 }
 
 // ---------- editor (components/MarkdownEditor) ----------
