@@ -98,9 +98,10 @@ object Push {
             }
         }
         if (server.key.isNotBlank() && hasDistributor(ctx)) {
-            UnifiedPush.tryUseCurrentOrDefaultDistributor(ctx) { ok ->
+            val activity = generateSequence(ctx) { (it as? android.content.ContextWrapper)?.baseContext }.filterIsInstance<android.app.Activity>().firstOrNull()
+            if (activity != null) UnifiedPush.tryUseCurrentOrDefaultDistributor(activity) { ok ->
                 if (ok) UnifiedPush.register(ctx, UP_INSTANCE, "AudioRanobe", server.key)
-            }
+            } else if (UnifiedPush.getAckDistributor(ctx) != null) UnifiedPush.register(ctx, UP_INSTANCE, "AudioRanobe", server.key)
             if (UnifiedPush.getAckDistributor(ctx) != null) _method.value = Method.UNIFIED
             return
         }
@@ -125,6 +126,8 @@ object Push {
         runCatching { UnifiedPush.unregister(ctx, UP_INSTANCE) }
     }
 
+    // ponytail: getToken() is deprecated in firebase-messaging 25; move to register() + onRegistered once that flow is documented.
+    @Suppress("DEPRECATION")
     private suspend fun fcmToken(): String? = suspendCancellableCoroutine { c ->
         FirebaseMessaging.getInstance().token.addOnCompleteListener { t -> c.resume(if (t.isSuccessful) t.result else null) }
     }

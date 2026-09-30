@@ -57,15 +57,15 @@ class PlaybackService : MediaSessionService() {
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
         )
 
-        val back = CommandButton.Builder()
+        val back = CommandButton.Builder(CommandButton.ICON_SKIP_BACK_10)
             .setDisplayName("Назад на 10 секунд")
             .setSessionCommand(SessionCommand(CMD_BACK, Bundle.EMPTY))
-            .setIconResId(R.drawable.ic_replay_10)
+            .setCustomIconResId(R.drawable.ic_replay_10)
             .build()
-        val fwd = CommandButton.Builder()
+        val fwd = CommandButton.Builder(CommandButton.ICON_SKIP_FORWARD_10)
             .setDisplayName("Вперёд на 10 секунд")
             .setSessionCommand(SessionCommand(CMD_FWD, Bundle.EMPTY))
-            .setIconResId(R.drawable.ic_forward_10)
+            .setCustomIconResId(R.drawable.ic_forward_10)
             .build()
 
         session = MediaSession.Builder(this, player)

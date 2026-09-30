@@ -15,8 +15,8 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.platform.LocalContext
 import androidx.exifinterface.media.ExifInterface
 import org.foxgirls.audioranobe.ui.toast.toastError
-import com.canhub.cropper.CropImageContract
-import com.canhub.cropper.CropImageContractOptions
+import com.canhub.cropper.CropImage
+import com.canhub.cropper.CropImageActivity
 import com.canhub.cropper.CropImageOptions
 import com.canhub.cropper.CropImageView
 import kotlinx.coroutines.Dispatchers
@@ -53,7 +53,7 @@ fun rememberImageCropper(
 ): ImagePicker {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
-    val launcher = rememberLauncherForActivityResult(CropImageContract()) { res ->
+    val launcher = rememberLauncherForActivityResult(CropContract) { res ->
         if (!res.isSuccessful) { res.error?.let { toastError(it.message ?: "Не удалось обрезать изображение") }; return@rememberLauncherForActivityResult }
         val uri = res.uriContent ?: return@rememberLauncherForActivityResult
         scope.launch {
@@ -66,8 +66,6 @@ fun rememberImageCropper(
     return remember(aspectX, aspectY, maxWidth, maxHeight, circle) {
         ImagePicker {
             launcher.launch(
-                CropImageContractOptions(
-                    null,
                     CropImageOptions(
                         imageSourceIncludeGallery = true,
                         imageSourceIncludeCamera = false,
@@ -87,9 +85,25 @@ fun rememberImageCropper(
                         cropMenuCropButtonTitle = "Готово",
                         activityTitle = "Обрезка изображения",
                     ),
-                ),
             )
         }
+    }
+}
+
+/** The cropper library's own CropImageContract, which it deprecates in favour of apps keeping a copy. */
+private object CropContract : androidx.activity.result.contract.ActivityResultContract<CropImageOptions, CropImageView.CropResult>() {
+    override fun createIntent(context: android.content.Context, input: CropImageOptions) =
+        android.content.Intent(context, CropImageActivity::class.java).putExtra(
+            CropImage.CROP_IMAGE_EXTRA_BUNDLE,
+            android.os.Bundle(2).apply {
+                putParcelable(CropImage.CROP_IMAGE_EXTRA_SOURCE, null)
+                putParcelable(CropImage.CROP_IMAGE_EXTRA_OPTIONS, input)
+            },
+        )
+
+    override fun parseResult(resultCode: Int, intent: android.content.Intent?): CropImageView.CropResult {
+        val result = intent?.let { androidx.core.content.IntentCompat.getParcelableExtra(it, CropImage.CROP_IMAGE_EXTRA_RESULT, CropImage.ActivityResult::class.java) }
+        return if (resultCode == android.app.Activity.RESULT_CANCELED || result == null) CropImage.CancelledResult else result
     }
 }
 

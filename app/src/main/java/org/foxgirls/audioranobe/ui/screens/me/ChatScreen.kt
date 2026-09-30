@@ -58,8 +58,8 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.scale
-import androidx.compose.ui.platform.LocalClipboardManager
-import androidx.compose.ui.text.AnnotatedString
+import androidx.compose.ui.platform.ClipEntry
+import androidx.compose.ui.platform.LocalClipboard
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.text.withLink
@@ -109,12 +109,13 @@ private data class ConvList(val items: List<ChatConversation> = emptyList())
 
 private const val LIST_POLL_MS = 15_000L
 private const val THREAD_POLL_MS = 4_000L
+private val RU = Locale.forLanguageTag("ru")
 
-private fun dayKey(iso: String): String = Fmt.toDate(iso)?.let { SimpleDateFormat("d MMMM yyyy", Locale("ru")).format(it) } ?: ""
+private fun dayKey(iso: String): String = Fmt.toDate(iso)?.let { SimpleDateFormat("d MMMM yyyy", RU).format(it) } ?: ""
 private fun dayLabel(iso: String): String {
     val d = Fmt.toDate(iso) ?: return ""
     val overYear = System.currentTimeMillis() - d.time > 365L * 24 * 3600 * 1000
-    return SimpleDateFormat(if (overYear) "d MMMM yyyy" else "d MMMM", Locale("ru")).format(d)
+    return SimpleDateFormat(if (overYear) "d MMMM yyyy" else "d MMMM", RU).format(d)
 }
 
 /** app/me/chat: conversation list, or the thread with [userId] when given. */
@@ -186,7 +187,7 @@ private fun Thread(userId: Int) {
     var lastId by remember(userId) { mutableStateOf(0) }
     val listState = rememberLazyListState()
     val scope = rememberCoroutineScope()
-    val clipboard = LocalClipboardManager.current
+    val clipboard = LocalClipboard.current
 
     LaunchedEffect(userId) {
         try {
@@ -354,7 +355,7 @@ private fun Thread(userId: Int) {
     ArSheet(mm != null, { menuMsg = null }) {
         if (mm != null) {
             if (t?.can_send == true) MenuRow(Lucide.CornerUpLeft, "Ответить", { editing = null; replyTo = mm; menuMsg = null })
-            if (mm.body.isNotBlank()) MenuRow(Lucide.Copy, "Копировать", { clipboard.setText(AnnotatedString(mm.body)); menuMsg = null })
+            if (mm.body.isNotBlank()) MenuRow(Lucide.Copy, "Копировать", { scope.launch { clipboard.setClipEntry(ClipEntry(android.content.ClipData.newPlainText("", mm.body))) }; menuMsg = null })
             if (mm.mine) MenuRow(Lucide.Pencil, "Изменить", { replyTo = null; editing = mm; text = mm.body; imageUrl = mm.image_url; showImage = mm.image_url.isNotBlank(); plainText = mm.plain_text; menuMsg = null })
             if (mm.mine) MenuRow(Lucide.Trash2, "Удалить", { deleteMessage(mm.id); menuMsg = null }, tint = Ar.danger)
         }

@@ -14,7 +14,12 @@ import org.unifiedpush.android.connector.data.PushEndpoint
 import org.unifiedpush.android.connector.data.PushMessage
 
 class FcmService : FirebaseMessagingService() {
+    @Suppress("OVERRIDE_DEPRECATION")
     override fun onNewToken(token: String) {
+        Stores.scope.launch { Push.registerFcm(token) }
+    }
+
+    override fun onRegistered(token: String) {
         Stores.scope.launch { Push.registerFcm(token) }
     }
 

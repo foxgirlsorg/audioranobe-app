@@ -10,7 +10,7 @@ import kotlin.math.roundToInt
 
 /** Port of lib/format.ts. All output is Russian, like the site. */
 object Fmt {
-    private val ru = Locale("ru", "RU")
+    private val ru = Locale.forLanguageTag("ru-RU")
 
     fun duration(totalSeconds: Number?): String {
         var s = totalSeconds?.toDouble() ?: 0.0

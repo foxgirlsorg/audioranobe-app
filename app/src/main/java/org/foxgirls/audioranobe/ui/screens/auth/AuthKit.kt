@@ -42,8 +42,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.asImageBitmap
-import androidx.compose.ui.platform.LocalClipboardManager
-import androidx.compose.ui.text.AnnotatedString
+import androidx.compose.ui.platform.ClipEntry
+import androidx.compose.ui.platform.LocalClipboard
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
@@ -205,7 +205,7 @@ fun TotpSetupModal(open: Boolean, onClose: () -> Unit, onEnabled: (Me) -> Unit) 
     var code by remember { mutableStateOf("") }
     var busy by remember { mutableStateOf(false) }
     var codes by remember { mutableStateOf<List<String>>(emptyList()) }
-    val clipboard = LocalClipboardManager.current
+    val clipboard = LocalClipboard.current
     val scope = rememberCoroutineScope()
     LaunchedEffect(Unit) {
         try { val r = Api.post<TotpSetupRes>("/me/totp/setup"); secret = r.secret; otpauth = r.otpauth_url; step = "scan" } catch (e: Exception) { toastError(e); onClose() }
@@ -228,7 +228,7 @@ fun TotpSetupModal(open: Boolean, onClose: () -> Unit, onEnabled: (Me) -> Unit) 
                 Spacer(Modifier.height(12.dp))
                 Row(Modifier.fillMaxWidth().background(Ar.fill04, RoundedCornerShape(8.dp)).padding(start = 12.dp, end = 4.dp, top = 4.dp, bottom = 4.dp), verticalAlignment = Alignment.CenterVertically) {
                     Text(secret, color = Ar.text, fontSize = 13.sp, fontFamily = FontFamily.Monospace, modifier = Modifier.weight(1f))
-                    IconBtn(Lucide.Copy, "Скопировать секрет", { clipboard.setText(AnnotatedString(secret)); toast("Скопировано") }, size = 34.dp, iconSize = 14.dp)
+                    IconBtn(Lucide.Copy, "Скопировать секрет", { scope.launch { clipboard.setClipEntry(ClipEntry(android.content.ClipData.newPlainText("", secret))) }; toast("Скопировано") }, size = 34.dp, iconSize = 14.dp)
                 }
                 Spacer(Modifier.height(12.dp))
                 ArTextField(code, { code = it.take(6) }, label = "Код из приложения", placeholder = "000000", keyboardType = KeyboardType.Number)
@@ -253,7 +253,7 @@ fun TotpSetupModal(open: Boolean, onClose: () -> Unit, onEnabled: (Me) -> Unit) 
                 }
                 Spacer(Modifier.height(12.dp))
                 Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
-                    ArButton("Скопировать все", { clipboard.setText(AnnotatedString(codes.joinToString("\n"))); toast("Скопировано") }, kind = ButtonKind.Ghost, icon = Lucide.Copy)
+                    ArButton("Скопировать все", { scope.launch { clipboard.setClipEntry(ClipEntry(android.content.ClipData.newPlainText("", codes.joinToString("\n")))) }; toast("Скопировано") }, kind = ButtonKind.Ghost, icon = Lucide.Copy)
                     Spacer(Modifier.width(8.dp))
                     ArButton("Готово", onClose, kind = ButtonKind.Primary)
                 }
