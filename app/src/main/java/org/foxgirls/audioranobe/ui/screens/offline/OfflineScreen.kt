@@ -106,7 +106,6 @@ fun OfflineScreen() {
                             Text("Прогресс ${pending.size} ${Fmt.plural(pending.size, "главы", "глав", "глав")} ждёт синхронизации", color = Ar.text, fontSize = 13.sp, modifier = Modifier.weight(1f))
                             if (online && !syncing) ArButton("Синхронизировать", { OfflineStore.syncProgress() }, small = true)
                         }
-                        Text("Если на сервере вы уже дальше по книге, локальный прогресс не перезапишет его.", color = Ar.textMuted, fontSize = 11.sp, modifier = Modifier.padding(top = 4.dp))
                     }
                 }
                 Spacer(Modifier.height(14.dp))
@@ -138,7 +137,7 @@ fun OfflineScreen() {
         }
         if (titles.isEmpty()) item {
             Box(Modifier.padding(horizontal = 16.dp)) {
-                EmptyState("Пока ничего не скачано", "Откройте книгу и нажмите на стрелку загрузки в шапке — можно скачать главу, том или всю книгу целиком вместе с обложками и иллюстрациями.", Lucide.Download, action = { ArButton("В каталог", { nav.tab(Routes.catalog()) }, kind = ButtonKind.Primary, icon = Lucide.LibraryBig) })
+                EmptyState("Пока ничего не скачано", icon = Lucide.Download, action = { ArButton("В каталог", { nav.tab(Routes.catalog()) }, kind = ButtonKind.Primary, icon = Lucide.LibraryBig) })
             }
         } else items(titles, key = { it.titleId }) { m ->
             val done = m.chapters.size
