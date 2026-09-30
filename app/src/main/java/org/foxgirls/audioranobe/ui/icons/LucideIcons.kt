@@ -9,7 +9,7 @@ import androidx.compose.ui.graphics.vector.PathParser
 import androidx.compose.ui.unit.dp
 
 /** Lucide icons (ISC license, https://lucide.dev), generated from lucide-static 1.48.0. */
-private fun lucide(name: String, vararg paths: String): ImageVector {
+private fun lucide(name: String, vararg paths: String, stroke: Float = 2f): ImageVector {
     val b = ImageVector.Builder(
         name = "lucide-$name", defaultWidth = 24.dp, defaultHeight = 24.dp,
         viewportWidth = 24f, viewportHeight = 24f,
@@ -17,7 +17,7 @@ private fun lucide(name: String, vararg paths: String): ImageVector {
     for (d in paths) {
         b.addPath(
             pathData = PathParser().parsePathString(d).toNodes(),
-            stroke = SolidColor(Color.Black), strokeLineWidth = 2f,
+            stroke = SolidColor(Color.Black), strokeLineWidth = stroke,
             strokeLineCap = StrokeCap.Round, strokeLineJoin = StrokeJoin.Round,
         )
     }
@@ -65,6 +65,7 @@ object Lucide {
     val Camera: ImageVector by lazy { lucide("camera", "M13.997 4a2 2 0 0 1 1.76 1.05l.486.9A2 2 0 0 0 18.003 7H20a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V9a2 2 0 0 1 2-2h1.997a2 2 0 0 0 1.759-1.048l.489-.904A2 2 0 0 1 10.004 4z", "M9 13a3 3 0 1 0 6 0a3 3 0 1 0 -6 0Z") }
     val Cat: ImageVector by lazy { lucide("cat", "M12 5c.67 0 1.35.09 2 .26 1.78-2 5.03-2.84 6.42-2.26 1.4.58-.42 7-.42 7 .57 1.07 1 2.24 1 3.44C21 17.9 16.97 21 12 21s-9-3-9-7.56c0-1.25.5-2.4 1-3.44 0 0-1.89-6.42-.5-7 1.39-.58 4.72.23 6.5 2.23A9.04 9.04 0 0 1 12 5Z", "M8 14v.5", "M16 14v.5", "M11.25 16.25h1.5L12 17l-.75-.75Z") }
     val Check: ImageVector by lazy { lucide("check", "M20 6 9 17l-5-5") }
+    val CheckBold: ImageVector by lazy { lucide("check-bold", "M20 6 9 17l-5-5", stroke = 3f) }
     val CheckCheck: ImageVector by lazy { lucide("check-check", "M18 6 7 17l-5-5", "m22 10-7.5 7.5L13 16") }
     val CheckCircle2: ImageVector by lazy { lucide("check-circle-2", "M2 12a10 10 0 1 0 20 0a10 10 0 1 0 -20 0Z", "m16 9-5.5 5.5L8 12") }
     val ChevronDown: ImageVector by lazy { lucide("chevron-down", "m6 9 6 6 6-6") }

@@ -343,9 +343,7 @@ fun NsfwBadge(modifier: Modifier = Modifier) {
 
 @Composable
 fun VerifiedBadge(modifier: Modifier = Modifier, size: Dp = 15.dp) {
-    Box(modifier.size(size).background(Ar.blue, CircleShape), contentAlignment = Alignment.Center) {
-        Icon(Lucide.Check, "Личность подтверждена администрацией", tint = Ar.white, modifier = Modifier.size(size * 0.66f))
-    }
+    Icon(Lucide.CheckBold, "Личность подтверждена администрацией", tint = Ar.accent, modifier = modifier.size(size))
 }
 
 // ---------- form controls ----------

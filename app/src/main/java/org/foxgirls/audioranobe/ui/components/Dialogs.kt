@@ -38,12 +38,14 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.IntrinsicSize
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
@@ -205,7 +207,7 @@ private fun <T> SelectDropdown(menu: MutableTransitionState<Boolean>, anchorWidt
             exit = fadeOut(tween(120)) + slideOutVertically(tween(120)) { -gap },
         ) {
             Column(
-                Modifier.width(with(density) { anchorWidth.toDp() }).heightIn(max = 280.dp)
+                Modifier.widthIn(min = with(density) { anchorWidth.toDp() }).width(IntrinsicSize.Max).heightIn(max = 280.dp)
                     .shadow(18.dp, RoundedCornerShape(10.dp)).clip(RoundedCornerShape(10.dp))
                     .background(Color(0xF7161618)).border(1.dp, Color(0x1AFFFFFF), RoundedCornerShape(10.dp))
                     .verticalScroll(rememberScrollState()).padding(4.dp),
@@ -219,7 +221,7 @@ private fun <T> SelectDropdown(menu: MutableTransitionState<Boolean>, anchorWidt
                         verticalAlignment = Alignment.CenterVertically,
                     ) {
                         Column(Modifier.weight(1f)) {
-                            Text(o.label, color = if (o.disabled) Ar.textMuted else if (on) Ar.accent else Ar.textSecondary, fontSize = 13.sp)
+                            Text(o.label, color = if (o.disabled) Ar.textMuted else if (on) Ar.accent else Ar.textSecondary, fontSize = 13.sp, maxLines = 1, softWrap = false)
                             if (o.hint != null) Text(o.hint, color = Ar.textMuted, fontSize = 11.sp)
                         }
                         if (on) Icon(Lucide.Check, null, tint = Ar.accent, modifier = Modifier.size(14.dp))
@@ -236,7 +238,7 @@ internal class AnchorBelow(private val gap: Int) : PopupPositionProvider {
         val below = anchorBounds.bottom + gap
         val above = anchorBounds.top - gap - popupContentSize.height
         val y = if (below + popupContentSize.height > windowSize.height && above >= 0) above else below
-        return IntOffset(anchorBounds.left, y)
+        return IntOffset(anchorBounds.left.coerceAtMost(windowSize.width - popupContentSize.width).coerceAtLeast(0), y)
     }
 }
 

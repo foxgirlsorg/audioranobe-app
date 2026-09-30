@@ -4,6 +4,11 @@ import android.os.Bundle
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.border
+import androidx.compose.foundation.layout.offset
+import androidx.compose.foundation.layout.aspectRatio
+import androidx.compose.foundation.layout.fillMaxHeight
+import androidx.compose.foundation.layout.IntrinsicSize
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
@@ -212,14 +217,18 @@ fun CatalogScreen(args: Bundle?) {
                 if (tab == "titles") Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
                     Text(data?.let { "Тайтлов: ${Fmt.count(it.total)}" } ?: "", color = Ar.textMuted, fontSize = 12.sp, modifier = Modifier.weight(1f))
                     if (loading && data != null) Spinner(Modifier.padding(end = 8.dp), 14.dp)
-                    Row(Modifier.clip(CircleShape).background(if (activeFilters > 0) Ar.accentSoft else Ar.fill04).clickable { sheet = true }.padding(horizontal = 12.dp, vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
-                        Icon(Lucide.SlidersHorizontal, null, tint = if (activeFilters > 0) Ar.accent else Ar.textSecondary, modifier = Modifier.size(15.dp))
+                    Row(Modifier.height(IntrinsicSize.Min), verticalAlignment = Alignment.CenterVertically) {
+                        Box(Modifier.fillMaxHeight().aspectRatio(1f, matchHeightConstraintsFirst = true)) {
+                            Box(
+                                Modifier.matchParentSize().clip(RoundedCornerShape(8.dp)).background(if (activeFilters > 0) Ar.accentSoft else Ar.fill04)
+                                    .border(1.dp, Ar.border, RoundedCornerShape(8.dp)).clickable { sheet = true },
+                                contentAlignment = Alignment.Center,
+                            ) { Icon(Lucide.SlidersHorizontal, "Фильтры", tint = if (activeFilters > 0) Ar.accent else Ar.textSecondary, modifier = Modifier.size(15.dp)) }
+                            if (activeFilters > 0) CountBubble(activeFilters, Modifier.align(Alignment.TopEnd).offset(6.dp, (-6).dp))
+                        }
                         Spacer(Modifier.width(6.dp))
-                        Text("Фильтры", color = if (activeFilters > 0) Ar.accent else Ar.textSecondary, fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
-                        if (activeFilters > 0) { Spacer(Modifier.width(6.dp)); CountBubble(activeFilters) }
+                        SelectMenu(sort, SORT_OPTIONS, { sort = it; page = 1 }, Modifier.width(150.dp), small = true)
                     }
-                    Spacer(Modifier.width(6.dp))
-                    SelectMenu(sort, SORT_OPTIONS, { sort = it; page = 1 }, Modifier.width(150.dp), small = true)
                     IconBtn(Lucide.ArrowDownWideNarrow, if (order == "asc") "По возрастанию" else "По убыванию", { order = if (order == "asc") "desc" else "asc"; page = 1 }, size = 34.dp, iconSize = 15.dp, tint = if (order == "asc") Ar.accent else Ar.textSecondary)
                 } else Row(verticalAlignment = Alignment.CenterVertically) {
                     Text(when (tab) { "narrators" -> narrators?.let { "Чтецов: ${Fmt.count(it.total)}" } ?: ""; else -> users?.let { "Найдено: ${Fmt.count(it.size)}" } ?: "" }, color = Ar.textMuted, fontSize = 12.sp)
