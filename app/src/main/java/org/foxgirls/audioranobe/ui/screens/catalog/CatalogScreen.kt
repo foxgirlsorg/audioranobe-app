@@ -4,6 +4,8 @@ import android.os.Bundle
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.foundation.layout.BoxScope
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.aspectRatio
@@ -213,28 +215,23 @@ fun CatalogScreen(args: Bundle?) {
                 ArTextField(q, { q = it }, placeholder = when (tab) { "narrators" -> "Имя чтеца …"; "users" -> "Имя пользователя …"; else -> "Название тайтла …" }, leading = Lucide.Search, imeAction = ImeAction.Search)
                 Spacer(Modifier.height(10.dp))
                 ArTabs(listOfNotNull(TabItem("titles", "Тайтлы"), TabItem("narrators", "Чтецы"), if (user != null) TabItem("users", "Люди") else null), tab, { tab = it; page = 1 }, variant = TabsVariant.Underline, scrollable = false)
-                Spacer(Modifier.height(10.dp))
+                Spacer(Modifier.height(16.dp))
                 if (tab == "titles") Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
                     Text(data?.let { "Тайтлов: ${Fmt.count(it.total)}" } ?: "", color = Ar.textMuted, fontSize = 12.sp, modifier = Modifier.weight(1f))
                     if (loading && data != null) Spinner(Modifier.padding(end = 8.dp), 14.dp)
                     Row(Modifier.height(IntrinsicSize.Min), verticalAlignment = Alignment.CenterVertically) {
-                        Box(Modifier.fillMaxHeight().aspectRatio(1f, matchHeightConstraintsFirst = true)) {
-                            Box(
-                                Modifier.matchParentSize().clip(RoundedCornerShape(8.dp)).background(if (activeFilters > 0) Ar.accentSoft else Ar.fill04)
-                                    .border(1.dp, Ar.border, RoundedCornerShape(8.dp)).clickable { sheet = true },
-                                contentAlignment = Alignment.Center,
-                            ) { Icon(Lucide.SlidersHorizontal, "Фильтры", tint = if (activeFilters > 0) Ar.accent else Ar.textSecondary, modifier = Modifier.size(15.dp)) }
+                        SquareBtn(Lucide.SlidersHorizontal, "Фильтры", activeFilters > 0, { sheet = true }) {
                             if (activeFilters > 0) CountBubble(activeFilters, Modifier.align(Alignment.TopEnd).offset(6.dp, (-6).dp))
                         }
                         Spacer(Modifier.width(6.dp))
                         SelectMenu(sort, SORT_OPTIONS, { sort = it; page = 1 }, Modifier.width(150.dp), small = true)
+                        Spacer(Modifier.width(6.dp))
+                        SquareBtn(Lucide.ArrowDownWideNarrow, if (order == "asc") "По возрастанию" else "По убыванию", order == "asc", { order = if (order == "asc") "desc" else "asc"; page = 1 })
                     }
-                    IconBtn(Lucide.ArrowDownWideNarrow, if (order == "asc") "По возрастанию" else "По убыванию", { order = if (order == "asc") "desc" else "asc"; page = 1 }, size = 34.dp, iconSize = 15.dp, tint = if (order == "asc") Ar.accent else Ar.textSecondary)
                 } else Row(verticalAlignment = Alignment.CenterVertically) {
                     Text(when (tab) { "narrators" -> narrators?.let { "Чтецов: ${Fmt.count(it.total)}" } ?: ""; else -> users?.let { "Найдено: ${Fmt.count(it.size)}" } ?: "" }, color = Ar.textMuted, fontSize = 12.sp)
                     if (loading && (narrators != null || users != null)) Spinner(Modifier.padding(start = 8.dp), 14.dp)
                 }
-                Spacer(Modifier.height(6.dp))
             }
         }
         val firstLoad = loading && data == null && narrators == null && users == null
@@ -354,5 +351,17 @@ fun RequestableTitles(items: List<RequestableTitle>) {
                 }
             }
         }
+    }
+}
+
+@Composable
+private fun SquareBtn(icon: ImageVector, label: String, active: Boolean, onClick: () -> Unit, overlay: @Composable BoxScope.() -> Unit = {}) {
+    Box(Modifier.fillMaxHeight().aspectRatio(1f, matchHeightConstraintsFirst = true)) {
+        Box(
+            Modifier.matchParentSize().clip(RoundedCornerShape(8.dp)).background(if (active) Ar.accentSoft else Ar.fill04)
+                .border(1.dp, Ar.border, RoundedCornerShape(8.dp)).clickable(onClick = onClick),
+            contentAlignment = Alignment.Center,
+        ) { Icon(icon, label, tint = if (active) Ar.accent else Ar.textSecondary, modifier = Modifier.size(15.dp)) }
+        overlay()
     }
 }

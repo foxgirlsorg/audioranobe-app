@@ -220,7 +220,7 @@ fun CommentSection(targetType: String, targetId: Int, initial: Paginated<Comment
     }
 
     Column(modifier.fillMaxWidth()) {
-        Row(Modifier.fillMaxWidth().padding(bottom = 10.dp), verticalAlignment = Alignment.CenterVertically) {
+        Row(Modifier.fillMaxWidth().padding(bottom = 12.dp), verticalAlignment = Alignment.CenterVertically) {
             if (showHeading) {
                 Text("Комментарии", color = Ar.white, fontSize = 18.sp, fontWeight = FontWeight.Medium)
                 Text("  ${st.total}", color = Ar.textMuted, fontSize = 14.sp)
@@ -240,7 +240,7 @@ fun CommentSection(targetType: String, targetId: Int, initial: Paginated<Comment
                 Text("создайте аккаунт", color = Ar.accent, fontSize = 13.sp, modifier = Modifier.clickable { nav.go(Routes.REGISTER) })
             }
         }
-        Spacer(Modifier.height(14.dp))
+        Spacer(Modifier.height(16.dp))
         when {
             st.loading -> CenterSpinner(minHeight = 80.dp)
             st.error.isNotEmpty() -> EmptyState("Не удалось загрузить комментарии", st.error, Lucide.MessageSquare)
@@ -274,7 +274,7 @@ private fun Composer(
     var busy by remember { mutableStateOf(false) }
     val scope = rememberCoroutineScope()
     MarkdownEditor(value, { value = it }, placeholder = placeholder, maxLength = Limits.commentBody, slim = true) {
-        Row(Modifier.fillMaxWidth().padding(top = 8.dp), horizontalArrangement = Arrangement.End, verticalAlignment = Alignment.CenterVertically) {
+        Row(Modifier.fillMaxWidth().padding(top = 12.dp), horizontalArrangement = Arrangement.End, verticalAlignment = Alignment.CenterVertically) {
             if (persona != null) { Box(Modifier.weight(1f)) { persona() } }
             if (onCancel != null) { ArButton("Отмена", onCancel, kind = ButtonKind.Ghost, small = true); Spacer(Modifier.width(6.dp)) }
             ArButton(if (busy) "Отправка…" else submitLabel, {
@@ -442,7 +442,7 @@ private fun PersonaPicker(personas: List<Persona>, value: Int?, onChange: (Int?)
     val current = personas.firstOrNull { it.id == value } ?: personas.first()
     val gap = with(LocalDensity.current) { 4.dp.roundToPx() }
     Box {
-        Row(Modifier.clip(RoundedCornerShape(8.dp)).clickable { open = !open }.padding(horizontal = 4.dp, vertical = 4.dp), verticalAlignment = Alignment.CenterVertically) {
+        Row(Modifier.clip(RoundedCornerShape(8.dp)).clickable { open = !open }.padding(end = 4.dp, top = 4.dp, bottom = 4.dp), verticalAlignment = Alignment.CenterVertically) {
             NarratorAvatar(current.name, current.avatarUrl, 20.dp)
             Spacer(Modifier.width(6.dp))
             Box {
