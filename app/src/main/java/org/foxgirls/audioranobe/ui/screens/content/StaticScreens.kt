@@ -122,7 +122,7 @@ fun DonateScreen() {
                 val cfg = s.data
                 if (cfg.goal.enabled) GlassPanel(Modifier.fillMaxWidth().padding(bottom = 12.dp)) { DonateGoalBar(cfg.goal) }
                 GlassPanel(Modifier.fillMaxWidth().padding(bottom = 12.dp), borderColor = Ar.accent.copy(alpha = 0.35f)) {
-                    Row(verticalAlignment = Alignment.Top) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
                         Icon(Lucide.AtSign, null, tint = Ar.accent, modifier = Modifier.size(18.dp))
                         Spacer(Modifier.width(10.dp))
                         Text("Укажите свой ник на сайте в комментарии к платежу — так пожертвование привяжется к вашему аккаунту.", color = Ar.text, fontSize = 13.sp, lineHeight = 19.sp)

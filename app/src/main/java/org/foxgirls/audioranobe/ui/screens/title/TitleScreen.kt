@@ -404,7 +404,7 @@ fun TitleScreen(slug: String, initialTab: String?) {
 private fun Banner(icon: androidx.compose.ui.graphics.vector.ImageVector, title: String, text: String, action: Pair<String, String>?) {
     val nav = LocalNav.current
     GlassPanel(Modifier.padding(bottom = 10.dp), padding = PaddingValues(12.dp)) {
-        Row(verticalAlignment = Alignment.Top) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
             Icon(icon, null, tint = Ar.accent, modifier = Modifier.size(17.dp))
             Spacer(Modifier.width(10.dp))
             Column(Modifier.weight(1f)) {

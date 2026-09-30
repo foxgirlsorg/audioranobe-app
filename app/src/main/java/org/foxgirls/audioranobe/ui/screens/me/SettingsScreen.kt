@@ -118,8 +118,8 @@ fun SettingsScreen(tab: String?) {
 @Composable
 private fun Panel(icon: ImageVector, title: String, hint: String?, danger: Boolean = false, content: @Composable () -> Unit) {
     GlassPanel(Modifier.padding(bottom = 12.dp), borderColor = if (danger) Ar.danger.copy(alpha = 0.35f) else Ar.border) {
-        Row(verticalAlignment = Alignment.Top) {
-            Icon(icon, null, tint = if (danger) Ar.danger else Ar.accent, modifier = Modifier.size(16.dp).padding(top = 2.dp))
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Icon(icon, null, tint = if (danger) Ar.danger else Ar.accent, modifier = Modifier.size(16.dp))
             Spacer(Modifier.width(10.dp))
             Column(Modifier.weight(1f)) {
                 Text(title, color = Ar.white, fontSize = 15.sp, fontWeight = FontWeight.Medium)

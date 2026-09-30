@@ -137,8 +137,8 @@ fun NarratorScreen(slug: String, initialTab: String?) {
         }
 
         if (!n.is_self && !n.is_ai && !canEdit) GlassPanel(Modifier.padding(horizontal = 16.dp, vertical = 12.dp), borderColor = Ar.accent.copy(alpha = 0.35f)) {
-            Row(verticalAlignment = Alignment.Top) {
-                Icon(Lucide.Mic2, null, tint = Ar.accent, modifier = Modifier.size(17.dp).padding(top = 2.dp))
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Icon(Lucide.Mic2, null, tint = Ar.accent, modifier = Modifier.size(17.dp))
                 Spacer(Modifier.width(10.dp))
                 Column(Modifier.weight(1f)) {
                     Text("Это ваша страница чтеца?", color = Ar.text, fontSize = 14.sp, fontWeight = FontWeight.SemiBold)
