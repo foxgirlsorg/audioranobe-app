@@ -61,7 +61,7 @@ fun AuthShell(pendingRoute: String?, pendingSeq: Int, onRouteConsumed: () -> Uni
         UpdateDialog()
         Box(Modifier.fillMaxSize().background(Ar.bg)) {
             NavHost(
-                controller, startDestination = Routes.LOGIN,
+                controller, startDestination = if (Stores.auth.user.value?.needs_setup == true) Routes.SETUP else Routes.LOGIN,
                 enterTransition = { slideInHorizontally { it / 6 } + fadeIn() }, exitTransition = { fadeOut() },
                 popEnterTransition = { fadeIn() }, popExitTransition = { slideOutHorizontally { it / 6 } + fadeOut() },
             ) {

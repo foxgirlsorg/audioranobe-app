@@ -83,7 +83,7 @@ fun LoginScreen() {
     val scope = rememberCoroutineScope()
 
     LaunchedEffect(Unit) { Stores.config.ensure(); if (auth.loading.value) auth.refresh() }
-    LaunchedEffect(user) { if (user != null) nav.back() }
+    LaunchedEffect(user) { user?.let { if (it.needs_setup) nav.replace(Routes.SETUP) else nav.back() } }
 
     fun submit() {
         if (submitting) return
@@ -151,7 +151,7 @@ fun RegisterScreen() {
     val scope = rememberCoroutineScope()
 
     LaunchedEffect(Unit) { Stores.config.ensure(); if (auth.loading.value) auth.refresh() }
-    LaunchedEffect(user) { if (user != null) nav.back() }
+    LaunchedEffect(user) { user?.let { if (it.needs_setup) nav.replace(Routes.SETUP) else nav.back() } }
 
     fun submit() {
         if (submitting) return
