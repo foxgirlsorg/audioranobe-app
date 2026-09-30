@@ -63,6 +63,6 @@ jobs:
       - name: Publish GitHub Release
         uses: softprops/action-gh-release@v2
         with:
-          name: ${{ github.ref_name }}
+          name: Release version
           generate_release_notes: true
           files: audioranobe-${{ github.ref_name }}.apk
