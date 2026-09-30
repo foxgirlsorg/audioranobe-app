@@ -147,17 +147,18 @@ private fun ConversationList() {
                     Spacer(Modifier.width(12.dp))
                     Column(Modifier.weight(1f)) {
                         Row(verticalAlignment = Alignment.CenterVertically) {
-                            Text(conv.user.shownName, color = Ar.text, fontSize = 14.sp, fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f, fill = false))
-                            Spacer(Modifier.width(4.dp)); UserBadgesRow(conv.user.badges, conv.user.is_banned, 13.dp)
-                            Spacer(Modifier.weight(1f))
-                            if (conv.last_message_at != null) Text(Fmt.time(conv.last_message_at), color = Ar.textMuted, fontSize = 11.sp)
+                            Row(Modifier.weight(1f), verticalAlignment = Alignment.CenterVertically) {
+                                Text(conv.user.shownName, color = Ar.text, fontSize = 14.sp, fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f, fill = false))
+                                Spacer(Modifier.width(4.dp)); UserBadgesRow(conv.user.badges, conv.user.is_banned, 13.dp)
+                            }
+                            if (conv.last_message_at != null) { Spacer(Modifier.width(8.dp)); Text(Fmt.time(conv.last_message_at), color = Ar.textMuted, fontSize = 11.sp) }
                         }
                         val lm = conv.last_message
                         Text(if (lm == null) "Нет сообщений" else (if (lm.mine) "Вы: " else "") + (if (lm.is_deleted) "сообщение удалено" else lm.body.ifBlank { if (lm.image_url.isNotBlank()) "📷 изображение" else "" }), color = if (conv.unread > 0) Ar.text else Ar.textMuted, fontSize = 13.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
                     }
                     if (conv.unread > 0) { Spacer(Modifier.width(8.dp)); CountBubble(conv.unread) }
                 }
-                HairlineDivider(Modifier.padding(start = 76.dp))
+                HairlineDivider(Modifier.padding(horizontal = 16.dp))
             }
         }
     }
