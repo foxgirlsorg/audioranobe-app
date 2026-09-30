@@ -233,7 +233,7 @@ fun NewsItemScreen(slug: String) {
         is Load.Ok -> {
             val item = s.data
             Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).statusBarsPadding().padding(pagePadding())) {
-                ArButton("Все новости", { nav.back() }, kind = ButtonKind.Ghost, icon = Lucide.ArrowLeft, small = true)
+                ArButton("Назад", { nav.back() }, kind = ButtonKind.Ghost, icon = Lucide.ArrowLeft, small = true)
                 Spacer(Modifier.height(12.dp))
                 GlassPanel(padding = androidx.compose.foundation.layout.PaddingValues(18.dp)) {
                     Row(verticalAlignment = Alignment.CenterVertically) {
