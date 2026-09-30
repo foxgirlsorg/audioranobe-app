@@ -19,7 +19,8 @@ import kotlinx.serialization.json.put
 
 /** Auth context: mirrors lib/auth.tsx. */
 class AuthStore(private val scope: CoroutineScope) {
-    private val _user = MutableStateFlow<Me?>(null)
+    /** The last known account, kept on disk so the app opens signed in without a network. */
+    private val _user = MutableStateFlow(Stores.prefs.getString("me")?.let { runCatching { AppJson.decodeFromString(Me.serializer(), it) }.getOrNull() })
     val user: StateFlow<Me?> = _user.asStateFlow()
     private val _loading = MutableStateFlow(true)
     val loading: StateFlow<Boolean> = _loading.asStateFlow()
@@ -52,6 +53,7 @@ class AuthStore(private val scope: CoroutineScope) {
             }
         }
         scope.launch { refresh(); _loading.value = false }
+        scope.launch { _user.collect { me -> Stores.prefs.putString("me", me?.let { AppJson.encodeToString(Me.serializer(), it) }) } }
     }
 
     suspend fun refresh() {
