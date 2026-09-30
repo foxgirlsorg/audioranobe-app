@@ -84,6 +84,8 @@ fun OfflineScreen() {
     val syncing by OfflineStore.syncing.collectAsStateWithLifecycle()
     val bottom = LocalBottomInset.current
     var toDelete by remember { mutableStateOf<OfflineManifest?>(null) }
+    var ask by remember { mutableStateOf<DownloadAsk?>(null) }
+    DownloadConfirm(ask) { ask = null }
 
     LazyColumn(Modifier.fillMaxSize().dockScrollAware().statusBarsPadding(), contentPadding = PaddingValues(bottom = bottom + 24.dp)) {
         item {
@@ -159,7 +161,7 @@ fun OfflineScreen() {
                         Row(Modifier.padding(top = 6.dp), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                             val resume = all.lastOrNull { c -> (c.my_position ?: 0.0) > 0 && m.chapters.containsKey(c.id) } ?: all.firstOrNull { m.chapters.containsKey(it.id) }
                             if (resume != null) ArButton("Слушать", { PlayerController.play(resume.id); PlayerController.setFull(true) }, kind = ButtonKind.Primary, icon = Lucide.Play, small = true)
-                            if (done < all.size) ArButton("Докачать", { OfflineStore.download(t); toast("Остальные главы добавлены в загрузки") }, icon = Lucide.Download, small = true)
+                            if (done < all.size) ArButton("Докачать", { ask = DownloadAsk.of(t, all.map { it.id }, "остальные главы", "Остальные главы добавлены в загрузки") }, icon = Lucide.Download, small = true)
                         }
                     }
                     IconBtn(Lucide.Trash2, "Удалить загрузки", { toDelete = m }, size = 34.dp, iconSize = 16.dp, tint = Ar.danger)
@@ -191,12 +193,14 @@ fun DownloadSheet(open: Boolean, onClose: () -> Unit, title: TitleFull, manifest
     val all = title.volumes.flatMap { it.liveChapters }.filter { it.audio_status == "ready" }
     val done = all.count { manifest?.chapters?.containsKey(it.id) == true }
     val runtime = all.sumOf { it.duration_seconds }
+    var ask by remember { mutableStateOf<DownloadAsk?>(null) }
+    DownloadConfirm(ask) { ask = null }
     ArSheet(open, onClose, "Скачать для офлайна") {
         Text(
             "Книга сохраняется вместе с описанием, обложками и иллюстрациями, чтобы её можно было открыть и слушать без сети. Прогресс прослушивания синхронизируется, когда появится соединение.",
             color = Ar.textMuted, fontSize = 12.sp, lineHeight = 16.sp, modifier = Modifier.padding(horizontal = 16.dp, vertical = 6.dp),
         )
-        MenuRow(Lucide.BookHeadphones, if (done == all.size) "Вся книга скачана" else "Скачать всю книгу", { OfflineStore.download(title); toast("Книга добавлена в загрузки"); onClose() }, tint = Ar.accent) {
+        MenuRow(Lucide.BookHeadphones, if (done == all.size) "Вся книга скачана" else "Скачать всю книгу", { ask = DownloadAsk.of(title, all.map { it.id }, "всю книгу", "Книга добавлена в загрузки"); onClose() }, tint = Ar.accent) {
             Text("${all.size} гл. · ${Fmt.duration(runtime)}", color = Ar.textMuted, fontSize = 12.sp)
         }
         HairlineDivider(Modifier.padding(vertical = 6.dp))
@@ -206,7 +210,7 @@ fun DownloadSheet(open: Boolean, onClose: () -> Unit, title: TitleFull, manifest
             val vDone = ready.count { manifest?.chapters?.containsKey(it.id) == true }
             val vQueued = ready.count { states[it.id] != null }
             MenuRow(if (vDone == ready.size) Lucide.CircleCheck else Lucide.Download, "${title.volume_label} ${v.number}" + (if (v.name.isNotBlank()) " — ${v.name}" else ""), {
-                if (vDone == ready.size) OfflineStore.removeVolume(title.id, v) else { OfflineStore.downloadVolume(title, v); toast("Том ${v.number} добавлен в загрузки") }
+                if (vDone == ready.size) OfflineStore.removeVolume(title.id, v) else { ask = DownloadAsk.of(title, ready.map { it.id }, "${title.volume_label.lowercase()} ${v.number}", "Том ${v.number} добавлен в загрузки"); onClose() }
             }, tint = if (vDone == ready.size) Ar.accent else Ar.textSecondary) {
                 Text(if (vDone == ready.size) "скачан" else if (vQueued > 0) "$vDone/${ready.size} · загрузка" else "$vDone/${ready.size}", color = Ar.textMuted, fontSize = 12.sp)
             }
@@ -219,4 +223,26 @@ fun DownloadSheet(open: Boolean, onClose: () -> Unit, title: TitleFull, manifest
         }
         Spacer(Modifier.height(12.dp))
     }
+}
+
+/** A pending volume/book download waiting for the user's OK; [chapterIds] are only the ones not on the device yet. */
+data class DownloadAsk(val title: TitleFull, val chapterIds: List<Int>, val what: String, val done: String) {
+    companion object {
+        fun of(title: TitleFull, chapterIds: List<Int>, what: String, done: String): DownloadAsk? =
+            OfflineStore.missing(title, chapterIds).takeIf { it.isNotEmpty() }?.let { DownloadAsk(title, it, what, done) }
+    }
+}
+
+/** "Download N chapters, ~X MB?" before a volume or whole-book download. */
+@Composable
+fun DownloadConfirm(ask: DownloadAsk?, onClose: () -> Unit) {
+    val chapters = ask?.let { a -> a.title.volumes.flatMap { it.liveChapters }.filter { it.id in a.chapterIds } } ?: emptyList()
+    val seconds = chapters.sumOf { it.duration_seconds }
+    ConfirmDialog(
+        ask != null, onClose,
+        onConfirm = { ask?.let { OfflineStore.download(it.title, it.chapterIds); toast(it.done) } },
+        title = "Скачать ${ask?.what ?: ""}?",
+        body = "${chapters.size} ${Fmt.plural(chapters.size, "глава", "главы", "глав")} · ${Fmt.duration(seconds)} · примерно ${Fmt.bytes(OfflineStore.estimateBytes(seconds))}",
+        confirmLabel = "Скачать",
+    )
 }

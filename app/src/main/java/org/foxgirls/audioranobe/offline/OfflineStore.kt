@@ -199,6 +199,12 @@ object OfflineStore {
         }
     }
 
+    /** Which of the given chapters are not on the device yet. */
+    fun missing(title: TitleFull, chapterIds: List<Int>): List<Int> = manifest(title.id)?.chapters?.let { have -> chapterIds.filter { it !in have } } ?: chapterIds
+
+    /** Rough download size: chapters are 32 kbps Opus, ~4 KB per second. */
+    fun estimateBytes(seconds: Double): Long = (seconds * 4000).toLong()
+
     fun downloadVolume(title: TitleFull, volume: Volume) = download(title, volume.liveChapters.filter { it.audio_status == "ready" }.map { it.id })
     fun downloadChapter(title: TitleFull, chapter: ChapterRow) = download(title, listOf(chapter.id))
 
