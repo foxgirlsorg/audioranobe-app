@@ -65,7 +65,6 @@ private data class GhRelease(
 object Updater {
     private const val CHECK_INTERVAL_MS = 6 * 60 * 60 * 1000L
     private const val KEY_LAST_CHECK = "update_last_check"
-    private const val KEY_SKIPPED = "update_skipped_tag"
 
     val repo: String = BuildConfig.UPDATE_REPO.trim().trim('/')
     val enabled: Boolean get() = repo.contains('/')
@@ -105,7 +104,7 @@ object Updater {
     }
 
     /**
-     * Fetches the latest release. [manual] checks ignore the throttle and the "skip this version" mark
+     * Fetches the latest release. [manual] checks ignore the throttle
      * and always surface the popup (or the "up to date" state) so the user gets feedback.
      */
     fun check(manual: Boolean = true, onResult: ((AppRelease?, String?) -> Unit)? = null) {
@@ -119,8 +118,7 @@ object Updater {
             val release = result.getOrNull()
             val error = result.exceptionOrNull()?.let { it.message ?: "Не удалось проверить обновления" }
             if (release != null && isNewer(release.version, AppVersion.VERSION)) {
-                val skipped = Stores.prefs.getString(KEY_SKIPPED)
-                if (manual || skipped != release.tag) _available.value = release
+                _available.value = release
             } else if (manual) {
                 _available.value = null
             }
@@ -174,11 +172,17 @@ object Updater {
     /** Hide the popup for now; it comes back on the next check that finds the same release. */
     fun dismiss() { _dismissed.value = true }
 
-    /** Never show this release again (a newer one still will). */
-    fun skip(release: AppRelease) {
-        Stores.prefs.putString(KEY_SKIPPED, release.tag)
-        _available.value = null
+    /** Debug builds only: a fake release whose "APK" is the installed one, to walk through the popup, download and installer. */
+    fun simulate() {
+        if (!BuildConfig.DEBUG) return
+        val apk = File(appContext.applicationInfo.sourceDir)
+        _download.value = UpdateDownload.Idle
         _dismissed.value = false
+        _available.value = AppRelease(
+            tag = "v99.0.0", version = "99.0.0", name = "Тестовое обновление",
+            notes = "## Что нового\n\n- **Жирный** и *курсивный* текст\n- Список изменений\n- [Ссылка](https://foxgirls.org)",
+            pageUrl = "", apkUrl = "file://${apk.absolutePath}", apkBytes = apk.length(), publishedAt = "",
+        )
     }
 
     fun startDownload(release: AppRelease) {
@@ -187,11 +191,12 @@ object Updater {
         downloadJob = scope.launch {
             val target = File(cacheDir(), "audioranobe-${release.version}.apk")
             try {
-                val res = Api.client.newCall(Request.Builder().url(release.apkUrl).build()).await()
-                if (!res.isSuccessful) throw IOException("Сервер ответил ${res.code}")
-                val body = res.body ?: throw IOException("Пустой ответ")
-                val total = body.contentLength().takeIf { it > 0 } ?: release.apkBytes
-                body.byteStream().use { input ->
+                val local = release.apkUrl.startsWith("file://")
+                val res = if (local) null else Api.client.newCall(Request.Builder().url(release.apkUrl).build()).await()
+                if (res != null && !res.isSuccessful) throw IOException("Сервер ответил ${res.code}")
+                val body = res?.let { it.body ?: throw IOException("Пустой ответ") }
+                val total = body?.contentLength()?.takeIf { it > 0 } ?: release.apkBytes
+                (body?.byteStream() ?: File(release.apkUrl.removePrefix("file://")).inputStream()).use { input ->
                     target.outputStream().use { out ->
                         val buf = ByteArray(64 * 1024)
                         var done = 0L
@@ -200,6 +205,7 @@ object Updater {
                             if (n < 0) break
                             out.write(buf, 0, n)
                             done += n
+                            if (local) kotlinx.coroutines.delay(20)
                             if (total > 0) _download.value = UpdateDownload.Running((done.toFloat() / total).coerceIn(0f, 1f))
                         }
                     }

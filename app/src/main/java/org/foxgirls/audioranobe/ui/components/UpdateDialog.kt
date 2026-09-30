@@ -31,7 +31,7 @@ import org.foxgirls.audioranobe.ui.theme.Ar
 
 /**
  * The OTA popup. Mounted once at the app root; shows itself whenever [Updater.available] holds a
- * release the user has not dismissed, walks through download → install, and offers "skip this version".
+ * release the user has not dismissed, walks through download → install.
  */
 @Composable
 fun UpdateDialog() {
@@ -85,12 +85,9 @@ fun UpdateDialog() {
                         }
                         ArButton(if (d is UpdateDownload.Failed) "Повторить" else "Скачать и установить", { Updater.startDownload(r) }, kind = ButtonKind.Primary, icon = Lucide.Download, fullWidth = true)
                         Spacer(Modifier.height(8.dp))
-                        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                            ArButton("Позже", { Updater.dismiss() }, Modifier.weight(1f), kind = ButtonKind.Ghost)
-                            ArButton("Пропустить версию", { Updater.skip(r) }, Modifier.weight(1f), kind = ButtonKind.Ghost)
-                        }
+                        ArButton("Позже", { Updater.dismiss() }, kind = ButtonKind.Ghost, fullWidth = true)
                         Spacer(Modifier.height(4.dp))
-                        AltLinkRow("Открыть на GitHub") { Links.external(context, r.pageUrl) }
+                        if (r.pageUrl.isNotEmpty()) AltLinkRow("Открыть на GitHub") { Links.external(context, r.pageUrl) }
                     }
                 }
             }

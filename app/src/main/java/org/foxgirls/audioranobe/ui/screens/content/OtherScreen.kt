@@ -66,6 +66,10 @@ fun OtherScreen() {
             MenuRow(Lucide.Radio, "Канал в Telegram", { Links.external(context, Support.CHANNEL) })
             MenuRow(Lucide.Globe, "foxgirls.org", { Links.external(context, "https://foxgirls.org") })
         }
+        if (org.foxgirls.audioranobe.BuildConfig.DEBUG) GlassPanel(Modifier.fillMaxWidth().padding(bottom = 12.dp), padding = PaddingValues(4.dp)) {
+            Eyebrow("Отладка", Modifier.padding(start = 12.dp, top = 8.dp, bottom = 4.dp))
+            MenuRow(Lucide.Download, "Показать тестовое обновление", { Updater.simulate() })
+        }
         if (Updater.enabled) {
             val checking by Updater.checking.collectAsStateWithLifecycle()
             GlassPanel(Modifier.fillMaxWidth().padding(bottom = 12.dp), padding = PaddingValues(4.dp)) {
