@@ -13,6 +13,8 @@ import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.fillMaxHeight
+import androidx.compose.foundation.layout.IntrinsicSize
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
@@ -287,20 +289,18 @@ fun BannerCarousel(banners: List<Banner>, modifier: Modifier = Modifier) {
 private fun CatalogControls(sort: String, onSort: (String) -> Unit, asc: Boolean, onFlip: () -> Unit, finished: Boolean, onFinished: () -> Unit) {
     val arrow by animateFloatAsState(if (asc) 0f else 180f, tween(200), label = "sortArrow")
     val green = Color(0xFF6FAE86)
-    Row(Modifier.fillMaxWidth().padding(bottom = 16.dp), verticalAlignment = Alignment.Bottom, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-        Column(Modifier.weight(1f)) {
-            Text("СОРТИРОВАТЬ ПО", color = Ar.textMuted, fontSize = 9.5.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.7.sp)
-            Spacer(Modifier.height(5.dp))
-            SelectMenu(sort, SORTS.map { SelectOption(it.key, it.label) }, onSort)
-        }
+    Text("СОРТИРОВАТЬ ПО", color = Ar.textMuted, fontSize = 9.5.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.7.sp)
+    Spacer(Modifier.height(5.dp))
+    Row(Modifier.fillMaxWidth().padding(bottom = 16.dp).height(IntrinsicSize.Min), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+        SelectMenu(sort, SORTS.map { SelectOption(it.key, it.label) }, onSort, Modifier.weight(1f))
         Box(
-            Modifier.size(40.dp).clip(RoundedCornerShape(9.dp)).background(Ar.fill04).border(1.dp, Ar.border, RoundedCornerShape(9.dp)).clickable(onClick = onFlip),
+            Modifier.fillMaxHeight().aspectRatio(1f, matchHeightConstraintsFirst = true).clip(RoundedCornerShape(9.dp)).background(Ar.fill04).border(1.dp, Ar.border, RoundedCornerShape(9.dp)).clickable(onClick = onFlip),
             contentAlignment = Alignment.Center,
         ) {
             Icon(Lucide.ArrowUpNarrowWide, if (asc) "Сортировать по убыванию" else "Сортировать по возрастанию", tint = Ar.textSecondary, modifier = Modifier.size(15.dp).rotate(arrow))
         }
         Row(
-            Modifier.height(40.dp).clip(RoundedCornerShape(9.dp)).background(if (finished) green.copy(alpha = 0.12f) else Ar.fill04)
+            Modifier.fillMaxHeight().clip(RoundedCornerShape(9.dp)).background(if (finished) green.copy(alpha = 0.12f) else Ar.fill04)
                 .border(1.dp, if (finished) green.copy(alpha = 0.5f) else Ar.border, RoundedCornerShape(9.dp)).clickable(onClick = onFinished).padding(horizontal = 14.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
