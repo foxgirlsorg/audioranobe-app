@@ -101,7 +101,6 @@ fun AppShell(pendingRoute: String?, pendingSeq: Int, onRouteConsumed: () -> Unit
             else -> MainShell(pendingRoute, pendingSeq, onRouteConsumed)
         }
     }
-    UpdateDialog()
 }
 
 @Composable
@@ -131,6 +130,7 @@ private fun MainShell(pendingRoute: String?, pendingSeq: Int, onRouteConsumed: (
     me?.let { PushBootstrap(it.id) }
 
     CompositionLocalProvider(LocalNav provides nav, LocalAuth provides Stores.auth, LocalShell provides shell, LocalBottomInset provides miniH) {
+        UpdateDialog()
         Box(Modifier.fillMaxSize().background(Ar.bg)) {
             Column(Modifier.fillMaxSize()) {
                 BannedBanner()

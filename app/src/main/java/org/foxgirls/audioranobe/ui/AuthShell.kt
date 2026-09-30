@@ -1,5 +1,6 @@
 package org.foxgirls.audioranobe.ui
 
+import org.foxgirls.audioranobe.ui.components.UpdateDialog
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.slideInHorizontally
@@ -57,6 +58,7 @@ fun AuthShell(pendingRoute: String?, pendingSeq: Int, onRouteConsumed: () -> Uni
     }
 
     CompositionLocalProvider(LocalNav provides nav, LocalAuth provides Stores.auth, LocalBottomInset provides 0.dp) {
+        UpdateDialog()
         Box(Modifier.fillMaxSize().background(Ar.bg)) {
             NavHost(
                 controller, startDestination = Routes.LOGIN,
