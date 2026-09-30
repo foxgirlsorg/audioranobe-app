@@ -15,6 +15,8 @@ import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.setValue
+import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -39,6 +41,16 @@ import net.engawapg.lib.zoomable.zoomable
 fun ImageViewer(open: Boolean, urls: List<String>, initial: Int = 0, captions: List<String?> = emptyList(), onClose: () -> Unit) {
     if (!open || urls.isEmpty()) return
     val context = LocalContext.current
+    var pendingUrl by androidx.compose.runtime.remember { androidx.compose.runtime.mutableStateOf<String?>(null) }
+    val storagePermission = androidx.activity.compose.rememberLauncherForActivityResult(androidx.activity.result.contract.ActivityResultContracts.RequestPermission()) { ok ->
+        pendingUrl?.let { if (ok) downloadImage(context, it) else org.foxgirls.audioranobe.ui.toast.toastError("Нет доступа к памяти устройства") }
+        pendingUrl = null
+    }
+    fun save(url: String) {
+        val needsPermission = android.os.Build.VERSION.SDK_INT < android.os.Build.VERSION_CODES.Q &&
+            androidx.core.content.ContextCompat.checkSelfPermission(context, android.Manifest.permission.WRITE_EXTERNAL_STORAGE) != android.content.pm.PackageManager.PERMISSION_GRANTED
+        if (needsPermission) { pendingUrl = url; storagePermission.launch(android.Manifest.permission.WRITE_EXTERNAL_STORAGE) } else downloadImage(context, url)
+    }
     Dialog(onDismissRequest = onClose, properties = DialogProperties(usePlatformDefaultWidth = false, decorFitsSystemWindows = false)) {
         val pager = rememberPagerState(initialPage = initial.coerceIn(0, urls.size - 1), pageCount = { urls.size })
         LaunchedEffect(initial) { pager.scrollToPage(initial.coerceIn(0, urls.size - 1)) }
@@ -51,7 +63,7 @@ fun ImageViewer(open: Boolean, urls: List<String>, initial: Int = 0, captions: L
                 )
             }
             Row(Modifier.align(Alignment.TopEnd).statusBarsPadding().padding(8.dp)) {
-                IconBtn(Lucide.Download, "Открыть оригинал", { Links.external(context, urls[pager.currentPage]) }, tint = Ar.white)
+                IconBtn(Lucide.Download, "Скачать", { save(urls[pager.currentPage]) }, tint = Ar.white)
                 IconBtn(Lucide.X, "Закрыть", onClose, tint = Ar.white)
             }
             Column(Modifier.align(Alignment.BottomCenter).navigationBarsPadding().fillMaxWidth().background(Color.Black.copy(alpha = 0.55f)).padding(12.dp)) {
@@ -61,5 +73,23 @@ fun ImageViewer(open: Boolean, urls: List<String>, initial: Int = 0, captions: L
                 if (urls.size > 1) Text("${pager.currentPage + 1} / ${urls.size}", color = Ar.textMuted, fontSize = 11.sp, textAlign = TextAlign.Center, modifier = Modifier.fillMaxWidth())
             }
         }
+    }
+}
+
+/** Saves an image to Downloads/AudioRanobe through the system download manager (progress + "done" notification). */
+private fun downloadImage(context: android.content.Context, url: String) {
+    val uri = android.net.Uri.parse(url)
+    if (uri.scheme != "http" && uri.scheme != "https") { Links.external(context, url); return }
+    val name = uri.lastPathSegment?.substringAfterLast('/')?.takeIf { it.contains('.') } ?: "image-${System.currentTimeMillis()}.jpg"
+    try {
+        val request = android.app.DownloadManager.Request(uri)
+            .setTitle(name)
+            .setNotificationVisibility(android.app.DownloadManager.Request.VISIBILITY_VISIBLE_NOTIFY_COMPLETED)
+            .setDestinationInExternalPublicDir(android.os.Environment.DIRECTORY_DOWNLOADS, "AudioRanobe/$name")
+            .addRequestHeader("User-Agent", "AudioRanobe-Android")
+        (context.getSystemService(android.content.Context.DOWNLOAD_SERVICE) as android.app.DownloadManager).enqueue(request)
+        org.foxgirls.audioranobe.ui.toast.toast("Изображение сохраняется в «Загрузки»")
+    } catch (e: Exception) {
+        org.foxgirls.audioranobe.ui.toast.toastError(e)
     }
 }
