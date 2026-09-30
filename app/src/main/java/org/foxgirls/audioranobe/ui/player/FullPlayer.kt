@@ -170,7 +170,7 @@ fun FullPlayer() {
             }
 
             Spacer(Modifier.height(14.dp))
-            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceEvenly, verticalAlignment = Alignment.CenterVertically) {
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End, verticalAlignment = Alignment.CenterVertically) {
                 Text("${Fmt.trimNum(rate.toDouble())}x", color = if (rate != 1f) Ar.accent else Ar.textSecondary, fontSize = 14.sp, fontWeight = FontWeight.SemiBold,
                     modifier = Modifier.clip(CircleShape).clickable { menu = "rate" }.padding(horizontal = 14.dp, vertical = 8.dp))
                 Row(Modifier.clip(CircleShape).clickable { menu = "sleep" }.padding(horizontal = 14.dp, vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
