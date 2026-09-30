@@ -49,6 +49,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -223,9 +224,9 @@ fun HomeScreen() {
 
 /** Compact top bar with the logo and search (replaces the site navbar on phones). */
 @Composable
-fun TopBar(onSearch: () -> Unit, modifier: Modifier = Modifier) {
+fun TopBar(onSearch: () -> Unit, modifier: Modifier = Modifier, horizontalPadding: Dp = 16.dp) {
     val nav = LocalNav.current
-    Row(modifier.fillMaxWidth().statusBarsPadding().padding(horizontal = 16.dp, vertical = 10.dp), verticalAlignment = Alignment.CenterVertically) {
+    Row(modifier.fillMaxWidth().statusBarsPadding().padding(horizontal = horizontalPadding, vertical = 10.dp), verticalAlignment = Alignment.CenterVertically) {
         Row(Modifier.clickable { nav.tab(Routes.HOME) }) {
             Text("AUDIO", color = Ar.white, fontSize = 18.sp, fontWeight = FontWeight.Bold, letterSpacing = 2.sp)
             Text("RANOBE", color = Ar.accent, fontSize = 18.sp, fontWeight = FontWeight.Bold, letterSpacing = 2.sp)

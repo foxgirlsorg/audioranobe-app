@@ -88,7 +88,7 @@ fun OfflineScreen() {
     LazyColumn(Modifier.fillMaxSize().dockScrollAware().statusBarsPadding(), contentPadding = PaddingValues(bottom = bottom + 24.dp)) {
         item {
             Column(Modifier.padding(horizontal = 16.dp)) {
-                TopBar(onSearch = { shell.searchOpen = true })
+                TopBar(onSearch = { shell.searchOpen = true }, horizontalPadding = 0.dp)
                 Eyebrow("Слушайте без сети")
                 SectionTitle("Ваши", "загрузки", Modifier.padding(top = 4.dp, bottom = 10.dp), size = 24)
                 Row(verticalAlignment = Alignment.CenterVertically) {

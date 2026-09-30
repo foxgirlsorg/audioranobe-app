@@ -207,7 +207,7 @@ fun CatalogScreen(args: Bundle?) {
     ) {
         item(span = { GridItemSpan(maxLineSpan) }) {
             Column {
-                TopBar(onSearch = { shell.searchOpen = true }, modifier = Modifier.padding(horizontal = 0.dp))
+                TopBar(onSearch = { shell.searchOpen = true }, horizontalPadding = 0.dp)
                 Eyebrow("Вся библиотека")
                 SectionTitle("Исследуйте", "каталог", Modifier.padding(top = 4.dp, bottom = 12.dp), size = 24)
                 ArTextField(q, { q = it }, placeholder = when (tab) { "narrators" -> "Имя чтеца …"; "users" -> "Имя пользователя …"; else -> "Название тайтла …" }, leading = Lucide.Search, imeAction = ImeAction.Search)
