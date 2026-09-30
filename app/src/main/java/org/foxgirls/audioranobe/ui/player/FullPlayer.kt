@@ -37,7 +37,6 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.blur
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
@@ -94,7 +93,7 @@ fun FullPlayer() {
     val revealed = duration > 0 && position >= duration / 2
 
     Box(Modifier.fillMaxSize().swipeDownToDismiss { PlayerController.setFull(false) }.background(Ar.bg)) {
-        ArImage(cur.coverUrl, Modifier.fillMaxSize().blur(40.dp), contentScale = ContentScale.Crop)
+        ArImage(cur.coverUrl, Modifier.fillMaxSize(), contentScale = ContentScale.Crop, backdrop = true)
         Box(Modifier.fillMaxSize().background(Brush.verticalGradient(listOf(Ar.bg.copy(alpha = 0.55f), Ar.bg.copy(alpha = 0.92f), Ar.bg))))
 
         Column(Modifier.fillMaxSize().statusBarsPadding().navigationBarsPadding().padding(horizontal = 20.dp)) {
@@ -118,7 +117,7 @@ fun FullPlayer() {
                     HorizontalPager(pager, Modifier.widthIn(max = 720.dp).fillMaxWidth().weight(1f, fill = false).aspectRatio(1f, matchHeightConstraintsFirst = true).clip(RoundedCornerShape(18.dp))) { i ->
                         val ill = ills[i]
                         Box(Modifier.fillMaxSize().clickable { viewer = i }) {
-                            ArImage(ill.thumb_url, Modifier.fillMaxSize().blur(24.dp), contentScale = ContentScale.Crop)
+                            ArImage(ill.thumb_url, Modifier.fillMaxSize(), contentScale = ContentScale.Crop, backdrop = true)
                             ArImage(ill.url, Modifier.fillMaxSize(), contentScale = ContentScale.Fit, blurred = ill.blurred && !revealed)
                             if (ill.caption.isNotBlank()) {
                                 Text(ill.caption, color = Ar.white, fontSize = 12.sp, modifier = Modifier.align(Alignment.BottomCenter).fillMaxWidth().background(Color.Black.copy(alpha = 0.5f)).padding(8.dp), textAlign = TextAlign.Center, maxLines = 2, overflow = TextOverflow.Ellipsis)

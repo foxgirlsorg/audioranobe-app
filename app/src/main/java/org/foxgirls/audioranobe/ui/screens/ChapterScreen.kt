@@ -26,7 +26,6 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.blur
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.layout.ContentScale
@@ -92,7 +91,7 @@ fun ChapterScreen(id: Int, startAt: Double?) {
     val volumeLabel = "${ch.title.volume_label} ${ch.volume.number}" + (if (ch.volume.name.isNotBlank()) " — ${ch.volume.name}" else "")
 
     Box(Modifier.fillMaxSize()) {
-        ArImage(ch.title.cover_url, Modifier.fillMaxWidth().height(320.dp).blur(30.dp), contentScale = ContentScale.Crop)
+        ArImage(ch.title.cover_url, Modifier.fillMaxWidth().height(320.dp), contentScale = ContentScale.Crop, backdrop = true)
         Box(Modifier.fillMaxWidth().height(320.dp).background(Brush.verticalGradient(listOf(Ar.bg.copy(alpha = 0.4f), Ar.bg))))
         Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).statusBarsPadding().padding(horizontal = 16.dp).padding(bottom = bottom + 24.dp)) {
             Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {

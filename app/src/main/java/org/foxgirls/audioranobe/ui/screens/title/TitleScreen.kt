@@ -41,7 +41,6 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.blur
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.layout.ContentScale
@@ -209,7 +208,7 @@ fun TitleScreen(slug: String, initialTab: String?) {
         item {
             Box(Modifier.fillMaxWidth()) {
                 val bg = title.bg_url ?: title.cover_thumb_url ?: title.cover_url
-                ArImage(bg, Modifier.fillMaxWidth().height(360.dp).blur(30.dp), contentScale = ContentScale.Crop)
+                ArImage(bg, Modifier.fillMaxWidth().height(360.dp), contentScale = ContentScale.Crop, backdrop = true)
                 Box(Modifier.fillMaxWidth().height(360.dp).background(Brush.verticalGradient(listOf(Ar.bg.copy(alpha = 0.35f), Ar.bg.copy(alpha = 0.85f), Ar.bg))))
                 Column(Modifier.fillMaxWidth().statusBarsPadding().padding(horizontal = 16.dp)) {
                     Row(Modifier.fillMaxWidth().padding(top = 4.dp), verticalAlignment = Alignment.CenterVertically) {

@@ -16,7 +16,6 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.blur
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Shape
@@ -29,6 +28,8 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import coil.compose.AsyncImage
 import coil.request.ImageRequest
+import coil.transform.Transformation
+import android.graphics.Bitmap
 import org.foxgirls.audioranobe.core.Fmt
 import org.foxgirls.audioranobe.data.Badge
 import org.foxgirls.audioranobe.ui.icons.Lucide
@@ -45,6 +46,7 @@ fun ArImage(
     blurred: Boolean = false,
     contentDescription: String? = null,
     shape: Shape? = null,
+    backdrop: Boolean = false,
 ) {
     var m = modifier
     if (shape != null) m = m.clip(shape)
@@ -53,11 +55,43 @@ fun ArImage(
             if (fallbackIcon != null) Icon(fallbackIcon, null, tint = Color.White.copy(alpha = 0.16f), modifier = Modifier.size(28.dp))
         } else {
             AsyncImage(
-                model = ImageRequest.Builder(LocalContext.current).data(org.foxgirls.audioranobe.offline.OfflineStore.resolveImage(url)?.let { if (it.startsWith("/")) java.io.File(it) else it }).crossfade(true).build(),
+                model = ImageRequest.Builder(LocalContext.current).data(org.foxgirls.audioranobe.offline.OfflineStore.resolveImage(url)?.let { if (it.startsWith("/")) java.io.File(it) else it }).crossfade(true)
+                    .apply { if (blurred || backdrop) transformations(SoftBlur) }.build(),
                 contentDescription = contentDescription,
                 contentScale = contentScale,
-                modifier = Modifier.fillMaxSize().then(if (blurred) Modifier.blur(16.dp) else Modifier),
+                modifier = Modifier.fillMaxSize(),
             )
+        }
+    }
+}
+
+/** Heavy blur baked into the bitmap (Modifier.blur is a no-op before Android 12): shrink to 48px wide, then three box-blur passes. */
+private object SoftBlur : Transformation {
+    override val cacheKey = "softblur-48"
+
+    override suspend fun transform(input: Bitmap, size: coil.size.Size): Bitmap {
+        val w = 48
+        val h = (input.height * w / input.width.coerceAtLeast(1)).coerceIn(1, 256)
+        val small = Bitmap.createScaledBitmap(input, w, h, true)
+        val px = IntArray(w * h).also { small.getPixels(it, 0, w, 0, 0, w, h) }
+        repeat(3) { boxPass(px, w, h, 3, horizontal = true); boxPass(px, w, h, 3, horizontal = false) }
+        return Bitmap.createBitmap(px, w, h, Bitmap.Config.ARGB_8888)
+    }
+
+    private fun boxPass(px: IntArray, w: Int, h: Int, r: Int, horizontal: Boolean) {
+        val len = if (horizontal) w else h
+        val lines = if (horizontal) h else w
+        val line = IntArray(len)
+        for (l in 0 until lines) {
+            for (i in 0 until len) line[i] = px[if (horizontal) l * w + i else i * w + l]
+            for (i in 0 until len) {
+                var a = 0; var rr = 0; var g = 0; var b = 0; var n = 0
+                for (k in (i - r).coerceAtLeast(0)..(i + r).coerceAtMost(len - 1)) {
+                    val c = line[k]
+                    a += c ushr 24; rr += (c shr 16) and 0xFF; g += (c shr 8) and 0xFF; b += c and 0xFF; n++
+                }
+                px[if (horizontal) l * w + i else i * w + l] = ((a / n) shl 24) or ((rr / n) shl 16) or ((g / n) shl 8) or (b / n)
+            }
         }
     }
 }
