@@ -51,8 +51,6 @@ fun OtherScreen() {
         GlassPanel(Modifier.fillMaxWidth().padding(bottom = 12.dp), padding = PaddingValues(4.dp)) {
             Eyebrow("Проект", Modifier.padding(start = 12.dp, top = 8.dp, bottom = 4.dp))
             MenuRow(Lucide.Heart, "Поддержать проект", { nav.go(Routes.DONATE) }, tint = Ar.accent)
-            MenuRow(Lucide.Library, "Коллекции", { nav.go(Routes.COLLECTIONS) })
-            MenuRow(Lucide.Newspaper, "Новости", { nav.go(Routes.NEWS) })
         }
         GlassPanel(Modifier.fillMaxWidth().padding(bottom = 12.dp), padding = PaddingValues(4.dp)) {
             Eyebrow("Документы", Modifier.padding(start = 12.dp, top = 8.dp, bottom = 4.dp))
