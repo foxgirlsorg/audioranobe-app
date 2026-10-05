@@ -28,7 +28,14 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
+import android.provider.MediaStore
 import coil.compose.AsyncImage
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
+import org.foxgirls.audioranobe.core.Api
+import org.foxgirls.audioranobe.core.await
 import org.foxgirls.audioranobe.ui.icons.Lucide
 import org.foxgirls.audioranobe.ui.nav.Links
 import org.foxgirls.audioranobe.ui.theme.Ar
@@ -81,6 +88,24 @@ private fun downloadImage(context: android.content.Context, url: String) {
     val uri = android.net.Uri.parse(url)
     if (uri.scheme != "http" && uri.scheme != "https") { Links.external(context, url); return }
     val name = uri.lastPathSegment?.substringAfterLast('/')?.takeIf { it.contains('.') } ?: "image-${System.currentTimeMillis()}.jpg"
+    if (name.endsWith(".webp", ignoreCase = true)) {
+        // Galleries and messengers handle WebP poorly, so it is re-encoded as JPEG.
+        CoroutineScope(Dispatchers.Main).launch {
+            try {
+                val bitmap = withContext(Dispatchers.IO) {
+                    Api.client.newCall(okhttp3.Request.Builder().url(url).build()).await().use { res ->
+                        if (!res.isSuccessful) throw java.io.IOException("Сервер ответил ${res.code}")
+                        android.graphics.BitmapFactory.decodeStream(res.body!!.byteStream()) ?: throw java.io.IOException("Не удалось прочитать изображение")
+                    }
+                }
+                saveJpegToDownloads(context, name.dropLast(5)) { bitmap.compress(android.graphics.Bitmap.CompressFormat.JPEG, 92, it) }
+                org.foxgirls.audioranobe.ui.toast.toast("Сохранено в «Загрузки»")
+            } catch (e: Exception) {
+                org.foxgirls.audioranobe.ui.toast.toastError(e)
+            }
+        }
+        return
+    }
     try {
         val request = android.app.DownloadManager.Request(uri)
             .setTitle(name)
@@ -92,4 +117,27 @@ private fun downloadImage(context: android.content.Context, url: String) {
     } catch (e: Exception) {
         org.foxgirls.audioranobe.ui.toast.toastError(e)
     }
+}
+
+/** Writes a JPEG into Downloads/AudioRanobe. */
+suspend fun saveJpegToDownloads(context: android.content.Context, name: String, write: (java.io.OutputStream) -> Unit) = withContext(Dispatchers.IO) {
+    if (android.os.Build.VERSION.SDK_INT < android.os.Build.VERSION_CODES.Q) {
+        @Suppress("DEPRECATION")
+        val dir = java.io.File(android.os.Environment.getExternalStoragePublicDirectory(android.os.Environment.DIRECTORY_DOWNLOADS), "AudioRanobe").apply { mkdirs() }
+        val file = java.io.File(dir, "$name.jpg")
+        file.outputStream().use(write)
+        android.media.MediaScannerConnection.scanFile(context, arrayOf(file.absolutePath), arrayOf("image/jpeg"), null)
+        return@withContext
+    }
+    val values = android.content.ContentValues().apply {
+        put(MediaStore.Downloads.DISPLAY_NAME, "$name.jpg")
+        put(MediaStore.Downloads.MIME_TYPE, "image/jpeg")
+        put(MediaStore.Downloads.RELATIVE_PATH, android.os.Environment.DIRECTORY_DOWNLOADS + "/AudioRanobe")
+        put(MediaStore.Downloads.IS_PENDING, 1)
+    }
+    val resolver = context.contentResolver
+    val uri = resolver.insert(MediaStore.Downloads.EXTERNAL_CONTENT_URI, values) ?: error("Не удалось сохранить")
+    resolver.openOutputStream(uri)!!.use(write)
+    values.clear(); values.put(MediaStore.Downloads.IS_PENDING, 0)
+    resolver.update(uri, values, null, null)
 }
