@@ -1,5 +1,6 @@
 package org.foxgirls.audioranobe.ui.player
 
+import org.foxgirls.audioranobe.ui.components.ditheredBackground
 import org.foxgirls.audioranobe.ui.components.PlayPauseIcon
 import androidx.compose.foundation.basicMarquee
 import androidx.compose.foundation.MarqueeSpacing
@@ -94,7 +95,7 @@ fun FullPlayer() {
 
     Box(Modifier.fillMaxSize().swipeDownToDismiss { PlayerController.setFull(false) }.background(Ar.bg)) {
         ArImage(cur.coverUrl, Modifier.fillMaxSize(), contentScale = ContentScale.Crop, backdrop = true)
-        Box(Modifier.fillMaxSize().background(Brush.verticalGradient(listOf(Ar.bg.copy(alpha = 0.55f), Ar.bg.copy(alpha = 0.92f), Ar.bg))))
+        Box(Modifier.fillMaxSize().ditheredBackground(Brush.verticalGradient(listOf(Ar.bg.copy(alpha = 0.55f), Ar.bg.copy(alpha = 0.92f), Ar.bg))))
 
         Column(Modifier.fillMaxSize().statusBarsPadding().navigationBarsPadding().padding(horizontal = 20.dp)) {
             Row(Modifier.fillMaxWidth().padding(top = 6.dp), verticalAlignment = Alignment.CenterVertically) {

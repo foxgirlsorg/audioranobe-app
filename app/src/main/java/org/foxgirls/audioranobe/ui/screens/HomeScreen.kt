@@ -1,5 +1,6 @@
 package org.foxgirls.audioranobe.ui.screens
 
+import org.foxgirls.audioranobe.ui.components.ditheredBackground
 import androidx.compose.foundation.lazy.rememberLazyListState
 import org.foxgirls.audioranobe.ui.components.edgeFade
 import androidx.compose.animation.core.animateFloatAsState
@@ -256,7 +257,7 @@ fun TopBar(onSearch: () -> Unit, modifier: Modifier = Modifier, horizontalPaddin
 @Composable
 private fun Hero() {
     val nav = LocalNav.current
-    Box(Modifier.padding(horizontal = 16.dp, vertical = 8.dp).fillMaxWidth().clip(RoundedCornerShape(18.dp)).background(Brush.linearGradient(listOf(Ar.accent.copy(alpha = 0.16f), Ar.surfaceSolid))).padding(22.dp)) {
+    Box(Modifier.padding(horizontal = 16.dp, vertical = 8.dp).fillMaxWidth().clip(RoundedCornerShape(18.dp)).ditheredBackground(Brush.linearGradient(listOf(Ar.accent.copy(alpha = 0.16f), Ar.surfaceSolid))).padding(22.dp)) {
         Column {
             Eyebrow("audioranobe.com")
             Spacer(Modifier.height(8.dp))

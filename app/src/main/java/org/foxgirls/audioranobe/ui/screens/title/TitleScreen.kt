@@ -1,5 +1,6 @@
 package org.foxgirls.audioranobe.ui.screens.title
 
+import org.foxgirls.audioranobe.ui.components.ditheredBackground
 import org.foxgirls.audioranobe.ui.components.PlayPauseIcon
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.animateContentSize
@@ -223,7 +224,7 @@ fun TitleScreen(slug: String, initialTab: String?) {
             Box(Modifier.fillMaxWidth()) {
                 val bg = title.bg_url ?: title.cover_thumb_url ?: title.cover_url
                 ArImage(bg, Modifier.fillMaxWidth().height(360.dp), contentScale = ContentScale.Crop, backdrop = true)
-                Box(Modifier.fillMaxWidth().height(360.dp).background(Brush.verticalGradient(listOf(Ar.bg.copy(alpha = 0.35f), Ar.bg.copy(alpha = 0.85f), Ar.bg))))
+                Box(Modifier.fillMaxWidth().height(360.dp).ditheredBackground(Brush.verticalGradient(listOf(Ar.bg.copy(alpha = 0.35f), Ar.bg.copy(alpha = 0.85f), Ar.bg))))
                 Column(Modifier.fillMaxWidth().statusBarsPadding().padding(horizontal = 16.dp)) {
                     Row(Modifier.fillMaxWidth().padding(top = 4.dp), verticalAlignment = Alignment.CenterVertically) {
                         IconBtn(Lucide.ArrowLeft, "Назад", { nav.back() }, tint = Ar.text)

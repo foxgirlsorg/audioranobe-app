@@ -166,7 +166,7 @@ fun GlassPanel(
 fun AccentDivider(modifier: Modifier = Modifier) {
     Box(
         modifier.fillMaxWidth().height(1.dp).alpha(0.7f)
-            .background(Brush.horizontalGradient(listOf(Ar.accent, Ar.accent.copy(alpha = 0.2f), Color.Transparent))),
+            .ditheredBackground(Brush.horizontalGradient(listOf(Ar.accent, Ar.accent.copy(alpha = 0.2f), Color.Transparent))),
     )
 }
 

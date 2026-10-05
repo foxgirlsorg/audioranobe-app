@@ -1,5 +1,6 @@
 package org.foxgirls.audioranobe.ui.screens.content
 
+import org.foxgirls.audioranobe.ui.components.ditheredBackground
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -108,8 +109,8 @@ fun NarratorScreen(slug: String, initialTab: String?) {
         Box(Modifier.fillMaxWidth()) {
             Box(Modifier.fillMaxWidth().height(170.dp).clickable(enabled = n.cover_url != null) { viewer = n.cover_url }) {
                 if (n.cover_url != null) ArImage(n.cover_thumb_url ?: n.cover_url, Modifier.fillMaxSize())
-                else Box(Modifier.fillMaxSize().background(Brush.linearGradient(listOf(Ar.accent.copy(alpha = 0.25f), Ar.surfaceSolid))))
-                Box(Modifier.fillMaxSize().background(Brush.verticalGradient(listOf(Color.Transparent, Ar.bg.copy(alpha = 0.85f)))))
+                else Box(Modifier.fillMaxSize().ditheredBackground(Brush.linearGradient(listOf(Ar.accent.copy(alpha = 0.25f), Ar.surfaceSolid))))
+                Box(Modifier.fillMaxSize().ditheredBackground(Brush.verticalGradient(listOf(Color.Transparent, Ar.bg.copy(alpha = 0.85f)))))
             }
             Row(Modifier.statusBarsPadding().padding(8.dp)) {
                 IconBtn(Lucide.ArrowLeft, "Назад", { nav.back() }, tint = Ar.text, background = Ar.bg.copy(alpha = 0.5f))

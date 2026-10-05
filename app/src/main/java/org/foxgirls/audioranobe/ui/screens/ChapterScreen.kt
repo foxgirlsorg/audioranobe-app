@@ -1,5 +1,6 @@
 package org.foxgirls.audioranobe.ui.screens
 
+import org.foxgirls.audioranobe.ui.components.ditheredBackground
 import org.foxgirls.audioranobe.ui.components.PlayPauseIcon
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -92,7 +93,7 @@ fun ChapterScreen(id: Int, startAt: Double?) {
 
     Box(Modifier.fillMaxSize()) {
         ArImage(ch.title.cover_url, Modifier.fillMaxWidth().height(320.dp), contentScale = ContentScale.Crop, backdrop = true)
-        Box(Modifier.fillMaxWidth().height(320.dp).background(Brush.verticalGradient(listOf(Ar.bg.copy(alpha = 0.4f), Ar.bg))))
+        Box(Modifier.fillMaxWidth().height(320.dp).ditheredBackground(Brush.verticalGradient(listOf(Ar.bg.copy(alpha = 0.4f), Ar.bg))))
         Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).statusBarsPadding().padding(horizontal = 16.dp).padding(bottom = bottom + 24.dp)) {
             Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
                 IconBtn(Lucide.ArrowLeft, "Назад", { nav.back() }, tint = Ar.text)

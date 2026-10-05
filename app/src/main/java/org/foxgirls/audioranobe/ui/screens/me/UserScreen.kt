@@ -1,5 +1,6 @@
 package org.foxgirls.audioranobe.ui.screens.me
 
+import org.foxgirls.audioranobe.ui.components.ditheredBackground
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -169,8 +170,8 @@ fun UserScreen(userRef: String, initialTab: String?) {
             Box(Modifier.fillMaxWidth()) {
                 Box(Modifier.fillMaxWidth().height(170.dp)) {
                     if (user.cover_url != null) ArImage(user.cover_url, Modifier.fillMaxSize())
-                    else Box(Modifier.fillMaxSize().background(Brush.linearGradient(listOf(Ar.accent.copy(alpha = 0.25f), Ar.surfaceSolid))))
-                    Box(Modifier.fillMaxSize().background(Brush.verticalGradient(listOf(androidx.compose.ui.graphics.Color.Transparent, Ar.bg.copy(alpha = 0.85f)))))
+                    else Box(Modifier.fillMaxSize().ditheredBackground(Brush.linearGradient(listOf(Ar.accent.copy(alpha = 0.25f), Ar.surfaceSolid))))
+                    Box(Modifier.fillMaxSize().ditheredBackground(Brush.verticalGradient(listOf(androidx.compose.ui.graphics.Color.Transparent, Ar.bg.copy(alpha = 0.85f)))))
                 }
                 Row(Modifier.statusBarsPadding().padding(8.dp)) {
                     IconBtn(Lucide.ArrowLeft, "Назад", { nav.back() }, tint = Ar.text, background = Ar.bg.copy(alpha = 0.5f))
