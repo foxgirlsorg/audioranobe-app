@@ -1,5 +1,7 @@
 package org.foxgirls.audioranobe.ui.components
 
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
@@ -58,10 +60,10 @@ fun UpdateDialog() {
         )
         if (r.notes.isNotBlank()) {
             Spacer(Modifier.height(12.dp))
-            Column(Modifier.fillMaxWidth().heightIn(max = 260.dp)) { ArMarkdown(r.notes, compact = true) }
+            Column(Modifier.fillMaxWidth().heightIn(max = 260.dp).verticalScroll(rememberScrollState())) { ArMarkdown(r.notes, compact = true) }
         }
         Spacer(Modifier.height(16.dp))
-        AnimatedContent(download, transitionSpec = { fadeIn() togetherWith fadeOut() }, label = "update-state") { d ->
+        AnimatedContent(download, transitionSpec = { fadeIn() togetherWith fadeOut() }, contentKey = { it::class }, label = "update-state") { d ->
             Column(Modifier.fillMaxWidth()) {
                 when (d) {
                     is UpdateDownload.Running -> {
