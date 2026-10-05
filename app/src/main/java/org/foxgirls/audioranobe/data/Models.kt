@@ -264,7 +264,7 @@ data class Volume(
 }
 
 @Serializable
-data class TitleVersion(val id: Int, val name: String = "", val sort: Int = 0)
+data class TitleVersion(val id: Int, val name: String = "", val sort: Int = 0, val standalone_volume_ids: List<Int> = emptyList())
 
 @Serializable
 data class NarratorCard(

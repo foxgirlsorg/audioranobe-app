@@ -155,12 +155,23 @@ fun TitleScreen(slug: String, initialTab: String?) {
     val title = loader.data!!
     LaunchedEffect(title.id, title.selected_version_id) { selectedVersion = title.selected_version_id }
 
+    // A version's standalone volumes list its own chapters; a volume with no main
+    // chapters is filled in from a standalone version (selected one first).
     val displayVolumes = remember(title, selectedVersion) {
-        if (selectedVersion == 0) title.volumes.map { v -> v to v.chapters.map { it to false } }
-        else {
-            val alt = title.alt_chapters[selectedVersion.toString()] ?: emptyList()
-            val byKey = alt.associateBy { "${it.volume_id}:${it.number}" }
-            title.volumes.map { v -> v to v.chapters.map { c -> val a = byKey["${v.id}:${c.number}"]; if (a != null && a.audio_status == "ready") a.copy(name = c.name, number = c.number, number_end = c.number_end) to false else c to true } }
+        val alt = title.alt_chapters[selectedVersion.toString()] ?: emptyList()
+        val byKey = alt.associateBy { "${it.volume_id}:${it.number}" }
+        fun takeover(volumeId: Int, hasMain: Boolean): Int = when {
+            selectedVersion != 0 && title.versions.any { it.id == selectedVersion && volumeId in it.standalone_volume_ids } -> selectedVersion
+            hasMain -> 0
+            else -> title.versions.firstOrNull { volumeId in it.standalone_volume_ids }?.id ?: 0
+        }
+        title.volumes.map { v ->
+            val own = takeover(v.id, v.chapters.isNotEmpty())
+            when {
+                own != 0 -> v to (title.alt_chapters[own.toString()] ?: emptyList()).filter { it.volume_id == v.id }.sortedBy { it.number }.map { it to false }
+                selectedVersion == 0 -> v to v.chapters.map { it to false }
+                else -> v to v.chapters.map { c -> val a = byKey["${v.id}:${c.number}"]; if (a != null && a.audio_status == "ready") a.copy(name = c.name, number = c.number, number_end = c.number_end) to false else c to true }
+            }
         }
     }
     val playable = title.volumes.flatMap { it.liveChapters }.filter { it.audio_status == "ready" && it.mod_status == "approved" }
