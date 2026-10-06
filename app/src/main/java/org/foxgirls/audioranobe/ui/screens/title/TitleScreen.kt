@@ -11,6 +11,9 @@ import androidx.compose.animation.shrinkVertically
 import org.foxgirls.audioranobe.ui.components.Chevron
 import org.foxgirls.audioranobe.ui.components.bottomFade
 import androidx.compose.foundation.background
+import androidx.compose.foundation.horizontalScroll
+import org.foxgirls.audioranobe.ui.components.edgeFade
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -169,9 +172,12 @@ fun TitleScreen(slug: String, initialTab: String?) {
         title.volumes.map { v ->
             val own = takeover(v.id, v.chapters.isNotEmpty())
             when {
-                own != 0 -> v to (title.alt_chapters[own.toString()] ?: emptyList()).filter { it.volume_id == v.id }.sortedBy { it.number }.map { it to false }
-                selectedVersion == 0 -> v to v.chapters.map { it to false }
-                else -> v to v.chapters.map { c -> val a = byKey["${v.id}:${c.number}"]; if (a != null && a.audio_status == "ready") a.copy(name = c.name, number = c.number, number_end = c.number_end) to false else c to true }
+                own != 0 -> {
+                    val from = if (own == selectedVersion) null else title.versions.firstOrNull { it.id == own }?.let { "из «${it.name}»" }
+                    v to (title.alt_chapters[own.toString()] ?: emptyList()).filter { it.volume_id == v.id }.sortedBy { it.number }.map { it to from }
+                }
+                selectedVersion == 0 -> v to v.chapters.map { it to null }
+                else -> v to v.chapters.map { c -> val a = byKey["${v.id}:${c.number}"]; if (a != null && a.audio_status == "ready") a.copy(name = c.name, number = c.number, number_end = c.number_end) to null else c to "из основной" }
             }
         }
     }
@@ -336,7 +342,7 @@ fun TitleScreen(slug: String, initialTab: String?) {
                 if (chaptersTotal == 0) item { EmptyState("Глав пока нет", "У этой аудиокниги пока нет глав — загляните позже.", Lucide.ListMusic) }
                 else {
                     if (title.versions.isNotEmpty()) item {
-                        Row(Modifier.padding(horizontal = 16.dp, vertical = 4.dp), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                        Row(rememberScrollState().let { Modifier.edgeFade(it).horizontalScroll(it) }.padding(horizontal = 16.dp, vertical = 4.dp), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                             Pill(title.version_name, active = selectedVersion == 0, onClick = { selectedVersion = 0; if (user != null) scope.launch { runCatching { Api.put<Unit>("/titles/${title.id}/version", buildJsonObject { put("version_id", 0) }) } } })
                             for (ver in title.versions) Pill(ver.name, active = selectedVersion == ver.id, onClick = { selectedVersion = ver.id; if (user != null) scope.launch { runCatching { Api.put<Unit>("/titles/${title.id}/version", buildJsonObject { put("version_id", ver.id) }) } } })
                         }
@@ -363,7 +369,7 @@ fun TitleScreen(slug: String, initialTab: String?) {
                                 AnimatedVisibility(open, enter = expandVertically(tween(350, easing = FastOutSlowInEasing)), exit = shrinkVertically(tween(350, easing = FastOutSlowInEasing))) {
                                     Column {
                                         if (chapters.isEmpty()) Text("В этом томе пока нет глав.", color = Ar.textMuted, fontSize = 13.sp, modifier = Modifier.padding(12.dp))
-                                        for ((ch, defaulted) in chapters) {
+                                        for ((ch, sourceLabel) in chapters) {
                                             val isCurrent = current?.id == ch.id
                                             val chPlayable = ch.audio_status == "ready"
                                             val staticPct = if (ch.duration_seconds > 0) ((ch.my_position ?: 0.0) / ch.duration_seconds).toFloat() else 0f
@@ -377,7 +383,7 @@ fun TitleScreen(slug: String, initialTab: String?) {
                                                     Column(Modifier.weight(1f)) {
                                                         Text(Fmt.chapterLabel(ch.number, ch.number_end, ch.name), color = if (isCurrent) Ar.accentHover else Ar.text, fontSize = 13.sp, maxLines = 2, overflow = TextOverflow.Ellipsis)
                                                         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                                                            if (defaulted && selectedVersion != 0) Text("из основной", color = Ar.textMuted, fontSize = 10.sp)
+                                                            if (sourceLabel != null) Text(sourceLabel, color = Ar.textMuted, fontSize = 10.sp, maxLines = 1)
                                                             if (ch.narrators.isNotEmpty()) Text(ch.narrators.joinToString(", ") { it.name }, color = Ar.textMuted, fontSize = 10.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
                                                             if (ch.mod_status != "approved") StatusBadge(ch.mod_status)
                                                             if (ch.audio_status != "ready" && (title.can_edit || ch.audio_status != "none")) StatusBadge(ch.audio_status)
