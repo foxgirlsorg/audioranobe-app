@@ -332,7 +332,7 @@ fun TitleArtwork(title: TitleFull, reload: suspend () -> Unit) {
         Text("Показывается в плеере, пока играет глава из этого тома. Без своей обложки том использует обложку тайтла.", color = Ar.textMuted, fontSize = 12.sp, lineHeight = 16.sp, modifier = Modifier.padding(bottom = 10.dp))
         FlowRow(horizontalArrangement = Arrangement.spacedBy(12.dp), verticalArrangement = Arrangement.spacedBy(12.dp), maxItemsInEachRow = 2) {
             title.volumes.forEach { v ->
-                VolumeCoverItem(v, "${title.volume_label} ${v.number}", saving, removing == v.id, Modifier.weight(1f), reload,
+                VolumeCoverItem(v, "${title.volume_label} ${v.num}", saving, removing == v.id, Modifier.weight(1f), reload,
                     onCrop = { volumeTarget = v.id; volumeCropper.pick() },
                     onRemove = { removing = v.id; scope.launch { try { Api.delete<Unit>("/panel/volumes/${v.id}/cover"); toast("Обложка тома удалена"); reload() } catch (e: Exception) { toastError(e) }; removing = null } })
             }

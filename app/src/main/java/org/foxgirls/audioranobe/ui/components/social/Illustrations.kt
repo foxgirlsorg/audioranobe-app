@@ -34,7 +34,7 @@ data class VolumeCover(val id: Int, val url: String, val label: String)
 
 fun chapterLine(ill: Illustration, volumeLabel: String = "Том"): String? {
     val ch = ill.chapter ?: return null
-    return "$volumeLabel ${ch.volume_number} · ${Fmt.chapterLabel(ch.number, ch.number_end, ch.name)}"
+    return "$volumeLabel ${Fmt.trimNum(ch.volume_number)} · ${Fmt.chapterLabel(ch.number, ch.number_end, ch.name)}"
 }
 
 /** components/Illustrations/IllustrationGallery: title-wide art first, then one group per chapter. */
@@ -42,7 +42,7 @@ fun chapterLine(ill: Illustration, volumeLabel: String = "Том"): String? {
 fun IllustrationGallery(items: List<Illustration>, volumeLabel: String = "Том", volumeCovers: List<VolumeCover> = emptyList(), volumeCoversHeading: String = "Тома", modifier: Modifier = Modifier) {
     val general = items.filter { it.chapter_id == null }
     val byChapter = items.filter { it.chapter_id != null }.groupBy { it.chapter_id!! }.values
-        .sortedWith(compareBy({ it[0].chapter?.volume_number ?: 0 }, { it[0].chapter?.number ?: 0.0 }))
+        .sortedWith(compareBy({ it[0].chapter?.volume_number ?: 0.0 }, { it[0].chapter?.number ?: 0.0 }))
     val groups = buildList {
         if (general.isNotEmpty()) add(null to general)
         for (g in byChapter) add(chapterLine(g[0], volumeLabel) to g)

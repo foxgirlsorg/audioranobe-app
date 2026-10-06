@@ -192,7 +192,7 @@ fun TitleScreen(slug: String, initialTab: String?) {
     val narrationStatus = listOf("ongoing", "completed", "frozen", "abandoned").firstOrNull { st -> title.narrators.any { it.narration_status == st } } ?: "ongoing"
     val restricted = title.is_restricted
     val illustrations = title.illustrations
-    val volumeCovers = title.volumes.filter { it.cover_url != null }.map { VolumeCover(it.id, it.cover_url!!, it.name.ifBlank { "${title.volume_label} ${it.number}" }) }
+    val volumeCovers = title.volumes.filter { it.cover_url != null }.map { VolumeCover(it.id, it.cover_url!!, it.name.ifBlank { "${title.volume_label} ${it.num}" }) }
     val hasIllustrations = illustrations.isNotEmpty() || volumeCovers.isNotEmpty()
     val commentsTotal = title.comments?.total ?: 0
 
@@ -347,7 +347,7 @@ fun TitleScreen(slug: String, initialTab: String?) {
                             GlassPanel(Modifier.padding(horizontal = 16.dp, vertical = 5.dp), padding = PaddingValues(0.dp)) {
                                 Row(Modifier.fillMaxWidth().clickable { openVols = if (open) openVols - v.id else openVols + v.id }.padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
                                     Column(Modifier.weight(1f)) {
-                                        Row { Text("${title.volume_label} ${v.number}", color = Ar.white, fontSize = 14.sp, fontWeight = FontWeight.SemiBold); if (v.name.isNotBlank()) Text("  ${v.name}", color = Ar.textSecondary, fontSize = 14.sp, maxLines = 1, overflow = TextOverflow.Ellipsis) }
+                                        Row { Text("${title.volume_label} ${v.num}", color = Ar.white, fontSize = 14.sp, fontWeight = FontWeight.SemiBold); if (v.name.isNotBlank()) Text("  ${v.name}", color = Ar.textSecondary, fontSize = 14.sp, maxLines = 1, overflow = TextOverflow.Ellipsis) }
                                         Row(Modifier.padding(top = 2.dp), verticalAlignment = Alignment.CenterVertically) {
                                             Icon(Lucide.ListMusic, null, tint = Ar.textMuted, modifier = Modifier.size(12.dp)); Text(" Глав: ${v.liveChapters.size}", color = Ar.textMuted, fontSize = 12.sp)
                                             val total = volumeDuration(v)
@@ -357,7 +357,7 @@ fun TitleScreen(slug: String, initialTab: String?) {
                                     val volReady = v.liveChapters.filter { it.audio_status == "ready" }
                                     val volManifest = offlineTitles.firstOrNull { it.titleId == title.id }
                                     val volDone = volReady.isNotEmpty() && volReady.all { volManifest?.chapters?.containsKey(it.id) == true }
-                                    if (volReady.isNotEmpty()) IconBtn(if (volDone) Lucide.CircleCheck else Lucide.Download, if (volDone) "Том скачан" else "Скачать том", { if (volDone) OfflineStore.removeVolume(title.id, v) else { dlAsk = DownloadAsk.of(title, volReady.map { it.id }, "${title.volume_label.lowercase()} ${v.number}", "Том ${v.number} добавлен в загрузки") } }, size = 30.dp, iconSize = 14.dp, tint = if (volDone) Ar.accent else Ar.textSecondary)
+                                    if (volReady.isNotEmpty()) IconBtn(if (volDone) Lucide.CircleCheck else Lucide.Download, if (volDone) "Том скачан" else "Скачать том", { if (volDone) OfflineStore.removeVolume(title.id, v) else { dlAsk = DownloadAsk.of(title, volReady.map { it.id }, "${title.volume_label.lowercase()} ${v.num}", "Том ${v.num} добавлен в загрузки") } }, size = 30.dp, iconSize = 14.dp, tint = if (volDone) Ar.accent else Ar.textSecondary)
                                     Chevron(open, 16.dp)
                                 }
                                 AnimatedVisibility(open, enter = expandVertically(tween(350, easing = FastOutSlowInEasing)), exit = shrinkVertically(tween(350, easing = FastOutSlowInEasing))) {
@@ -409,7 +409,7 @@ fun TitleScreen(slug: String, initialTab: String?) {
     }
     DownloadSheet(downloadSheet, { downloadSheet = false }, title, offlineTitles.firstOrNull { it.titleId == title.id }, dlStates)
     DownloadConfirm(dlAsk) { dlAsk = null }
-    ImageViewer(coverViewer, listOfNotNull(title.cover_url) + title.volumes.mapNotNull { it.cover_url }.filter { it != title.cover_url }, 0, listOf(title.name) + title.volumes.filter { it.cover_url != null && it.cover_url != title.cover_url }.map { it.name.ifBlank { "${title.volume_label} ${it.number}" } }) { coverViewer = false }
+    ImageViewer(coverViewer, listOfNotNull(title.cover_url) + title.volumes.mapNotNull { it.cover_url }.filter { it != title.cover_url }, 0, listOf(title.name) + title.volumes.filter { it.cover_url != null && it.cover_url != title.cover_url }.map { it.name.ifBlank { "${title.volume_label} ${it.num}" } }) { coverViewer = false }
 }
 
 @Composable

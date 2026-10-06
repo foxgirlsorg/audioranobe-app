@@ -209,8 +209,8 @@ fun DownloadSheet(open: Boolean, onClose: () -> Unit, title: TitleFull, manifest
             if (ready.isEmpty()) return@forEach
             val vDone = ready.count { manifest?.chapters?.containsKey(it.id) == true }
             val vQueued = ready.count { states[it.id] != null }
-            MenuRow(if (vDone == ready.size) Lucide.CircleCheck else Lucide.Download, "${title.volume_label} ${v.number}" + (if (v.name.isNotBlank()) " — ${v.name}" else ""), {
-                if (vDone == ready.size) OfflineStore.removeVolume(title.id, v) else { ask = DownloadAsk.of(title, ready.map { it.id }, "${title.volume_label.lowercase()} ${v.number}", "Том ${v.number} добавлен в загрузки"); onClose() }
+            MenuRow(if (vDone == ready.size) Lucide.CircleCheck else Lucide.Download, "${title.volume_label} ${v.num}" + (if (v.name.isNotBlank()) " — ${v.name}" else ""), {
+                if (vDone == ready.size) OfflineStore.removeVolume(title.id, v) else { ask = DownloadAsk.of(title, ready.map { it.id }, "${title.volume_label.lowercase()} ${v.num}", "Том ${v.num} добавлен в загрузки"); onClose() }
             }, tint = if (vDone == ready.size) Ar.accent else Ar.textSecondary) {
                 Text(if (vDone == ready.size) "скачан" else if (vQueued > 0) "$vDone/${ready.size} · загрузка" else "$vDone/${ready.size}", color = Ar.textMuted, fontSize = 12.sp)
             }

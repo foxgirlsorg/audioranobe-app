@@ -254,13 +254,14 @@ data class ChapterRow(
 @Serializable
 data class Volume(
     val id: Int,
-    val number: Int = 0,
+    val number: Double = 0.0,
     val name: String = "",
     val cover_url: String? = null,
     val cover_thumb_url: String? = null,
     val chapters: List<ChapterRow> = emptyList(),
 ) {
     val liveChapters get() = chapters.filter { !it.is_deleted }
+    val num get() = org.foxgirls.audioranobe.core.Fmt.trimNum(number)
 }
 
 @Serializable
@@ -317,7 +318,7 @@ data class NarratorFull(
 data class NarratorMember(val user: UserBrief, val role: String = "editor", val created_at: String = "")
 
 @Serializable
-data class IllustrationChapter(val id: Int, val number: Double = 0.0, val number_end: Double? = null, val name: String = "", val volume_number: Int = 0)
+data class IllustrationChapter(val id: Int, val number: Double = 0.0, val number_end: Double? = null, val name: String = "", val volume_number: Double = 0.0)
 
 @Serializable
 data class Illustration(
@@ -400,7 +401,7 @@ data class TitleFull(
 }
 
 @Serializable
-data class ChapterPlayVolume(val id: Int, val number: Int = 0, val name: String = "", val cover_url: String? = null, val cover_thumb_url: String? = null)
+data class ChapterPlayVolume(val id: Int, val number: Double = 0.0, val name: String = "", val cover_url: String? = null, val cover_thumb_url: String? = null)
 
 @Serializable
 data class ChapterPlayTitle(val id: Int, val slug: String = "", val name: String = "", val cover_url: String? = null, val volume_label: String = "Том")

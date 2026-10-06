@@ -42,6 +42,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import org.foxgirls.audioranobe.core.Api
 import org.foxgirls.audioranobe.core.Fmt
+import kotlin.math.floor
 import org.foxgirls.audioranobe.data.ChapterRow
 import org.foxgirls.audioranobe.data.JobsPage
 import org.foxgirls.audioranobe.data.LocalAuth
@@ -261,7 +262,7 @@ fun TitleContentManager(title: TitleFull, reload: suspend () -> Unit) {
                 else Spacer(Modifier.width(10.dp))
                 Column(Modifier.weight(1f)) {
                     Row(verticalAlignment = Alignment.CenterVertically) {
-                        Text("${title.volume_label} ${v.number}", color = Ar.text, fontSize = 15.sp, fontWeight = FontWeight.SemiBold)
+                        Text("${title.volume_label} ${v.num}", color = Ar.text, fontSize = 15.sp, fontWeight = FontWeight.SemiBold)
                         if (v.name.isNotBlank()) Text("  ${v.name}", color = Ar.textSecondary, fontSize = 13.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
                     }
                     Text(
@@ -387,7 +388,7 @@ fun TitleContentManager(title: TitleFull, reload: suspend () -> Unit) {
     ConfirmDialog(volumeToDelete != null, { volumeToDelete = null }, onConfirm = {
         val v = volumeToDelete ?: return@ConfirmDialog
         scope.launch { try { Api.delete<Unit>("/panel/volumes/${v.id}"); toast("Том удалён"); volumeToDelete = null; reload() } catch (e: Exception) { toastError(e) } }
-    }, title = "Удалить том", body = "Удалить том ${volumeToDelete?.number}${volumeToDelete?.name?.takeIf { it.isNotBlank() }?.let { " ($it)" } ?: ""}? Тома с главами удалить нельзя.", danger = true, confirmLabel = "Удалить")
+    }, title = "Удалить том", body = "Удалить том ${volumeToDelete?.num}${volumeToDelete?.name?.takeIf { it.isNotBlank() }?.let { " ($it)" } ?: ""}? Тома с главами удалить нельзя.", danger = true, confirmLabel = "Удалить")
 
     addChapterVol?.let { v -> ChapterDialog(title, v, null, currentVersion, onClose = { addChapterVol = null }, reload = reload, loadJobs = ::loadJobs) }
     editingChapter?.let { c -> ChapterDialog(title, title.volumes.firstOrNull { it.id == c.volume_id } ?: title.volumes.first(), c, currentVersion, onClose = { editingChapter = null }, reload = reload, loadJobs = ::loadJobs) }
@@ -434,7 +435,7 @@ fun TitleContentManager(title: TitleFull, reload: suspend () -> Unit) {
         var narrIds by remember { mutableStateOf<List<Int>>(emptyList()) }
         ArModal(true, { bulkEditOpen = false }, "Изменить выбранные главы") {
             Text("Изменения применятся к выбранным главам (${selected.size}) одним запросом.", color = Ar.textSecondary, fontSize = 13.sp, modifier = Modifier.padding(bottom = 10.dp))
-            if (!isAlt) SelectMenu(volumeId, listOf(SelectOption<Int?>(null, "— не менять —")) + title.volumes.map { SelectOption<Int?>(it.id, "${title.volume_label} ${it.number}" + (if (it.name.isNotBlank()) " — ${it.name}" else "")) }, { volumeId = it }, label = "Переместить в том")
+            if (!isAlt) SelectMenu(volumeId, listOf(SelectOption<Int?>(null, "— не менять —")) + title.volumes.map { SelectOption<Int?>(it.id, "${title.volume_label} ${it.num}" + (if (it.name.isNotBlank()) " — ${it.name}" else "")) }, { volumeId = it }, label = "Переместить в том")
             if (title.narrators.isNotEmpty()) {
                 Spacer(Modifier.height(10.dp))
                 ArToggle(changeNarr, { changeNarr = it }, "Изменить чтецов", "Заменит список чтецов у выбранных глав")
@@ -469,7 +470,7 @@ fun TitleContentManager(title: TitleFull, reload: suspend () -> Unit) {
             Text(
                 (when {
                     ids != null -> "Решение применится к выбранным главам (${ids.size}) — в том числе к уже рассмотренным."
-                    volume != null -> "Решение применится ко всем главам тома ${volume.number}, ожидающим проверки (${pendingIn(volume)})."
+                    volume != null -> "Решение применится ко всем главам тома ${volume.num}, ожидающим проверки (${pendingIn(volume)})."
                     else -> "Решение применится ко всем главам тайтла, ожидающим проверки ($pendingTotal)."
                 }) + if (decision == "approve") " Одобренные главы появятся на странице тайтла, как только их аудио будет сконвертировано." else " Отклонённые главы останутся скрытыми, а загрузивший получит уведомление с причиной.",
                 color = Ar.textSecondary, fontSize = 13.sp, lineHeight = 18.sp, modifier = Modifier.padding(bottom = 10.dp),
@@ -502,19 +503,19 @@ fun TitleContentManager(title: TitleFull, reload: suspend () -> Unit) {
 
 @Composable
 private fun VolumeDialog(title: TitleFull, existing: Volume?, onClose: () -> Unit, reload: suspend () -> Unit) {
-    var number by remember { mutableStateOf(existing?.number?.toString() ?: ((title.volumes.maxOfOrNull { it.number } ?: 0) + 1).toString()) }
+    var number by remember { mutableStateOf(existing?.num ?: Fmt.trimNum(floor(title.volumes.maxOfOrNull { it.number } ?: 0.0) + 1)) }
     var name by remember { mutableStateOf(existing?.name ?: "") }
     var busy by remember { mutableStateOf(false) }
     val scope = rememberCoroutineScope()
-    ArModal(true, onClose, if (existing == null) "Новый том" else "Том ${existing.number}") {
-        ArTextField(number, { number = it }, label = "Номер", keyboardType = KeyboardType.Number)
+    ArModal(true, onClose, if (existing == null) "Новый том" else "Том ${existing.num}") {
+        ArTextField(number, { number = it }, label = "Номер", keyboardType = KeyboardType.Decimal)
         Spacer(Modifier.height(10.dp))
         ArTextField(name, { name = it }, label = "Название (необязательно)", maxLength = 200, placeholder = "Часть первая")
         Row(Modifier.fillMaxWidth().padding(top = 12.dp), horizontalArrangement = Arrangement.End) {
             ArButton("Отмена", onClose, kind = ButtonKind.Ghost)
             Spacer(Modifier.width(8.dp))
             ArButton(if (existing == null) "Добавить" else "Сохранить", kind = ButtonKind.Primary, busy = busy, onClick = {
-                val n = number.trim().toIntOrNull()
+                val n = number.trim().replace(',', '.').toDoubleOrNull()
                 if (n == null || n < 0) { toastError("Номер тома должен быть числом не меньше 0"); return@ArButton }
                 busy = true
                 scope.launch {
@@ -548,7 +549,7 @@ private fun ChapterDialog(title: TitleFull, volume: Volume, existing: ChapterRow
     var busy by remember { mutableStateOf(false) }
     val picker = rememberFilePicker(AUDIO_MIME) { uri -> val f = context.describeFile(uri); validAudio(f)?.let { toastError(it) } ?: run { file = f } }
 
-    ArModal(true, onClose, if (existing == null) "Новая глава — ${title.volume_label} ${volume.number}" else "Редактировать главу") {
+    ArModal(true, onClose, if (existing == null) "Новая глава — ${title.volume_label} ${volume.num}" else "Редактировать главу") {
         Row(verticalAlignment = Alignment.Bottom) {
             ArTextField(number, { number = it }, Modifier.weight(1f), label = if (range) "С главы" else "Номер главы", hint = if (!range) "Может быть дробным: 4.1 встанет между 4 и 5" else null, keyboardType = KeyboardType.Decimal)
             if (isMod && range) {
@@ -634,7 +635,7 @@ private fun BulkUploadPanel(title: TitleFull, versionId: Int, reload: suspend ()
     FieldLabel("Массовая загрузка", modifier = Modifier.padding(top = 16.dp))
     GlassPanel(Modifier.fillMaxWidth()) {
         Text("Файлы сортируются по имени и добавляются в выбранный том одной пачкой. Названия глав по умолчанию не задаются — главы показываются как «Глава N».", color = Ar.textMuted, fontSize = 12.sp, lineHeight = 16.sp, modifier = Modifier.padding(bottom = 10.dp))
-        SelectMenu(volumeId, title.volumes.map { SelectOption<Int?>(it.id, "${title.volume_label} ${it.number}" + (if (it.name.isNotBlank()) " — ${it.name}" else "")) }, { volumeId = it }, label = "Целевой том", placeholder = "Томов пока нет", enabled = title.volumes.isNotEmpty())
+        SelectMenu(volumeId, title.volumes.map { SelectOption<Int?>(it.id, "${title.volume_label} ${it.num}" + (if (it.name.isNotBlank()) " — ${it.name}" else "")) }, { volumeId = it }, label = "Целевой том", placeholder = "Томов пока нет", enabled = title.volumes.isNotEmpty())
         Spacer(Modifier.height(10.dp))
         ArTextField(start, { start = it }, label = "Начать с главы (${target?.let { v -> liveChapters(v).size.takeIf { it > 0 }?.let { "сейчас $it" } } ?: "том пуст"})", placeholder = target?.let { fmtNum(nextNumberIn(it)) } ?: "1", keyboardType = KeyboardType.Decimal)
         if (title.narrators.isNotEmpty()) { Spacer(Modifier.height(10.dp)); ChapterNarratorPicker(title.narrators, narratorIds, { narratorIds = it }, label = "Чтецы этих глав (обязательно)") }

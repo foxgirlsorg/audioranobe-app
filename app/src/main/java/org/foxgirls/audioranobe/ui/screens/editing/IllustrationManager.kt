@@ -75,7 +75,7 @@ fun IllustrationManager(title: TitleFull) {
     var busy by remember { mutableStateOf<Int?>(null) }
     LaunchedEffect(targetVol) { targetChap = null }
 
-    val volOptions = title.volumes.map { SelectOption<Int?>(it.id, "${title.volume_label} ${it.number}") }
+    val volOptions = title.volumes.map { SelectOption<Int?>(it.id, "${title.volume_label} ${it.num}") }
     fun chapOptions(volId: Int?) = title.volumes.firstOrNull { it.id == volId }?.chapters?.filter { !it.is_deleted }?.map { SelectOption<Int?>(it.id, Fmt.chapterNumber(it.number, it.number_end)) } ?: emptyList()
     val volumeOfChapter = remember(title.volumes) { title.volumes.flatMap { v -> v.chapters.map { it.id to v.id } }.toMap() }
 
@@ -116,7 +116,7 @@ fun IllustrationManager(title: TitleFull) {
             volumeCovers.forEach { v ->
                 Column(Modifier.weight(1f)) {
                     ArImage(v.cover_thumb_url ?: v.cover_url, Modifier.fillMaxWidth().aspectRatio(2f / 3f), shape = RoundedCornerShape(8.dp))
-                    Text(v.name.ifBlank { "${title.volume_label} ${v.number}" }, color = Ar.textMuted, fontSize = 11.sp, modifier = Modifier.padding(top = 4.dp))
+                    Text(v.name.ifBlank { "${title.volume_label} ${v.num}" }, color = Ar.textMuted, fontSize = 11.sp, modifier = Modifier.padding(top = 4.dp))
                 }
             }
         }

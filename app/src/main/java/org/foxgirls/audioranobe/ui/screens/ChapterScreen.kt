@@ -89,7 +89,7 @@ fun ChapterScreen(id: Int, startAt: Double?) {
     val dur = if (isCurrent && liveDur > 0) liveDur else ch.duration_seconds
     val pct = if (dur > 0) (pos / dur).toFloat().coerceIn(0f, 1f) else 0f
     val chapterLabel = ch.name.ifBlank { "Глава ${Fmt.trimNum(ch.number)}" }
-    val volumeLabel = "${ch.title.volume_label} ${ch.volume.number}" + (if (ch.volume.name.isNotBlank()) " — ${ch.volume.name}" else "")
+    val volumeLabel = "${ch.title.volume_label} ${Fmt.trimNum(ch.volume.number)}" + (if (ch.volume.name.isNotBlank()) " — ${ch.volume.name}" else "")
 
     Box(Modifier.fillMaxSize()) {
         ArImage(ch.title.cover_url, Modifier.fillMaxWidth().height(320.dp), contentScale = ContentScale.Crop, backdrop = true)

@@ -90,7 +90,7 @@ fun FullPlayer() {
 
     val shown = scrub?.toDouble() ?: position
     val max = if (duration > 0) duration else maxOf(shown, 1.0)
-    val chapterLabel = "${cur.title.volume_label} ${cur.volume.number} · Гл. ${Fmt.chapterNumber(cur.number, cur.number_end)}" + (if (cur.name.isNotBlank()) " — ${cur.name}" else "")
+    val chapterLabel = "${cur.title.volume_label} ${Fmt.trimNum(cur.volume.number)} · Гл. ${Fmt.chapterNumber(cur.number, cur.number_end)}" + (if (cur.name.isNotBlank()) " — ${cur.name}" else "")
     val revealed = duration > 0 && position >= duration / 2
 
     Box(Modifier.fillMaxSize().swipeDownToDismiss { PlayerController.setFull(false) }.background(Ar.bg)) {
