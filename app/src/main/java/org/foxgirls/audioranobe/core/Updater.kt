@@ -13,8 +13,9 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
-import kotlinx.serialization.Serializable
+import android.util.Xml
 import okhttp3.Request
+import org.xmlpull.v1.XmlPullParser
 import org.foxgirls.audioranobe.BuildConfig
 import org.foxgirls.audioranobe.data.Stores
 import java.io.File
@@ -39,28 +40,15 @@ sealed class UpdateDownload {
     data class Failed(val message: String) : UpdateDownload()
 }
 
-@Serializable
-private data class GhAsset(val name: String = "", val browser_download_url: String = "", val size: Long = 0, val content_type: String = "")
-
-@Serializable
-private data class GhRelease(
-    val tag_name: String = "",
-    val name: String? = null,
-    val body: String? = null,
-    val html_url: String = "",
-    val draft: Boolean = false,
-    val prerelease: Boolean = false,
-    val published_at: String? = null,
-    val assets: List<GhAsset> = emptyList(),
-)
-
 /**
  * Simple OTA: polls the GitHub Releases of [BuildConfig.UPDATE_REPO] (set at build time, never
  * hard-coded here), compares the newest tag with the running version and, on request, downloads the
  * APK asset and hands it to the system package installer.
  *
- * No token is needed: releases of a public repository are readable anonymously, and the rate limit
- * (60 requests/hour per IP) is far above the one check per app start we do.
+ * Reads the public releases feed (github.com/<repo>/releases.atom), not the REST API: the API's
+ * anonymous limit is 60 requests/hour per IP, which a carrier's shared IP exhausts and answers 403.
+ * The APK name is fixed by .github/workflows/release.yml (audioranobe-<tag>.apk); a HEAD request
+ * on it gives the size and confirms CI has finished uploading it.
  */
 object Updater {
     private const val CHECK_INTERVAL_MS = 6 * 60 * 60 * 1000L
@@ -126,29 +114,67 @@ object Updater {
         }
     }
 
+    private class FeedEntry(val tag: String, val pageUrl: String, val notesHtml: String, val updated: String)
+
     private suspend fun fetchLatest(): AppRelease? {
-        val req = Request.Builder()
-            .url("https://api.github.com/repos/$repo/releases?per_page=10")
-            .header("Accept", "application/vnd.github+json")
-            .build()
-        val res = Api.client.newCall(req).await()
+        val res = Api.client.newCall(Request.Builder().url("https://github.com/$repo/releases.atom").build()).await()
         val text = res.body?.string()
-        if (!res.isSuccessful) throw IOException("GitHub ответил ${res.code}")
-        val list = AppJson.decodeFromString(kotlinx.serialization.builtins.ListSerializer(GhRelease.serializer()), text ?: "[]")
-        // Newest published, non-draft, non-prerelease release that ships an APK.
-        val gh = list.firstOrNull { !it.draft && !it.prerelease && it.assets.any { a -> a.name.endsWith(".apk", true) } } ?: return null
-        val apk = gh.assets.first { it.name.endsWith(".apk", true) }
-        return AppRelease(
-            tag = gh.tag_name,
-            version = gh.tag_name.removePrefix("v"),
-            name = gh.name?.takeIf { it.isNotBlank() } ?: gh.tag_name,
-            notes = gh.body.orEmpty(),
-            pageUrl = gh.html_url,
-            apkUrl = apk.browser_download_url,
-            apkBytes = apk.size,
-            publishedAt = gh.published_at.orEmpty(),
-        )
+        if (!res.isSuccessful || text == null) throw IOException("GitHub ответил ${res.code}")
+        // Newest first; a release whose APK isn't uploaded yet (CI still building) is skipped.
+        for (e in parseFeed(text).take(3)) {
+            val apkUrl = "https://github.com/$repo/releases/download/${e.tag}/audioranobe-${e.tag}.apk"
+            val size = apkSize(apkUrl) ?: continue
+            return AppRelease(
+                tag = e.tag,
+                version = e.tag.removePrefix("v"),
+                name = e.tag,
+                notes = htmlToMarkdown(e.notesHtml),
+                pageUrl = e.pageUrl,
+                apkUrl = apkUrl,
+                apkBytes = size,
+                publishedAt = e.updated,
+            )
+        }
+        return null
     }
+
+    private suspend fun apkSize(url: String): Long? {
+        val res = Api.client.newCall(Request.Builder().url(url).head().build()).await()
+        res.close()
+        return if (res.isSuccessful) res.header("Content-Length")?.toLongOrNull() ?: 0L else null
+    }
+
+    private fun parseFeed(xml: String): List<FeedEntry> {
+        val p = Xml.newPullParser()
+        p.setInput(xml.reader())
+        val out = mutableListOf<FeedEntry>()
+        var page = ""; var notes = ""; var updated = ""; var inEntry = false
+        while (p.next() != XmlPullParser.END_DOCUMENT) {
+            if (p.eventType == XmlPullParser.START_TAG) when (p.name) {
+                "entry" -> { inEntry = true; page = ""; notes = ""; updated = "" }
+                "link" -> if (inEntry) page = p.getAttributeValue(null, "href").orEmpty()
+                "content" -> if (inEntry) notes = p.nextText()
+                "updated" -> if (inEntry) updated = p.nextText()
+            } else if (p.eventType == XmlPullParser.END_TAG && p.name == "entry") {
+                inEntry = false
+                val tag = page.substringAfter("/releases/tag/", "")
+                if (tag.isNotBlank()) out += FeedEntry(tag, page, notes, updated)
+            }
+        }
+        return out
+    }
+
+    /** The feed carries GitHub's rendered HTML; the dialog renders Markdown — map the few tags release notes use. */
+    private fun htmlToMarkdown(html: String): String = html
+        .replace(Regex("""<a [^>]*href="([^"]+)"[^>]*>(.*?)</a>""", RegexOption.DOT_MATCHES_ALL)) { "[${it.groupValues[2]}](${it.groupValues[1]})" }
+        .replace(Regex("</?(strong|b)>"), "**")
+        .replace(Regex("<h[1-6][^>]*>"), "\n## ")
+        .replace(Regex("<li[^>]*>"), "\n* ")
+        .replace(Regex("""<br\s*/?>|</p>|</h[1-6]>|</ul>|</ol>"""), "\n")
+        .replace(Regex("<[^>]+>"), "")
+        .replace("&lt;", "<").replace("&gt;", ">").replace("&quot;", "\"").replace("&#39;", "'").replace("&amp;", "&")
+        .replace(Regex("\n{3,}"), "\n\n")
+        .trim()
 
     /** Semantic-ish compare: numeric dot parts first, a pre-release suffix ranks below the plain version. */
     fun isNewer(candidate: String, current: String): Boolean {
