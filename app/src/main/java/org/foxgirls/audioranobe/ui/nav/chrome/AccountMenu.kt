@@ -1,6 +1,8 @@
 package org.foxgirls.audioranobe.ui.nav.chrome
 
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -63,53 +65,55 @@ fun AccountMenuSheet(open: Boolean, onClose: () -> Unit) {
     }
 
     ArSheet(open, onClose) {
-        val u = user
-        if (u != null) {
-            Column(Modifier.padding(horizontal = 12.dp, vertical = 6.dp)) {
-                Eyebrow("вы вошли как")
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Text(u.shownName, color = Ar.white, fontSize = 17.sp, fontWeight = FontWeight.Medium)
-                    Spacer(Modifier.width(6.dp))
-                    UserBadgesRow(u.badges, u.is_banned, 14.dp)
+        Column(Modifier.verticalScroll(rememberScrollState())) {
+            val u = user
+            if (u != null) {
+                Column(Modifier.padding(horizontal = 12.dp, vertical = 6.dp)) {
+                    Eyebrow("вы вошли как")
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Text(u.shownName, color = Ar.white, fontSize = 17.sp, fontWeight = FontWeight.Medium)
+                        Spacer(Modifier.width(6.dp))
+                        UserBadgesRow(u.badges, u.is_banned, 14.dp)
+                    }
+                    if (u.display_name.isNotBlank() && u.display_name != u.username) Text("@${u.username}", color = Ar.textMuted, fontSize = 12.sp)
                 }
-                if (u.display_name.isNotBlank() && u.display_name != u.username) Text("@${u.username}", color = Ar.textMuted, fontSize = 12.sp)
-            }
-            HairlineDivider(Modifier.padding(vertical = 6.dp))
-            MenuRow(Lucide.User, "Профиль", { go(Routes.user(u.id)) })
-            MenuRow(Lucide.Users, "Друзья", { go(Routes.ME_FRIENDS) }, count = badges.friend_requests)
-            MenuRow(Lucide.History, "История", { go(Routes.ME_HISTORY) })
-            MenuRow(Lucide.ClipboardList, "Мои заявки", { go(Routes.ME_REQUESTS) })
-            if (u.isMod) MenuRow(Lucide.Shield, "Модерация", { go(Routes.mod()) })
-            MenuRow(Lucide.Settings, "Настройки", { go(Routes.settings()) })
-            HairlineDivider(Modifier.padding(vertical = 6.dp))
-            MenuRow(Lucide.Library, "Коллекции", { go(Routes.COLLECTIONS) })
-            MenuRow(Lucide.Newspaper, "Новости", { go(Routes.NEWS) })
-            MenuRow(Lucide.Dices, "Случайный тайтл", { random() })
-            MenuRow(Lucide.Ellipsis, "Другое", { go(Routes.OTHER) })
-            HairlineDivider(Modifier.padding(vertical = 6.dp))
-            MenuRow(Lucide.Plus, "Добавить", { addOpen = true })
-            if (myNarrators.isNotEmpty()) {
                 HairlineDivider(Modifier.padding(vertical = 6.dp))
-                for (n in myNarrators) {
-                    MenuRow(null, n.name, { go(Routes.narrator(n.slug)) }) {
-                        if (n.is_verified) VerifiedBadge(size = 13.dp)
+                MenuRow(Lucide.User, "Профиль", { go(Routes.user(u.id)) })
+                MenuRow(Lucide.Users, "Друзья", { go(Routes.ME_FRIENDS) }, count = badges.friend_requests)
+                MenuRow(Lucide.History, "История", { go(Routes.ME_HISTORY) })
+                MenuRow(Lucide.ClipboardList, "Мои заявки", { go(Routes.ME_REQUESTS) })
+                if (u.isMod) MenuRow(Lucide.Shield, "Модерация", { go(Routes.mod()) })
+                MenuRow(Lucide.Settings, "Настройки", { go(Routes.settings()) })
+                HairlineDivider(Modifier.padding(vertical = 6.dp))
+                MenuRow(Lucide.Library, "Коллекции", { go(Routes.COLLECTIONS) })
+                MenuRow(Lucide.Newspaper, "Новости", { go(Routes.NEWS) })
+                MenuRow(Lucide.Dices, "Случайный тайтл", { random() })
+                MenuRow(Lucide.Ellipsis, "Другое", { go(Routes.OTHER) })
+                HairlineDivider(Modifier.padding(vertical = 6.dp))
+                MenuRow(Lucide.Plus, "Добавить", { addOpen = true })
+                if (myNarrators.isNotEmpty()) {
+                    HairlineDivider(Modifier.padding(vertical = 6.dp))
+                    for (n in myNarrators) {
+                        MenuRow(null, n.name, { go(Routes.narrator(n.slug)) }) {
+                            if (n.is_verified) VerifiedBadge(size = 13.dp)
+                        }
                     }
                 }
+                HairlineDivider(Modifier.padding(vertical = 6.dp))
+                MenuRow(Lucide.LogOut, "Выйти", {
+                    onClose(); auth.logout(); toast("Вы вышли из аккаунта"); nav.go(Routes.HOME)
+                })
+            } else {
+                MenuRow(Lucide.Library, "Коллекции", { go(Routes.COLLECTIONS) })
+                MenuRow(Lucide.Newspaper, "Новости", { go(Routes.NEWS) })
+                MenuRow(Lucide.Dices, "Случайный тайтл", { random() })
+                MenuRow(Lucide.Ellipsis, "Другое", { go(Routes.OTHER) })
+                HairlineDivider(Modifier.padding(vertical = 6.dp))
+                MenuRow(Lucide.LogIn, "Войти", { go(Routes.LOGIN) })
+                MenuRow(Lucide.UserPlus, "Регистрация", { go(Routes.REGISTER) })
             }
-            HairlineDivider(Modifier.padding(vertical = 6.dp))
-            MenuRow(Lucide.LogOut, "Выйти", {
-                onClose(); auth.logout(); toast("Вы вышли из аккаунта"); nav.go(Routes.HOME)
-            })
-        } else {
-            MenuRow(Lucide.Library, "Коллекции", { go(Routes.COLLECTIONS) })
-            MenuRow(Lucide.Newspaper, "Новости", { go(Routes.NEWS) })
-            MenuRow(Lucide.Dices, "Случайный тайтл", { random() })
-            MenuRow(Lucide.Ellipsis, "Другое", { go(Routes.OTHER) })
-            HairlineDivider(Modifier.padding(vertical = 6.dp))
-            MenuRow(Lucide.LogIn, "Войти", { go(Routes.LOGIN) })
-            MenuRow(Lucide.UserPlus, "Регистрация", { go(Routes.REGISTER) })
+            Spacer(Modifier.height(4.dp))
         }
-        Spacer(Modifier.height(4.dp))
     }
     AddContentDialog(addOpen) { addOpen = false; onClose() }
 }
