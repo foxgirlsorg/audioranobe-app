@@ -23,6 +23,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0 # full history + tags, for the commit list in the release notes
 
       - uses: actions/setup-java@v5
         with:
@@ -60,9 +62,16 @@ jobs:
           ./gradlew --no-daemon assembleRelease
           cp app/build/outputs/apk/release/app-release.apk "audioranobe-${{ github.ref_name }}.apk"
 
+      - name: Release notes
+        # Commit subjects since the previous tag — the in-app updater shows these.
+        run: |
+          prev=$(git describe --tags --abbrev=0 "${GITHUB_REF_NAME}^" 2>/dev/null || true)
+          git log --no-merges --format='- %s' "${prev:+$prev..}${GITHUB_REF_NAME}" > release-notes.md
+          cat release-notes.md
+
       - name: Publish GitHub Release
         uses: softprops/action-gh-release@v2
         with:
           name: ${{ github.ref_name }}
-          generate_release_notes: true
+          body_path: release-notes.md
           files: audioranobe-${{ github.ref_name }}.apk
