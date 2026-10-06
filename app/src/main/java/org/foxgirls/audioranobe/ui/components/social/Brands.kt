@@ -1,6 +1,8 @@
 package org.foxgirls.audioranobe.ui.components.social
 
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.size
 import androidx.compose.material3.Icon
@@ -14,6 +16,7 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.graphics.vector.PathParser
 import androidx.compose.ui.unit.dp
 import org.foxgirls.audioranobe.ui.components.IconBtn
+import org.foxgirls.audioranobe.ui.components.edgeFade
 import org.foxgirls.audioranobe.ui.icons.Lucide
 import org.foxgirls.audioranobe.ui.nav.Links
 import org.foxgirls.audioranobe.ui.nav.LocalNav
@@ -72,7 +75,7 @@ fun SocialLinks(urls: List<String>, modifier: Modifier = Modifier) {
     val list = urls.filter { it.isNotBlank() }
     if (list.isEmpty()) return
     val nav = LocalNav.current
-    Row(modifier, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+    Row(rememberScrollState().let { modifier.edgeFade(it).horizontalScroll(it) }, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
         for (u in list) {
             val p = Brands.platformOf(Brands.hostOf(u))
             IconBtn(p.icon, p.label, { Links.external(nav.context, u) }, size = 38.dp, iconSize = 18.dp, background = Ar.fill04, border = Ar.border, tint = Ar.textSecondary)
