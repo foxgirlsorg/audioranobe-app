@@ -127,6 +127,7 @@ private fun TitleForm(onDone: () -> Unit, onBack: () -> Unit) {
     var description by remember { mutableStateOf("") }
     var year by remember { mutableStateOf("") }
     var status by remember { mutableStateOf("ongoing") }
+    var country by remember { mutableStateOf<String?>(null) }
     var genreIds by remember { mutableStateOf<List<Int>>(emptyList()) }
     var busy by remember { mutableStateOf(false) }
     var error by remember { mutableStateOf("") }
@@ -155,12 +156,15 @@ private fun TitleForm(onDone: () -> Unit, onBack: () -> Unit) {
         SelectMenu(status, Labels.statusValues.map { SelectOption(it, Labels.releaseStatus[it] ?: it) }, { status = it }, Modifier.weight(1f), label = "Статус тайтла")
     }
     Spacer(Modifier.height(10.dp))
+    SelectMenu(country, Labels.countryValues.map { SelectOption<String?>(it, Labels.country[it] ?: it) }, { country = it }, Modifier.fillMaxWidth(), label = "Страна", placeholder = "Выберите страну")
+    Spacer(Modifier.height(10.dp))
     GenrePicker(genreIds, { genreIds = it }, label = "Теги")
     Spacer(Modifier.height(10.dp))
     MarkdownEditor(description, { description = it }, label = "Описание", maxLength = Limits.titleDescription, placeholder = "О чём эта книга? **Markdown** поддерживается.", slim = true)
     FootRow(onBack, busy, "Создать книгу") {
         if (name.isBlank()) { error = "Укажите название"; return@FootRow }
         if (narratorIds.isEmpty()) { error = "Выберите хотя бы одного чтеца"; return@FootRow }
+        if (country == null) { error = "Выберите страну"; return@FootRow }
         error = ""; busy = true
         scope.launch {
             try {
@@ -172,6 +176,7 @@ private fun TitleForm(onDone: () -> Unit, onBack: () -> Unit) {
                     put("description", description)
                     put("year", year.trim().toIntOrNull()?.let { JsonPrimitive(it) } ?: JsonNull)
                     put("release_status", status)
+                    put("country", country)
                     put("genre_ids", buildJsonArray { genreIds.forEach { add(JsonPrimitive(it)) } })
                 })
                 toast(if (res.applied) "Книга создана" else "Книга отправлена на модерацию")
