@@ -37,6 +37,8 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
+import org.foxgirls.audioranobe.ui.components.rememberCached
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -152,34 +154,34 @@ fun CatalogScreen(args: Bundle?) {
     val bottom = LocalBottomInset.current
     val scope = rememberCoroutineScope()
 
-    var tab by remember { mutableStateOf(args?.getString("tab")?.takeIf { it == "narrators" || it == "users" } ?: "titles") }
-    var q by remember { mutableStateOf(args?.getString("q") ?: "") }
-    var genreSlugs by remember { mutableStateOf(args?.getString("genre")?.split(',')?.filter { it.isNotBlank() } ?: emptyList()) }
-    var author by remember { mutableStateOf(args?.getString("author") ?: "") }
-    var yearFrom by remember { mutableStateOf("") }
-    var yearTo by remember { mutableStateOf("") }
-    var status by remember { mutableStateOf("") }
-    var country by remember { mutableStateOf("") }
-    var showAi by remember { mutableStateOf(true) }
-    var nsfw by remember { mutableStateOf<Boolean?>(null) }
-    var sort by remember { mutableStateOf(args?.getString("sort") ?: "popular") }
-    var order by remember { mutableStateOf(if (args?.getString("order") == "asc") "asc" else "desc") }
-    var finished by remember { mutableStateOf(args?.getString("finished") == "1") }
-    var page by remember { mutableIntStateOf(1) }
+    var tab by rememberSaveable { mutableStateOf(args?.getString("tab")?.takeIf { it == "narrators" || it == "users" } ?: "titles") }
+    var q by rememberSaveable { mutableStateOf(args?.getString("q") ?: "") }
+    var genreSlugs by rememberSaveable { mutableStateOf(args?.getString("genre")?.split(',')?.filter { it.isNotBlank() } ?: emptyList()) }
+    var author by rememberSaveable { mutableStateOf(args?.getString("author") ?: "") }
+    var yearFrom by rememberSaveable { mutableStateOf("") }
+    var yearTo by rememberSaveable { mutableStateOf("") }
+    var status by rememberSaveable { mutableStateOf("") }
+    var country by rememberSaveable { mutableStateOf("") }
+    var showAi by rememberSaveable { mutableStateOf(true) }
+    var nsfw by rememberSaveable { mutableStateOf<Boolean?>(null) }
+    var sort by rememberSaveable { mutableStateOf(args?.getString("sort") ?: "popular") }
+    var order by rememberSaveable { mutableStateOf(if (args?.getString("order") == "asc") "asc" else "desc") }
+    var finished by rememberSaveable { mutableStateOf(args?.getString("finished") == "1") }
+    var page by rememberSaveable { mutableIntStateOf(1) }
     var sheet by remember { mutableStateOf(false) }
     var userHideNsfw by remember { mutableStateOf(true) }
 
-    var genres by remember { mutableStateOf<List<Genre>>(emptyList()) }
-    var data by remember { mutableStateOf<Paginated<TitleCard>?>(null) }
-    var narrators by remember { mutableStateOf<Paginated<NarratorCard>?>(null) }
-    var users by remember { mutableStateOf<List<UserSearchHit>?>(null) }
+    var genres by rememberCached("genres") { mutableStateOf<List<Genre>>(emptyList()) }
+    var data by rememberCached("data") { mutableStateOf<Paginated<TitleCard>?>(null) }
+    var narrators by rememberCached("narrators") { mutableStateOf<Paginated<NarratorCard>?>(null) }
+    var users by rememberCached("users") { mutableStateOf<List<UserSearchHit>?>(null) }
     var loading by remember { mutableStateOf(true) }
     var error by remember { mutableStateOf<String?>(null) }
     var nonce by remember { mutableIntStateOf(0) }
-    var debouncedQ by remember { mutableStateOf(q) }
+    var debouncedQ by rememberSaveable { mutableStateOf(q) }
     val gridState = rememberLazyGridState()
 
-    LaunchedEffect(Unit) { genres = runCatching { Api.get<Paginated<Genre>>("/genres", mapOf("per_page" to 500)).items }.getOrDefault(emptyList()) }
+    LaunchedEffect(Unit) { if (genres.isEmpty()) genres = runCatching { Api.get<Paginated<Genre>>("/genres", mapOf("per_page" to 500)).items }.getOrDefault(emptyList()) }
     LaunchedEffect(user?.id) { if (user != null) userHideNsfw = runCatching { Api.get<Me>("/me").content_prefs?.hide_nsfw ?: true }.getOrDefault(true) else userHideNsfw = true }
     LaunchedEffect(q) { delay(450); if (debouncedQ != q) { debouncedQ = q; page = 1 } }
     val show18 = nsfw ?: !userHideNsfw

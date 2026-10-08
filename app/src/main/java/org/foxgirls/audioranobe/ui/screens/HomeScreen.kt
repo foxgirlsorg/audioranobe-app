@@ -45,6 +45,8 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
+import org.foxgirls.audioranobe.ui.components.rememberCached
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -117,10 +119,10 @@ fun HomeScreen() {
     val bottom = LocalBottomInset.current
 
     // Catalog block state (components/CatalogGrid)
-    var sort by remember { mutableStateOf("updated") }
-    var asc by remember { mutableStateOf(false) }
-    var finished by remember { mutableStateOf(false) }
-    var catalog by remember { mutableStateOf<Paginated<TitleCard>?>(null) }
+    var sort by rememberSaveable { mutableStateOf("updated") }
+    var asc by rememberSaveable { mutableStateOf(false) }
+    var finished by rememberSaveable { mutableStateOf(false) }
+    var catalog by rememberCached("catalog") { mutableStateOf<Paginated<TitleCard>?>(null) }
     var catalogLoading by remember { mutableStateOf(false) }
     var catalogError by remember { mutableStateOf("") }
     var catalogNonce by remember { mutableStateOf(0) }

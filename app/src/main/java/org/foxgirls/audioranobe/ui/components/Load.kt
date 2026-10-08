@@ -10,12 +10,15 @@ import androidx.compose.runtime.State
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.currentCompositeKeyHash
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
+import androidx.lifecycle.ViewModel
+import androidx.lifecycle.viewmodel.compose.viewModel
 import org.foxgirls.audioranobe.core.ApiError
 import org.foxgirls.audioranobe.core.msg
 import org.foxgirls.audioranobe.data.Paginated
@@ -32,6 +35,7 @@ sealed class Load<out T> {
 class Loader<T>(initial: Load<T> = Load.Loading) {
     var state: Load<T> by mutableStateOf(initial)
     var nonce by mutableIntStateOf(0)
+    var fetchedNonce = -1
     val data: T? get() = (state as? Load.Ok<T>)?.data
 
     fun reload() { nonce++ }
@@ -39,14 +43,29 @@ class Loader<T>(initial: Load<T> = Load.Loading) {
     fun update(f: (T) -> T) { data?.let { state = Load.Ok(f(it)) } }
 }
 
+/** Per-back-stack-entry store: loaders/lists outlive the composition so popping back restores the screen as it was. */
+class ScreenCache : ViewModel() {
+    val map = HashMap<Any, Any>()
+}
+
+@Composable
+fun <V : Any> rememberCached(vararg key: Any?, create: () -> V): V {
+    val cache = viewModel<ScreenCache>()
+    val id = listOf(currentCompositeKeyHash, *key)
+    @Suppress("UNCHECKED_CAST")
+    return cache.map.getOrPut(id) { create() } as V
+}
+
 /** Runs [fetch] when [key] changes (and on reload), storing the result. */
 @Composable
 fun <T> rememberLoader(vararg key: Any?, keepOnReload: Boolean = false, fetch: suspend () -> T): Loader<T> {
-    val loader = remember(*key) { Loader<T>() }
+    val loader = rememberCached(*key) { Loader<T>() }
     LaunchedEffect(loader, loader.nonce) {
-        if (!keepOnReload || loader.data == null) loader.state = Load.Loading
+        val revisit = loader.data != null && loader.fetchedNonce == loader.nonce
+        if (!revisit && (!keepOnReload || loader.data == null)) loader.state = Load.Loading
         try {
             loader.state = Load.Ok(fetch())
+            loader.fetchedNonce = loader.nonce
         } catch (e: CancellationException) {
             throw e
         } catch (e: Exception) {
@@ -136,8 +155,8 @@ class PagedList<T>(private val fetch: suspend (page: Int) -> Paginated<T>) {
 
 @Composable
 fun <T> rememberPagedList(vararg key: Any?, fetch: suspend (page: Int) -> Paginated<T>): PagedList<T> {
-    val list = remember(*key) { PagedList(fetch) }
-    LaunchedEffect(list) { list.load() }
+    val list = rememberCached(*key) { PagedList(fetch) }
+    LaunchedEffect(list) { if (list.items == null) list.load() }
     return list
 }
 

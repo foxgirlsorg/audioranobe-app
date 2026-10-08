@@ -47,6 +47,8 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.ui.unit.Constraints
+import androidx.compose.ui.layout.Layout
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -387,15 +389,45 @@ private fun Bubble(m: ChatMessage, t: ChatThread, highlighted: Boolean, onLongPr
                 Spacer(Modifier.height(4.dp))
             }
             if (m.image_url.isNotBlank()) { ArImage(m.image_url, Modifier.fillMaxWidth().height(180.dp).clickable { onImage(m.image_url) }, shape = RoundedCornerShape(8.dp)); Spacer(Modifier.height(4.dp)) }
+            val meta: @Composable () -> Unit = {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    if (m.edited) { Icon(Lucide.Pencil, "изменено", tint = Ar.textMuted, modifier = Modifier.size(9.dp)); Spacer(Modifier.width(3.dp)) }
+                    Text(Fmt.time(m.created_at), color = Ar.textMuted, fontSize = 10.sp)
+                    if (m.mine) { Spacer(Modifier.width(3.dp)); Icon(if (read) Lucide.CheckCheck else Lucide.Check, null, tint = if (read) Ar.accent else Ar.textMuted, modifier = Modifier.size(12.dp)) }
+                }
+            }
             if (m.body.isNotBlank()) {
-                if (m.format == "rich") ArMarkdown(m.body, compact = true)
-                else LinkifiedText(m.body) { Links.open(nav, it) }
-            }
-            Row(Modifier.align(Alignment.End).padding(top = 2.dp), verticalAlignment = Alignment.CenterVertically) {
-                if (m.edited) { Icon(Lucide.Pencil, "изменено", tint = Ar.textMuted, modifier = Modifier.size(9.dp)); Spacer(Modifier.width(3.dp)) }
-                Text(Fmt.time(m.created_at), color = Ar.textMuted, fontSize = 10.sp)
-                if (m.mine) { Spacer(Modifier.width(3.dp)); Icon(if (read) Lucide.CheckCheck else Lucide.Check, null, tint = if (read) Ar.accent else Ar.textMuted, modifier = Modifier.size(12.dp)) }
-            }
+                var lastLine by remember(m.body) { mutableStateOf(-1) }
+                val shortMd = m.format == "rich" && m.body.length <= 28 && !m.body.contains('\n')
+                MetaFlow(
+                    inlineOk = m.format != "rich" || shortMd,
+                    lastLineWidth = if (m.format == "rich") -1 else lastLine,
+                    meta = meta,
+                ) {
+                    if (m.format == "rich") ArMarkdown(m.body, compact = true)
+                    else LinkifiedText(m.body, onLastLine = { lastLine = it }) { Links.open(nav, it) }
+                }
+            } else Box(Modifier.align(Alignment.End).padding(top = 2.dp)) { meta() }
+        }
+    }
+}
+
+/** Body with the time riding its last line when it fits (like the site), otherwise on its own line below. */
+@Composable
+private fun MetaFlow(inlineOk: Boolean, lastLineWidth: Int, meta: @Composable () -> Unit, body: @Composable () -> Unit) {
+    Layout({ Box { body() }; Box { meta() } }) { (bm, mm), c ->
+        val gap = 6.dp.roundToPx()
+        val m = mm.measure(Constraints())
+        val b = bm.measure(c.copy(minWidth = 0, minHeight = 0))
+        val known = lastLineWidth >= 0
+        val inline = inlineOk && (if (known) lastLineWidth + gap + m.width <= c.maxWidth else b.height <= 24.dp.roundToPx())
+        val last = if (known) lastLineWidth else 0
+        if (inline) {
+            val w = maxOf(b.width, last + gap + m.width)
+            layout(w, b.height) { b.place(0, 0); m.place(w - m.width, b.height - m.height - 1.dp.roundToPx()) }
+        } else {
+            val w = maxOf(b.width, m.width)
+            layout(w, b.height + m.height + 2.dp.roundToPx()) { b.place(0, 0); m.place(w - m.width, b.height + 2.dp.roundToPx()) }
         }
     }
 }
@@ -404,7 +436,7 @@ private val URL_RE = Regex("https?://[^\\s<]+")
 
 /** Plain-text message body with bare URLs made tappable. */
 @Composable
-fun LinkifiedText(body: String, onLink: (String) -> Unit) {
+fun LinkifiedText(body: String, onLastLine: ((Int) -> Unit)? = null, onLink: (String) -> Unit) {
     val annotated = remember(body) {
         androidx.compose.ui.text.buildAnnotatedString {
             var last = 0
@@ -420,7 +452,7 @@ fun LinkifiedText(body: String, onLink: (String) -> Unit) {
             if (last < body.length) append(body.substring(last))
         }
     }
-    Text(annotated, color = Ar.text, fontSize = 14.sp, lineHeight = 19.sp)
+    Text(annotated, color = Ar.text, fontSize = 14.sp, lineHeight = 19.sp, onTextLayout = { r -> onLastLine?.invoke(kotlin.math.ceil(r.getLineRight(r.lineCount - 1)).toInt()) })
 }
 
 /** Pop-in for a chat bubble; lives outside any Column/Row scope so the plain [AnimatedVisibility] overload is used. */
