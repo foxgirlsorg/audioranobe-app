@@ -34,12 +34,18 @@ class AppNav(val controller: NavHostController, val context: Context, val home: 
         if (!controller.popBackStack()) go(home)
     }
 
-    /** Switches to a dock tab: always lands on the tab's root, whatever screen is open. */
+    /** Switches to a dock tab and lands on its root. Home clears the stack; other tabs keep the history under them, so back returns to where you came from. */
     fun tab(route: String) = safely {
-        controller.navigate(route) {
-            popUpTo(home) { inclusive = false }
-            launchSingleTop = true
+        if (route == home) {
+            controller.navigate(route) {
+                popUpTo(home) { inclusive = false }
+                launchSingleTop = true
+            }
+            return@safely
         }
+        val base = route.substringBefore('?')
+        controller.graph.firstOrNull { it.route?.substringBefore('?') == base }?.route?.let { controller.popBackStack(it, inclusive = true) }
+        controller.navigate(route) { launchSingleTop = true }
     }
 
     /** Opens a site path or absolute URL: in-app when known, otherwise in a Custom Tab. */
