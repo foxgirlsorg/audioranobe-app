@@ -328,16 +328,16 @@ private fun NestedComment(
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     val u = comment.user
                     if (n != null) {
-                        Text(n.name, color = Ar.text, fontSize = 13.sp, fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f, fill = false).clickable { nav.go(Routes.narrator(n.slug)) })
+                        Text(n.name, color = Ar.text, fontSize = 13.sp, lineHeight = 16.sp, fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f, fill = false).clickable { nav.go(Routes.narrator(n.slug)) })
                         if (n.is_verified) { Spacer(Modifier.width(4.dp)); VerifiedBadge(size = 11.dp) }
-                    } else if (u != null) Text(u.shownName, color = Ar.text, fontSize = 13.sp, fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.clickable { nav.go(Routes.user(u.username)) })
-                    else Text("удалённый пользователь", color = Ar.textMuted, fontSize = 13.sp)
+                    } else if (u != null) Text(u.shownName, color = Ar.text, fontSize = 13.sp, lineHeight = 16.sp, fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.clickable { nav.go(Routes.user(u.username)) })
+                    else Text("удалённый пользователь", color = Ar.textMuted, fontSize = 13.sp, lineHeight = 16.sp)
                     if (u != null) { Spacer(Modifier.width(4.dp)); UserBadgesRow(u.badges, u.is_banned, 13.dp) }
                 }
                 Row {
-                    if (n != null) Text("чтец · ", color = Ar.textMuted, fontSize = 11.sp)
-                    Text(Fmt.timeAgoShort(comment.created_at), color = Ar.textMuted, fontSize = 11.sp)
-                    if (comment.updated_at != null && !comment.is_deleted) Text("  · ${if (comment.edited_by_staff) "изменено модерацией" else "изменено"}", color = Ar.textMuted, fontSize = 11.sp)
+                    if (n != null) Text("чтец · ", color = Ar.textMuted, fontSize = 11.sp, lineHeight = 14.sp)
+                    Text(Fmt.timeAgoShort(comment.created_at), color = Ar.textMuted, fontSize = 11.sp, lineHeight = 14.sp)
+                    if (comment.updated_at != null && !comment.is_deleted) Text("  · ${if (comment.edited_by_staff) "изменено модерацией" else "изменено"}", color = Ar.textMuted, fontSize = 11.sp, lineHeight = 14.sp)
                 }
             }
         }
