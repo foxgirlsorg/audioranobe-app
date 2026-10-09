@@ -276,9 +276,9 @@ private fun Thread(userId: Int) {
             if (t != null) Row(Modifier.weight(1f).clickable { nav.go(Routes.user(t.user.id)) }, verticalAlignment = Alignment.CenterVertically) {
                 UserAvatar(t.user.username, t.user.avatar_url, 38.dp, presence = t.user.presence, thumbUrl = t.user.avatar_thumb_url)
                 Spacer(Modifier.width(10.dp))
-                Column {
-                    Row(verticalAlignment = Alignment.CenterVertically) { Text(t.user.shownName, color = Ar.text, fontSize = 15.sp, fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis); Spacer(Modifier.width(4.dp)); UserBadgesRow(t.user.badges, t.user.is_banned, 13.dp) }
-                    Text(Fmt.presenceLabelCompact(t.user.presence, t.user.last_seen_at), color = if (t.user.presence == "online") Ar.ok else Ar.textMuted, fontSize = 11.sp)
+                Column(verticalArrangement = Arrangement.Center) {
+                    Row(verticalAlignment = Alignment.CenterVertically) { Text(t.user.shownName, color = Ar.text, fontSize = 15.sp, lineHeight = 18.sp, fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis); Spacer(Modifier.width(4.dp)); UserBadgesRow(t.user.badges, t.user.is_banned, 13.dp) }
+                    Text(Fmt.presenceLabelCompact(t.user.presence, t.user.last_seen_at), color = if (t.user.presence == "online") Ar.ok else Ar.textMuted, fontSize = 11.sp, lineHeight = 14.sp)
                 }
             }
         }
@@ -392,7 +392,7 @@ private fun Bubble(m: ChatMessage, t: ChatThread, highlighted: Boolean, onLongPr
             val meta: @Composable () -> Unit = {
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     if (m.edited) { Icon(Lucide.Pencil, "изменено", tint = Ar.textMuted, modifier = Modifier.size(9.dp)); Spacer(Modifier.width(3.dp)) }
-                    Text(Fmt.time(m.created_at), color = Ar.textMuted, fontSize = 10.sp)
+                    Text(Fmt.time(m.created_at), color = Ar.textMuted, fontSize = 10.sp, lineHeight = 12.sp)
                     if (m.mine) { Spacer(Modifier.width(3.dp)); Icon(if (read) Lucide.CheckCheck else Lucide.Check, null, tint = if (read) Ar.accent else Ar.textMuted, modifier = Modifier.size(12.dp)) }
                 }
             }
