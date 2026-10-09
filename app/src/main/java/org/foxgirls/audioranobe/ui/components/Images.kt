@@ -8,6 +8,7 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.offset
+import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material3.Icon
@@ -98,10 +99,11 @@ private object SoftBlur : Transformation {
 
 /** Green presence dot with a background ring (components/PresenceDot). */
 @Composable
-fun PresenceDot(status: String, modifier: Modifier = Modifier, size: Dp = 9.dp, ring: Boolean = true, showOffline: Boolean = false) {
+fun PresenceDot(status: String, modifier: Modifier = Modifier, size: Dp = 9.dp, ring: Boolean = true, showOffline: Boolean = false, ringWidth: Dp = 2.dp) {
     if (status == "offline" && !showOffline) return
     val color = if (status == "online") Ar.ok else Ar.textMuted
-    Box(modifier.size(size).background(color, CircleShape).then(if (ring) Modifier.border(2.dp, Ar.bg, CircleShape) else Modifier))
+    val r = if (ring) ringWidth else 0.dp
+    Box(modifier.size(size + r * 2).background(Ar.bg, CircleShape).padding(r).background(color, CircleShape))
 }
 
 /** components/UserAvatar: image or initials, with an optional presence dot. */
@@ -131,7 +133,7 @@ fun UserAvatar(
             }
         }
         if (presence != null && presence != "offline") {
-            PresenceDot(presence, Modifier.align(Alignment.BottomEnd).offset(x = 1.dp, y = 1.dp), size = maxOf(7f, size.value * 0.26f).dp)
+            PresenceDot(presence, Modifier.align(Alignment.BottomEnd).offset(x = 3.dp, y = 3.dp), size = maxOf(7f, size.value * 0.26f).dp)
         }
     }
 }

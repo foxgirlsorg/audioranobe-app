@@ -181,7 +181,7 @@ fun UserScreen(userRef: String, initialTab: String?) {
                         Box(Modifier.size(96.dp).clip(CircleShape).border(3.dp, Ar.bg, CircleShape).clickable(enabled = user.avatar_url != null) { avatarViewer = true }) {
                             UserAvatar(user.username, user.avatar_url, 96.dp, thumbUrl = user.avatar_thumb_url)
                         }
-                        PresenceDot(user.presence, Modifier.align(Alignment.BottomEnd).offset(x = (-6).dp, y = (-6).dp), size = 16.dp)
+                        PresenceDot(user.presence, Modifier.align(Alignment.BottomEnd).offset(x = (-4).dp, y = (-4).dp), size = 16.dp, ringWidth = 3.dp)
                     }
                     Spacer(Modifier.height(8.dp))
                     Row(verticalAlignment = Alignment.CenterVertically) {
