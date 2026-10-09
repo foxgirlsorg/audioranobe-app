@@ -24,7 +24,8 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.AnimatedVisibility
-import androidx.compose.animation.animateColorAsState
+import androidx.compose.ui.draw.alpha
+import androidx.compose.ui.graphics.Color
 import androidx.compose.animation.core.MutableTransitionState
 import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.animateFloatAsState
@@ -333,19 +334,20 @@ private fun Thread(userId: Int) {
             }
             if (imageUrl.isNotBlank()) ArImage(imageUrl.trim(), Modifier.padding(horizontal = 12.dp).size(120.dp, 80.dp), shape = RoundedCornerShape(8.dp))
             Row(Modifier.fillMaxWidth().padding(horizontal = 6.dp, vertical = 6.dp), verticalAlignment = Alignment.Bottom) {
-                IconBtn(Lucide.ImagePlus, "Прикрепить изображение по ссылке", { showImage = !showImage }, tint = if (showImage) Ar.accent else Ar.textSecondary)
-                if (isMod) IconBtn(if (plainText) Lucide.Type else Lucide.Sparkles, if (plainText) "Разрешить форматирование" else "Отправить как обычный текст", { plainText = !plainText }, tint = if (plainText) Ar.textSecondary else Ar.accent)
+                val composerShape = RoundedCornerShape(10.dp)
+                IconBtn(Lucide.ImagePlus, "Прикрепить изображение по ссылке", { showImage = !showImage }, tint = if (showImage) Ar.accent else Ar.textSecondary, background = if (showImage) Ar.fill06 else Color.Transparent, shape = composerShape)
+                if (isMod) IconBtn(if (plainText) Lucide.Type else Lucide.Sparkles, if (plainText) "Разрешить форматирование" else "Отправить как обычный текст", { plainText = !plainText }, tint = Ar.accent, shape = composerShape)
                 ArTextField(text, { text = it.take(Limits.dmBody) }, Modifier.weight(1f), placeholder = if (editing != null) "Изменить сообщение…" else "Сообщение…", singleLine = false, maxLines = 6, compact = true)
                 Spacer(Modifier.width(4.dp))
                 val ready = text.isNotBlank() || imageUrl.isNotBlank() || editing != null
-                val sendBg by animateColorAsState(if (ready) Ar.accent else Ar.fill08, tween(200), label = "sendBg")
+                val sendAlpha by animateFloatAsState(if (ready) 1f else 0.4f, tween(200), label = "sendAlpha")
                 val sendScale by animateFloatAsState(if (ready) 1f else 0.9f, spring(dampingRatio = Spring.DampingRatioMediumBouncy), label = "sendScale")
-                Box(Modifier.size(44.dp).scale(sendScale).clip(CircleShape).background(sendBg).clickable(enabled = !sending) { send() }, contentAlignment = Alignment.Center) {
+                Box(Modifier.size(40.dp).scale(sendScale).alpha(sendAlpha).clip(RoundedCornerShape(10.dp)).background(Ar.accent).clickable(enabled = !sending && ready) { send() }, contentAlignment = Alignment.Center) {
                     AnimatedContent(if (sending) "busy" else if (editing != null) "edit" else "send", transitionSpec = { (scaleIn(tween(160)) + fadeIn(tween(160))) togetherWith (scaleOut(tween(120)) + fadeOut(tween(120))) }, label = "sendIcon") { st ->
                         when (st) {
                             "busy" -> Spinner(size = 18.dp)
-                            "edit" -> Icon(Lucide.Check, "Сохранить", tint = Ar.accentOn, modifier = Modifier.size(18.dp))
-                            else -> Icon(Lucide.Send, "Отправить", tint = Ar.accentOn, modifier = Modifier.size(18.dp))
+                            "edit" -> Icon(Lucide.Check, "Сохранить", tint = Color.White, modifier = Modifier.size(18.dp))
+                            else -> Icon(Lucide.Send, "Отправить", tint = Color.White, modifier = Modifier.size(18.dp))
                         }
                     }
                 }

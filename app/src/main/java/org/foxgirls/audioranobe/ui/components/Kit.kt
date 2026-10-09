@@ -246,14 +246,15 @@ fun IconBtn(
     background: Color = Color.Transparent,
     border: Color = Color.Transparent,
     enabled: Boolean = true,
+    shape: Shape = CircleShape,
 ) {
     Box(
         modifier
             .size(size)
             .alpha(if (enabled) 1f else 0.35f)
-            .clip(CircleShape)
-            .background(background, CircleShape)
-            .border(1.dp, border, CircleShape)
+            .clip(shape)
+            .background(background, shape)
+            .border(1.dp, border, shape)
             .clickable(enabled = enabled, onClick = onClick),
         contentAlignment = Alignment.Center,
     ) {
@@ -385,7 +386,7 @@ fun ArTextField(
             BasicTextField(
                 value = value,
                 onValueChange = { v -> if (maxLength == null || v.length <= maxLength) onValueChange(v) },
-                modifier = Modifier.fillMaxWidth().heightIn(min = 44.dp),
+                modifier = Modifier.fillMaxWidth().heightIn(min = 40.dp),
                 enabled = enabled,
                 singleLine = singleLine,
                 minLines = minLines,
@@ -393,18 +394,18 @@ fun ArTextField(
                 visualTransformation = transformation,
                 keyboardOptions = KeyboardOptions(keyboardType = if (password) KeyboardType.Password else keyboardType, imeAction = imeAction),
                 keyboardActions = KeyboardActions(onAny = { onImeAction?.invoke() }),
-                textStyle = LocalTextStyle.current.copy(fontSize = 14.sp, color = Ar.text),
+                textStyle = LocalTextStyle.current.copy(fontSize = 14.sp, lineHeight = 20.sp, color = Ar.text, lineHeightStyle = androidx.compose.ui.text.style.LineHeightStyle(androidx.compose.ui.text.style.LineHeightStyle.Alignment.Center, androidx.compose.ui.text.style.LineHeightStyle.Trim.Both)),
                 cursorBrush = SolidColor(colors.cursorColor),
                 interactionSource = interaction,
                 decorationBox = { inner ->
                     OutlinedTextFieldDefaults.DecorationBox(
                         value = value, innerTextField = inner, enabled = enabled, singleLine = singleLine,
                         visualTransformation = transformation, interactionSource = interaction, isError = error != null,
-                        placeholder = placeholder?.let { { Text(it, color = Ar.textMuted, fontSize = 14.sp) } },
+                        placeholder = placeholder?.let { { Text(it, color = Ar.textMuted, fontSize = 14.sp, lineHeight = 20.sp) } },
                         leadingIcon = leading?.let { { Icon(it, null, tint = Ar.textMuted, modifier = Modifier.size(16.dp)) } },
                         trailingIcon = trailing, colors = colors,
-                        contentPadding = PaddingValues(horizontal = 14.dp, vertical = 12.dp),
-                        container = { OutlinedTextFieldDefaults.Container(enabled, error != null, interaction, colors = colors, shape = RoundedCornerShape(9.dp)) },
+                        contentPadding = PaddingValues(horizontal = 12.dp, vertical = 9.dp),
+                        container = { OutlinedTextFieldDefaults.Container(enabled, error != null, interaction, colors = colors, shape = RoundedCornerShape(12.dp)) },
                     )
                 },
             )
