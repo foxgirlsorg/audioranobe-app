@@ -145,7 +145,7 @@ private fun ConversationList() {
             c == null -> item { CenterSpinner() }
             c.isEmpty() -> item { EmptyState("Пока нет переписок", "Откройте профиль пользователя и нажмите «Написать».", Lucide.MessageCircle) }
             else -> items(c, key = { it.user.id }) { conv ->
-                Row(Modifier.fillMaxWidth().clickable { nav.go(Routes.chat(conv.user.id)) }.padding(horizontal = 16.dp, vertical = 10.dp), verticalAlignment = Alignment.CenterVertically) {
+                Row(Modifier.fillMaxWidth().clickable { nav.push(Routes.chat(conv.user.id)) }.padding(horizontal = 16.dp, vertical = 10.dp), verticalAlignment = Alignment.CenterVertically) {
                     UserAvatar(conv.user.username, conv.user.avatar_url, 48.dp, presence = conv.user.presence, thumbUrl = conv.user.avatar_thumb_url)
                     Spacer(Modifier.width(12.dp))
                     Column(Modifier.weight(1f)) {

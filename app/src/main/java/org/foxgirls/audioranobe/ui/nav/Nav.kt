@@ -20,6 +20,9 @@ class AppNav(val controller: NavHostController, val context: Context, val home: 
         controller.navigate(route) { launchSingleTop = true }
     }
 
+    /** Like [go] but always adds a back-stack entry, even when the target shares the current destination (list -> thread of the same route). */
+    fun push(route: String) = safely { controller.navigate(route) }
+
     fun replace(route: String) = safely {
         controller.navigate(route) {
             launchSingleTop = true
