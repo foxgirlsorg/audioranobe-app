@@ -507,6 +507,32 @@ data class CollectionFull(
 )
 
 @Serializable
+data class PollOption(val id: Int, val text: String = "", val percent: Int? = null)
+
+@Serializable
+data class Poll(
+    val id: Int,
+    val title: String = "",
+    val options: List<PollOption> = emptyList(),
+    val total_votes: Int? = null,
+    val my_vote: Int? = null,
+    val closes_at: Long? = null,
+    val closed_at: Long? = null,
+    val is_closed: Boolean = false,
+    val can_vote: Boolean = false,
+    val can_retract: Boolean = false,
+    val can_manage: Boolean = false,
+    val can_view_voters: Boolean = false,
+    val can_edit: Boolean = false,
+)
+
+@Serializable
+data class PollVoterOption(val option_id: Int, val users: List<UserBrief> = emptyList())
+
+@Serializable
+data class PollVoters(val options: List<PollVoterOption> = emptyList())
+
+@Serializable
 data class AnnouncementAuthor(val id: Int, val username: String = "")
 
 @Serializable
@@ -521,6 +547,7 @@ data class Announcement(
     val created_at: String = "",
     val comments: Paginated<Comment>? = null,
     val comments_count: Int? = null,
+    val poll: Poll? = null,
 )
 
 @Serializable
@@ -538,6 +565,7 @@ data class NarratorPost(
     val can_edit: Boolean = false,
     val comments_count: Int? = null,
     val comments: Paginated<Comment>? = null,
+    val poll: Poll? = null,
 )
 
 @Serializable

@@ -46,6 +46,7 @@ import org.foxgirls.audioranobe.data.Announcement
 import org.foxgirls.audioranobe.data.LocalAuth
 import org.foxgirls.audioranobe.data.NarratorPost
 import org.foxgirls.audioranobe.data.Paginated
+import org.foxgirls.audioranobe.data.Poll
 import org.foxgirls.audioranobe.ui.LocalBottomInset
 import org.foxgirls.audioranobe.ui.components.ArButton
 import org.foxgirls.audioranobe.ui.components.ArImage
@@ -65,6 +66,9 @@ import org.foxgirls.audioranobe.ui.components.Load
 import org.foxgirls.audioranobe.ui.components.MarkdownEditor
 import org.foxgirls.audioranobe.ui.components.OutlineChip
 import org.foxgirls.audioranobe.ui.components.PageHeader
+import org.foxgirls.audioranobe.ui.components.PollBuilder
+import org.foxgirls.audioranobe.ui.components.PollCard
+import org.foxgirls.audioranobe.ui.components.PollDraft
 import org.foxgirls.audioranobe.ui.components.Section
 import org.foxgirls.audioranobe.ui.components.Spinner
 import org.foxgirls.audioranobe.ui.components.rememberLoader
@@ -79,6 +83,7 @@ import org.foxgirls.audioranobe.ui.theme.Ar
 import org.foxgirls.audioranobe.ui.toast.toast
 import org.foxgirls.audioranobe.ui.toast.toastError
 import kotlinx.coroutines.launch
+import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.put
 
@@ -141,6 +146,7 @@ fun NewsScreen() {
                             modifier = Modifier.padding(top = 8.dp).clickable { nav.go(Routes.newsItem(a.slug)) },
                         )
                         if (a.body.isNotBlank()) Box(Modifier.padding(top = 6.dp)) { ArMarkdown(a.body, compact = true, media = "both") }
+                        a.poll?.let { p -> PollCard(p, { np -> list.patch({ it.id == a.id }) { x -> x.copy(poll = np) } }, Modifier.padding(top = 10.dp)) }
                         if (a.is_published) Text(
                             "Читать полностью →", color = Ar.accentHover, fontSize = 13.sp, fontWeight = FontWeight.Medium,
                             modifier = Modifier.padding(top = 8.dp).clickable { nav.go(Routes.newsItem(a.slug)) },
@@ -194,11 +200,14 @@ private fun AnnouncementEditor(initial: Announcement?, onClose: () -> Unit, onSa
     var hidden by remember { mutableStateOf(initial?.is_hidden ?: false) }
     var busy by remember { mutableStateOf(false) }
     val scope = rememberCoroutineScope()
+    val canPoll = LocalAuth.current.can("polls.create") && initial?.poll == null
+    var pollDraft by remember { mutableStateOf<PollDraft?>(null) }
     ArModal(true, onClose, if (initial != null) "Редактировать объявление" else "Новое объявление") {
         ArTextField(title, { title = it }, label = "Название", placeholder = "Что нового?", maxLength = Limits.announcementTitle)
         Spacer(Modifier.height(10.dp))
         MarkdownEditor(body, { body = it }, label = "Текст", maxLength = Limits.announcementBody, placeholder = "**Подробности**, [ссылки](https://…) — всё, что стоит знать сообществу…", media = "both", slim = true)
         Spacer(Modifier.height(10.dp))
+        if (canPoll) { PollBuilder(pollDraft, { pollDraft = it }); Spacer(Modifier.height(10.dp)) }
         ArToggle(published, { published = it }, "Опубликовано")
         ArToggle(hidden, { hidden = it }, "Скрыть с главной (остаётся в разделе «Новости»)")
         Spacer(Modifier.height(12.dp))
@@ -207,11 +216,14 @@ private fun AnnouncementEditor(initial: Announcement?, onClose: () -> Unit, onSa
             Spacer(Modifier.width(8.dp))
             ArButton(if (initial != null) "Сохранить изменения" else "Создать", kind = ButtonKind.Primary, busy = busy, onClick = {
                 if (title.isBlank()) { toastError("Укажите название"); return@ArButton }
+                val poll = pollDraft?.takeIf { canPoll }?.let { it.payload() ?: return@ArButton }
                 busy = true
                 scope.launch {
                     try {
-                        val payload = buildJsonObject { put("title", title.trim()); put("body", body); put("is_published", published); put("is_hidden", hidden) }
-                        val saved = if (initial != null) Api.patch<Announcement>("/mod/announcements/${initial.id}", payload) else Api.post<Announcement>("/mod/announcements", payload)
+                        val base = buildJsonObject { put("title", title.trim()); put("body", body); put("is_published", published); put("is_hidden", hidden) }
+                        val payload = if (initial == null && poll != null) JsonObject(base + ("poll" to poll)) else base
+                        var saved = if (initial != null) Api.patch<Announcement>("/mod/announcements/${initial.id}", payload) else Api.post<Announcement>("/mod/announcements", payload)
+                        if (initial != null && poll != null) saved = saved.copy(poll = Api.post("/announcements/${initial.id}/poll", poll))
                         onSaved(saved, initial == null)
                         onClose()
                     } catch (e: Exception) { toastError(e); busy = false }
@@ -246,6 +258,7 @@ fun NewsItemScreen(slug: String) {
                     }
                     Text(item.title, color = Ar.white, fontSize = 24.sp, fontWeight = FontWeight.SemiBold, lineHeight = 30.sp, modifier = Modifier.padding(top = 10.dp, bottom = 10.dp))
                     ArMarkdown(item.body, media = "both")
+                    item.poll?.let { p -> PollCard(p, { np -> loader.set(item.copy(poll = np)) }, Modifier.padding(top = 14.dp)) }
                 }
                 Spacer(Modifier.height(24.dp))
                 CommentSection("announcement", item.id, item.comments)
@@ -270,8 +283,9 @@ fun PostScreen(id: Int) {
                 val n = post.narrator
                 ArButton(n?.name ?: "Назад", { if (n != null) nav.go(Routes.narrator(n.slug)) else nav.back() }, kind = ButtonKind.Ghost, icon = Lucide.ArrowLeft, small = true)
                 Spacer(Modifier.height(12.dp))
-                if (editing) PostEditor(post.title, post.body, onCancel = { editing = false }) { title, body ->
-                    val updated = Api.patch<NarratorPost>("/posts/$id", buildJsonObject { put("title", title); put("body", body) })
+                if (editing) PostEditor(post.title, post.body, onCancel = { editing = false }, canPoll = post.poll == null) { title, body, poll ->
+                    var updated = Api.patch<NarratorPost>("/posts/$id", buildJsonObject { put("title", title); put("body", body) })
+                    if (poll != null) updated = updated.copy(poll = Api.post("/posts/$id/poll", poll))
                     loader.set(updated); editing = false; toast("Запись обновлена")
                 } else {
                     Text(post.title, color = Ar.white, fontSize = 26.sp, fontWeight = FontWeight.SemiBold, lineHeight = 32.sp)
@@ -288,6 +302,7 @@ fun PostScreen(id: Int) {
                         if (post.can_edit) IconBtn(Lucide.Pencil, "Редактировать", { editing = true }, size = 32.dp, iconSize = 14.dp)
                     }
                     Box(Modifier.padding(top = 14.dp)) { ArMarkdown(post.body, media = "both") }
+                    post.poll?.let { p -> PollCard(p, { np -> loader.set(post.copy(poll = np)) }, Modifier.padding(top = 14.dp)) }
                 }
                 Spacer(Modifier.height(24.dp))
                 CommentSection("post", post.id, post.comments)
@@ -297,23 +312,27 @@ fun PostScreen(id: Int) {
 }
 
 @Composable
-private fun PostEditor(initialTitle: String, initialBody: String, onCancel: () -> Unit, submitLabel: String = "Сохранить", onSave: suspend (String, String) -> Unit) {
+private fun PostEditor(initialTitle: String, initialBody: String, onCancel: () -> Unit, submitLabel: String = "Сохранить", canPoll: Boolean = true, onSave: suspend (String, String, JsonObject?) -> Unit) {
     var title by remember { mutableStateOf(initialTitle) }
     var body by remember { mutableStateOf(initialBody) }
     var busy by remember { mutableStateOf(false) }
+    val pollAllowed = canPoll && LocalAuth.current.can("polls.create")
+    var pollDraft by remember { mutableStateOf<PollDraft?>(null) }
     val scope = rememberCoroutineScope()
     GlassPanel(Modifier.fillMaxWidth()) {
         ArTextField(title, { title = it }, label = "Заголовок", maxLength = Limits.postTitle)
         Spacer(Modifier.height(10.dp))
         MarkdownEditor(body, { body = it }, label = "Текст", maxLength = Limits.postBody, placeholder = "**Жирный**, *курсив*, [ссылка](https://…), списки…", media = "both", slim = true)
         Spacer(Modifier.height(10.dp))
+        if (pollAllowed) { PollBuilder(pollDraft, { pollDraft = it }); Spacer(Modifier.height(10.dp)) }
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
             ArButton("Отмена", onCancel, kind = ButtonKind.Ghost)
             Spacer(Modifier.width(8.dp))
             ArButton(if (busy) "Сохраняем…" else submitLabel, kind = ButtonKind.Primary, busy = busy, onClick = {
                 if (title.isBlank()) { toastError("Укажите заголовок"); return@ArButton }
+                val poll = pollDraft?.takeIf { pollAllowed }?.let { it.payload() ?: return@ArButton }
                 busy = true
-                scope.launch { try { onSave(title.trim(), body) } catch (e: Exception) { toastError(e) }; busy = false }
+                scope.launch { try { onSave(title.trim(), body, poll) } catch (e: Exception) { toastError(e) }; busy = false }
             })
         }
     }
@@ -348,8 +367,9 @@ fun NarratorPosts(narratorId: Int, canEdit: Boolean, modifier: Modifier = Modifi
     Section("Публичные", "записи", eyebrow = "Блог", modifier = modifier) {
         if (canEdit && !creating) ArButton("Новая запись", { creating = true }, kind = ButtonKind.Primary, icon = Lucide.Plus, modifier = Modifier.padding(bottom = 12.dp))
         if (creating) Box(Modifier.padding(bottom = 12.dp)) {
-            PostEditor("", "", onCancel = { creating = false }, submitLabel = "Опубликовать") { title, body ->
-                Api.post<NarratorPost>("/narrators/$narratorId/posts", buildJsonObject { put("title", title); put("body", body) })
+            PostEditor("", "", onCancel = { creating = false }, submitLabel = "Опубликовать") { title, body, poll ->
+                val base = buildJsonObject { put("title", title); put("body", body) }
+                Api.post<NarratorPost>("/narrators/$narratorId/posts", if (poll != null) JsonObject(base + ("poll" to poll)) else base)
                 toast("Запись опубликована — подписчики получили уведомление")
                 creating = false; loader.reload()
             }
@@ -359,8 +379,9 @@ fun NarratorPosts(narratorId: Int, canEdit: Boolean, modifier: Modifier = Modifi
             is Load.Loading -> Spinner()
             is Load.Ok -> if (s.data.isEmpty()) EmptyState("Записей пока нет", "Расскажите подписчикам, над чем работаете.") else s.data.forEach { p ->
                 if (editingId == p.id) Box(Modifier.padding(bottom = 12.dp)) {
-                    PostEditor(p.title, p.body, onCancel = { editingId = null }) { title, body ->
+                    PostEditor(p.title, p.body, onCancel = { editingId = null }, canPoll = p.poll == null) { title, body, poll ->
                         Api.patch<NarratorPost>("/posts/${p.id}", buildJsonObject { put("title", title); put("body", body) })
+                        if (poll != null) Api.post<Poll>("/posts/${p.id}/poll", poll)
                         toast("Запись обновлена"); editingId = null; loader.reload()
                     }
                 } else {
@@ -369,6 +390,7 @@ fun NarratorPosts(narratorId: Int, canEdit: Boolean, modifier: Modifier = Modifi
                         Row(verticalAlignment = Alignment.CenterVertically) {
                             Text(p.title, color = Ar.white, fontSize = 16.sp, fontWeight = FontWeight.SemiBold, maxLines = 2, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f))
                             if (p.is_hidden) OutlineChip("скрыта", Modifier.padding(start = 8.dp))
+                            if (p.poll != null) OutlineChip("опрос", Modifier.padding(start = 8.dp))
                         }
                         if (text.isNotEmpty()) Text(
                             if (truncated) "$text… Читать дальше" else text, color = Ar.textSecondary, fontSize = 13.sp, lineHeight = 19.sp, modifier = Modifier.padding(top = 6.dp),
