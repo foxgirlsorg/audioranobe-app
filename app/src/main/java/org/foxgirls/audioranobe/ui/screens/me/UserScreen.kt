@@ -232,6 +232,20 @@ fun UserScreen(userRef: String, initialTab: String?) {
                         if (user.bio.isNotBlank()) { Spacer(Modifier.height(6.dp)); ArMarkdown(user.bio, media = "image") }
                         SocialLinks(user.socials, Modifier.padding(top = 8.dp))
                     }
+                    profile.listening_now?.let { ln ->
+                        GlassPanel(Modifier.fillMaxWidth(), padding = PaddingValues(10.dp), onClick = { nav.go(Routes.title(ln.title.slug)) }) {
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                ArImage(ln.title.cover_thumb_url, Modifier.size(56.dp, 80.dp), fallbackIcon = Lucide.Headphones, shape = RoundedCornerShape(8.dp))
+                                Spacer(Modifier.width(12.dp))
+                                Column(verticalArrangement = Arrangement.spacedBy(3.dp)) {
+                                    Eyebrow("Слушает сейчас", color = Ar.accent, icon = Lucide.Headphones)
+                                    Text(ln.title.name, color = Ar.text, fontSize = 15.sp, fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                                    val volume = "${ln.title.volume_label} ${Fmt.trimNum(ln.volume.number)}" + if (ln.volume.name.isNotBlank()) " — ${ln.volume.name}" else ""
+                                    Text("$volume · ${Fmt.chapterLabel(ln.chapter.number, ln.chapter.number_end, ln.chapter.name)}", color = Ar.textMuted, fontSize = 12.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                                }
+                            }
+                        }
+                    }
                     GlassPanel(Modifier.fillMaxWidth()) {
                         StatRow(Lucide.Headphones, String.format(java.util.Locale.US, "%.2f", stats.seconds_listened / 3600.0).trimEnd('0').trimEnd('.'), "часов прослушано")
                         StatRow(Lucide.Library, Fmt.count(libraryTotal), "${Fmt.plural(libraryTotal, "книга", "книги", "книг")} в библиотеке")

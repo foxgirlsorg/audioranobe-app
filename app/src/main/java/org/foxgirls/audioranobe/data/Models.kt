@@ -699,7 +699,20 @@ data class UserProfile(
     val activity: ListeningHeatmapData = ListeningHeatmapData(),
     val friendship: Friendship = Friendship(),
     val can_message: Boolean = false,
+    val listening_now: ListeningNow? = null,
 )
+
+@Serializable
+data class ListeningNow(val title: ListeningNowTitle, val volume: ListeningNowVolume = ListeningNowVolume(), val chapter: ListeningNowChapter)
+
+@Serializable
+data class ListeningNowTitle(val id: Int, val slug: String = "", val name: String = "", val cover_thumb_url: String? = null, val volume_label: String = "Том")
+
+@Serializable
+data class ListeningNowVolume(val number: Double = 0.0, val name: String = "")
+
+@Serializable
+data class ListeningNowChapter(val id: Int, val name: String = "", val number: Double = 0.0, val number_end: Double? = null)
 
 @Serializable
 data class NarratorStatsTitle(val id: Int, val slug: String = "", val name: String = "", val listens: Long = 0, val avg_rating: Double? = null, val rating_count: Int = 0, val favorites_count: Int = 0, val chapters_count: Int = 0)
