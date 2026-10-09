@@ -117,6 +117,7 @@ private val RU = Locale.forLanguageTag("ru")
 private fun dayKey(iso: String): String = Fmt.toDate(iso)?.let { SimpleDateFormat("d MMMM yyyy", RU).format(it) } ?: ""
 private fun dayLabel(iso: String): String {
     val d = Fmt.toDate(iso) ?: return ""
+    if (dayKey(iso) == SimpleDateFormat("d MMMM yyyy", RU).format(java.util.Date())) return "Сегодня"
     val overYear = System.currentTimeMillis() - d.time > 365L * 24 * 3600 * 1000
     return SimpleDateFormat(if (overYear) "d MMMM yyyy" else "d MMMM", RU).format(d)
 }
@@ -289,7 +290,7 @@ private fun Thread(userId: Int) {
                 loading && t == null -> CenterSpinner(Modifier.fillMaxSize(), 200.dp)
                 t == null -> EmptyState("Не удалось открыть переписку", null, Lucide.MessageCircle)
                 visible.isEmpty() -> EmptyState("Напишите первое сообщение.", null, Lucide.MessageCircle)
-                else -> LazyColumn(Modifier.fillMaxSize(), state = listState, reverseLayout = true, contentPadding = PaddingValues(horizontal = 12.dp, vertical = 8.dp)) {
+                else -> LazyColumn(Modifier.fillMaxSize(), state = listState, reverseLayout = true, contentPadding = PaddingValues(start = 12.dp, end = 12.dp, top = 16.dp, bottom = 8.dp)) {
                     items(reversed, key = { it.id }) { m ->
                         val i = reversed.indexOf(m)
                         val older = reversed.getOrNull(i + 1)
@@ -298,7 +299,7 @@ private fun Thread(userId: Int) {
                         val appear = remember(m.id) { MutableTransitionState(false).apply { targetState = true } }
                         BubbleAppear(appear, Modifier.animateItem()) {
                         Column(Modifier.fillMaxWidth()) {
-                            if (showDay) Box(Modifier.fillMaxWidth().padding(vertical = 8.dp), contentAlignment = Alignment.Center) {
+                            if (showDay) Box(Modifier.fillMaxWidth().padding(top = 12.dp, bottom = 8.dp), contentAlignment = Alignment.Center) {
                                 Text(dayLabel(m.created_at), color = Ar.textMuted, fontSize = 11.sp, modifier = Modifier.background(Ar.fill06, CircleShape).padding(horizontal = 10.dp, vertical = 3.dp))
                             }
                             Bubble(m, t, highlighted = highlight == m.id, onLongPress = { menuMsg = m }, onImage = { viewerUrl = it }, onQuoteTap = { id ->
