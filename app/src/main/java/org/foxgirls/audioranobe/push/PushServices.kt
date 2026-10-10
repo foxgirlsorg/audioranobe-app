@@ -1,9 +1,6 @@
 package org.foxgirls.audioranobe.push
 
-import com.google.firebase.messaging.FirebaseMessagingService
-import com.google.firebase.messaging.RemoteMessage
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.runBlocking
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
@@ -12,21 +9,6 @@ import org.unifiedpush.android.connector.FailedReason
 import org.unifiedpush.android.connector.PushService
 import org.unifiedpush.android.connector.data.PushEndpoint
 import org.unifiedpush.android.connector.data.PushMessage
-
-class FcmService : FirebaseMessagingService() {
-    @Suppress("OVERRIDE_DEPRECATION")
-    override fun onNewToken(token: String) {
-        Stores.scope.launch { Push.registerFcm(token) }
-    }
-
-    override fun onRegistered(token: String) {
-        Stores.scope.launch { Push.registerFcm(token) }
-    }
-
-    override fun onMessageReceived(message: RemoteMessage) {
-        runBlocking { Push.show(this@FcmService, message.data) }
-    }
-}
 
 class UnifiedPushService : PushService() {
     override fun onNewEndpoint(endpoint: PushEndpoint, instance: String) {

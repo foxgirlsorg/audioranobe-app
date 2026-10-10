@@ -1,0 +1,11 @@
+<p>The native Android client for <a href="https://audioranobe.com">AudioRanobe</a>, a community platform for voiced light novel and book translations. The interface is in Russian.</p>
+<ul>
+<li>Audio player with background playback, lock-screen and headphone controls, speed 0.5–3×, sleep timer and server-synced progress</li>
+<li>Offline library: download a chapter, a volume or a whole book and listen without a network; offline progress syncs back later</li>
+<li>Catalog with search, filters and sorting; title pages with volumes, chapters, illustrations, ratings and comments</li>
+<li>Community: profiles, shelves, favorites, history, friends, direct messages, collections, news and narrator blogs</li>
+<li>Creator tools: add titles, narrators and authors, upload chapters and alternate narrations</li>
+<li>Push notifications through <a href="https://unifiedpush.org">UnifiedPush</a> (install a distributor such as ntfy)</li>
+<li>Android Auto support</li>
+</ul>
+<p>An AudioRanobe account is required. The app talks to the AudioRanobe server, whose code is not published.</p>

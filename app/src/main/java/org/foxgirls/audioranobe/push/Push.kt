@@ -16,25 +16,19 @@ import androidx.core.app.NotificationManagerCompat
 import androidx.core.content.ContextCompat
 import coil.imageLoader
 import coil.request.ImageRequest
-import com.google.firebase.FirebaseApp
-import com.google.firebase.FirebaseOptions
-import com.google.firebase.messaging.FirebaseMessaging
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
-import kotlinx.coroutines.suspendCancellableCoroutine
 import kotlinx.coroutines.withTimeoutOrNull
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.put
 import kotlinx.serialization.json.putJsonObject
-import org.foxgirls.audioranobe.BuildConfig
 import org.foxgirls.audioranobe.MainActivity
 import org.foxgirls.audioranobe.R
 import org.foxgirls.audioranobe.core.Api
 import org.foxgirls.audioranobe.data.Stores
 import org.unifiedpush.android.connector.UnifiedPush
-import kotlin.coroutines.resume
 
 @Serializable
 private data class PushKeyRes(val key: String = "", val fcm: Boolean = false)
@@ -63,34 +57,18 @@ object Push {
 
     /** App start: Firebase must exist before FcmService can receive in a cold process. */
     fun init(ctx: Context) {
-        runCatching { fcmUsable(ctx) }
+        runCatching { Fcm.usable(ctx) }
     }
 
     fun hasDistributor(ctx: Context): Boolean = UnifiedPush.getDistributors(ctx).isNotEmpty()
-
-    private fun fcmUsable(ctx: Context): Boolean {
-        if (BuildConfig.FCM_APP_ID.isBlank() || BuildConfig.FCM_API_KEY.isBlank() || BuildConfig.FCM_PROJECT_ID.isBlank()) return false
-        if (FirebaseApp.getApps(ctx).isEmpty()) {
-            FirebaseApp.initializeApp(
-                ctx,
-                FirebaseOptions.Builder()
-                    .setApplicationId(BuildConfig.FCM_APP_ID)
-                    .setApiKey(BuildConfig.FCM_API_KEY)
-                    .setProjectId(BuildConfig.FCM_PROJECT_ID)
-                    .setGcmSenderId(BuildConfig.FCM_SENDER_ID)
-                    .build(),
-            )
-        }
-        return true
-    }
 
     /** Registers this device for the signed-in user. Safe to call on every start; no-op without permission. */
     suspend fun sync(ctx: Context) {
         if (!permitted(ctx)) { _method.value = Method.NONE; return }
         ensureChannels(ctx)
         val server = runCatching { Api.get<PushKeyRes>("/push/public-key") }.getOrNull() ?: return
-        if (server.fcm && fcmUsable(ctx)) {
-            val token = fcmToken()
+        if (server.fcm && Fcm.usable(ctx)) {
+            val token = Fcm.token()
             if (token != null && registerFcm(token)) {
                 if (Stores.prefs.getString(KEY_UP_ENDPOINT) != null) unregisterUnified(ctx)
                 _method.value = Method.FCM
@@ -124,12 +102,6 @@ object Push {
             Stores.prefs.putString(KEY_UP_ENDPOINT, null)
         }
         runCatching { UnifiedPush.unregister(ctx, UP_INSTANCE) }
-    }
-
-    // ponytail: getToken() is deprecated in firebase-messaging 25; move to register() + onRegistered once that flow is documented.
-    @Suppress("DEPRECATION")
-    private suspend fun fcmToken(): String? = suspendCancellableCoroutine { c ->
-        FirebaseMessaging.getInstance().token.addOnCompleteListener { t -> c.resume(if (t.isSuccessful) t.result else null) }
     }
 
     suspend fun registerFcm(token: String): Boolean {

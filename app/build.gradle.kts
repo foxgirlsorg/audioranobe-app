@@ -15,9 +15,9 @@ android {
         applicationId = "org.foxgirls.audioranobe"
         minSdk = 26
         targetSdk = 36
-        // CI passes the tag as VERSION_NAME and the run number as VERSION_CODE; local builds use the defaults.
-        versionCode = ((project.findProperty("versionCode") as String?) ?: System.getenv("VERSION_CODE"))?.toIntOrNull() ?: 1
-        versionName = ((project.findProperty("versionName") as String?) ?: System.getenv("VERSION_NAME"))?.removePrefix("v") ?: "0.1.0"
+        // Bump both before tagging a release; F-Droid reads them from here, the release workflow checks the tag against versionName.
+        versionCode = 9
+        versionName = "1.0.7"
 
         // Backend API base URL, including /api. Override with -PapiUrl=… or the API_URL env var.
         val apiUrl = (project.findProperty("apiUrl") as String?)
@@ -58,6 +58,19 @@ android {
         }
     }
 
+    // full: GitHub releases with FCM push and the in-app updater. fdroid: no proprietary deps, no self-updates.
+    flavorDimensions += "distribution"
+    productFlavors {
+        create("full") {
+            dimension = "distribution"
+            isDefault = true
+        }
+        create("fdroid") {
+            dimension = "distribution"
+            buildConfigField("String", "UPDATE_REPO", "\"\"")
+        }
+    }
+
     buildTypes {
         release {
             isMinifyEnabled = true
@@ -80,6 +93,10 @@ android {
     buildFeatures {
         compose = true
         buildConfig = true
+    }
+    dependenciesInfo {
+        includeInApk = false
+        includeInBundle = false
     }
     packaging {
         resources.excludes += "/META-INF/{AL2.0,LGPL2.1}"
@@ -124,7 +141,7 @@ dependencies {
     implementation(libs.zoomable)
     implementation(libs.image.cropper)
     implementation(libs.zxing.core)
-    implementation(libs.firebase.messaging)
+    "fullImplementation"("com.google.firebase:firebase-messaging:25.1.3")
     implementation(libs.unifiedpush.connector)
     debugImplementation(libs.androidx.compose.ui.tooling)
 }

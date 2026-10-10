@@ -1,0 +1,6 @@
+- Title and narrator stats dashboards with charts
+- Standalone volumes for alternative narrations
+- Pull to refresh on every screen
+- Duplicate warning when creating a title
+- Block users from direct messages
+- Fixes for the continue listening card and the my-narrators list

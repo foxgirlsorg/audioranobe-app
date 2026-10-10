@@ -42,14 +42,19 @@ jobs:
             exit 1
           fi
 
+      - name: Check version
+        run: |
+          if ! grep -q "versionName = \"${GITHUB_REF_NAME#v}\"" app/build.gradle.kts; then
+            echo "::error::versionName in app/build.gradle.kts does not match the tag $GITHUB_REF_NAME; bump versionName and versionCode first."
+            exit 1
+          fi
+
       - name: Decode keystore
         run: echo "${{ secrets.SIGNING_KEYSTORE_BASE64 }}" | base64 -d > "$RUNNER_TEMP/release.keystore"
 
       - name: Build release APK
         env:
           UPDATE_REPO: ${{ github.repository }}
-          VERSION_NAME: ${{ github.ref_name }}
-          VERSION_CODE: ${{ github.run_number }}
           SIGNING_KEYSTORE: ${{ runner.temp }}/release.keystore
           SIGNING_KEYSTORE_PASSWORD: ${{ secrets.SIGNING_KEYSTORE_PASSWORD }}
           SIGNING_KEY_ALIAS: ${{ secrets.SIGNING_KEY_ALIAS }}
@@ -59,8 +64,8 @@ jobs:
           FCM_PROJECT_ID: ${{ vars.FCM_PROJECT_ID }}
           FCM_SENDER_ID: ${{ vars.FCM_SENDER_ID }}
         run: |
-          ./gradlew --no-daemon assembleRelease
-          cp app/build/outputs/apk/release/app-release.apk "audioranobe-${{ github.ref_name }}.apk"
+          ./gradlew --no-daemon assembleFullRelease
+          cp app/build/outputs/apk/full/release/app-full-release.apk "audioranobe-${{ github.ref_name }}.apk"
 
       - name: Release notes
         # Commit subjects since the previous tag — the in-app updater shows these.

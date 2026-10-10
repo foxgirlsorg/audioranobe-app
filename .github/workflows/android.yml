@@ -23,10 +23,9 @@ jobs:
         env:
           # The in-app updater polls this repository's Releases; a fork therefore updates from itself.
           UPDATE_REPO: ${{ github.repository }}
-          VERSION_CODE: ${{ github.run_number }}
         run: ./gradlew --no-daemon assembleDebug
 
       - uses: actions/upload-artifact@v4
         with:
           name: audioranobe-debug
-          path: app/build/outputs/apk/debug/*.apk
+          path: app/build/outputs/apk/*/debug/*.apk
