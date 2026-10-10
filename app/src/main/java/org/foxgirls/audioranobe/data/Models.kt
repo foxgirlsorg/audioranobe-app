@@ -699,8 +699,19 @@ data class UserProfile(
     val activity: ListeningHeatmapData = ListeningHeatmapData(),
     val friendship: Friendship = Friendship(),
     val can_message: Boolean = false,
+    /** The viewer has blocked this user (no DMs either way). */
+    val is_blocked: Boolean = false,
+    /** The viewer may block this user (false for themselves and users with users.unblockable). */
+    val can_block: Boolean = false,
     val listening_now: ListeningNow? = null,
 )
+
+/** GET /me/blocks item. */
+@Serializable
+data class BlockedUser(val user: UserBrief, val blocked_at: Long = 0)
+
+@Serializable
+data class BlockedList(val items: List<BlockedUser> = emptyList())
 
 @Serializable
 data class ListeningNow(val title: ListeningNowTitle, val volume: ListeningNowVolume = ListeningNowVolume(), val chapter: ListeningNowChapter)

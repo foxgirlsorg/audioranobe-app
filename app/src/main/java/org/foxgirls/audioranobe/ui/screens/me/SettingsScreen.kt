@@ -37,6 +37,8 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import org.foxgirls.audioranobe.core.Api
 import org.foxgirls.audioranobe.core.Fmt
 import org.foxgirls.audioranobe.core.Limits
+import org.foxgirls.audioranobe.data.BlockedList
+import org.foxgirls.audioranobe.data.BlockedUser
 import org.foxgirls.audioranobe.data.Genre
 import org.foxgirls.audioranobe.data.Identity
 import org.foxgirls.audioranobe.data.LocalAuth
@@ -317,6 +319,31 @@ fun SettingsBody(scopeUserId: Int?, onSaved: (Me) -> Unit) {
 
         Panel(Lucide.MessageSquare, "Личные сообщения", "Кто может писать вам напрямую.") {
             ArToggle(m.dm_privacy == "friends", { v -> run { Api.patch<Me>("/me", buildJsonObject { put("dm_privacy", if (v) "friends" else "all") }, asParam); refresh(); toast("Настройки личных сообщений сохранены") } }, "Только друзья могут писать мне", "Писать вам первыми смогут только друзья.")
+            if (!scoped) {
+                var blocked by remember { mutableStateOf<List<BlockedUser>?>(null) }
+                LaunchedEffect(Unit) { blocked = runCatching { Api.get<BlockedList>("/me/blocks").items }.getOrDefault(emptyList()) }
+                Text("Заблокированные пользователи", color = Ar.text, fontSize = 14.sp, fontWeight = FontWeight.Medium, modifier = Modifier.padding(top = 12.dp))
+                val list = blocked
+                Text(
+                    when { list == null -> "Загрузка…"; list.isEmpty() -> "Вы никого не блокировали. Заблокировать можно на странице пользователя."; else -> "С ними нельзя переписываться ни вам, ни им." },
+                    color = Ar.textMuted, fontSize = 12.sp, lineHeight = 16.sp,
+                )
+                list?.forEach { b ->
+                    Row(Modifier.fillMaxWidth().padding(top = 6.dp), verticalAlignment = Alignment.CenterVertically) {
+                        Column(Modifier.weight(1f)) {
+                            Text(b.user.display_name.ifBlank { b.user.username }, color = Ar.text, fontSize = 13.5.sp, maxLines = 1)
+                            Text("@${b.user.username}", color = Ar.textMuted, fontSize = 12.sp)
+                        }
+                        ArButton("Разблокировать", {
+                            run {
+                                Api.delete<Unit>("/users/${b.user.id}/block")
+                                blocked = blocked?.filter { it.user.id != b.user.id }
+                                toast("@${b.user.username} разблокирован")
+                            }
+                        }, kind = ButtonKind.Ghost, small = true)
+                    }
+                }
+            }
         }
 
         if (commentTitles.isNotEmpty()) Panel(Lucide.MessageSquare, "Комментарии к вашим тайтлам", "Уведомления о новых комментариях к тайтлам ваших чтецов.") {

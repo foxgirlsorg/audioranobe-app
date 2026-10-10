@@ -66,6 +66,7 @@ import org.foxgirls.audioranobe.ui.components.ArTabs
 import org.foxgirls.audioranobe.ui.components.ArTextField
 import org.foxgirls.audioranobe.ui.components.ArToggle
 import org.foxgirls.audioranobe.ui.components.ButtonKind
+import org.foxgirls.audioranobe.ui.components.ConfirmDialog
 import org.foxgirls.audioranobe.ui.components.CardGrid
 import org.foxgirls.audioranobe.ui.components.CenterSpinner
 import org.foxgirls.audioranobe.ui.components.CollectionCardC
@@ -149,6 +150,20 @@ fun UserScreen(userRef: String, initialTab: String?) {
     val collections = rememberPagedList<CollectionCard>(user.username) { p -> Api.get("/collections", mapOf("user" to user.username, "page" to p)) }
     val friends = rememberPagedList<UserBrief>(userRef) { p -> Api.get("/users/${Routes.enc(userRef)}/friends", mapOf("page" to p)) }
 
+    var blockBusy by remember { mutableStateOf(false) }
+    var confirmBlock by remember { mutableStateOf(false) }
+    fun toggleBlock(blocking: Boolean, userId: Int) {
+        if (blockBusy) return
+        blockBusy = true
+        scope.launch {
+            try {
+                if (blocking) Api.post<Unit>("/users/$userId/block") else Api.delete<Unit>("/users/$userId/block")
+                loader.reload()
+                toast(if (blocking) "Пользователь заблокирован — вы больше не сможете переписываться" else "Пользователь разблокирован")
+            } catch (e: Exception) { toastError(e) } finally { blockBusy = false }
+        }
+    }
+
     fun runFriend(method: String, path: String, ok: String) {
         if (friendBusy) return
         friendBusy = true
@@ -207,7 +222,20 @@ fun UserScreen(userRef: String, initialTab: String?) {
                             }
                             "friends" -> ArButton("Из друзей", { runFriend("DELETE", "/friends/${user.id}", "Удалён из друзей") }, kind = ButtonKind.Ghost, icon = Lucide.UserMinus, small = true, busy = friendBusy)
                         }
+                        if (profile.can_block || profile.is_blocked) IconBtn(
+                            Lucide.Ban, if (profile.is_blocked) "Разблокировать" else "Заблокировать",
+                            { if (profile.is_blocked) toggleBlock(false, user.id) else confirmBlock = true }, size = 34.dp, iconSize = 16.dp,
+                            tint = if (profile.is_blocked) Ar.danger else Ar.textSecondary,
+                        )
+                        ConfirmDialog(
+                            confirmBlock, { confirmBlock = false },
+                            onConfirm = { confirmBlock = false; toggleBlock(true, user.id) },
+                            title = "Заблокировать @${user.username}?",
+                            body = "Вы не сможете переписываться друг с другом в личных сообщениях. Разблокировать можно в любой момент — здесь или в настройках.",
+                            danger = true, confirmLabel = "Заблокировать",
+                        )
                     }
+                    if (profile.is_blocked) Text("Вы заблокировали этого пользователя — переписываться нельзя.", color = Ar.textMuted, fontSize = 12.sp, modifier = Modifier.padding(top = 6.dp))
                     if (user.is_banned) GlassPanel(Modifier.padding(top = 10.dp), padding = PaddingValues(10.dp), borderColor = Ar.danger.copy(alpha = 0.4f)) {
                         Row(verticalAlignment = Alignment.CenterVertically) {
                             Icon(Lucide.ShieldBan, null, tint = Ar.danger, modifier = Modifier.size(16.dp))
