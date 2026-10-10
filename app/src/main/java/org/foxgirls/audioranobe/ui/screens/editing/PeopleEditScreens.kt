@@ -276,7 +276,7 @@ fun NarratorEditScreen(slug: String) {
                     })
                 }
                 Spacer(Modifier.height(16.dp))
-                DangerZone("narrator", n.id, n.name, Routes.catalog(), isDeleted = n.is_deleted, onChanged = { loader.reload() })
+                DangerZone("narrator", n.id, n.name, Routes.catalog(), isDeleted = n.is_deleted, onChanged = { loader.reload(); org.foxgirls.audioranobe.data.Stores.myNarrators.ensureLoaded(force = true) })
             }
             "posts" -> NarratorPosts(n.id, n.can_edit)
             "images" -> {
@@ -315,7 +315,10 @@ fun NarratorEditScreen(slug: String) {
                         scope.launch {
                             try {
                                 val res = Api.post<AppliedResult>("/panel/narrators/${n.id}/transfer", buildJsonObject { put("user_id", to.id) })
-                                if (res.applied != false) { toast("Права на чтеца переданы @${to.username}"); nav.replace(Routes.narrator(n.slug)) }
+                                if (res.applied != false) {
+                                    org.foxgirls.audioranobe.data.Stores.myNarrators.ensureLoaded(force = true)
+                                    toast("Права на чтеца переданы @${to.username}"); nav.replace(Routes.narrator(n.slug))
+                                }
                                 else { toast("Запрос на передачу отправлен на модерацию"); transferTo = null }
                             } catch (e: Exception) { toastError(e) }
                             transferring = false; confirmTransfer = false

@@ -276,6 +276,7 @@ private fun NarratorForm(onDone: () -> Unit, onBack: () -> Unit) {
                 })
                 toast(if (created.mod_status == "approved") "Чтец создан" else "Чтец отправлен на модерацию")
                 Stores.myNarrators.ensureLoaded(force = true)
+                Stores.myNarrators.ensureLoaded(force = true)
                 onDone(); nav.go(Routes.narratorEdit(created.slug))
             } catch (e: Exception) { error = e.msg() }
             busy = false
