@@ -37,6 +37,7 @@ import org.foxgirls.audioranobe.data.NarratorFull
 import org.foxgirls.audioranobe.data.Stores
 import org.foxgirls.audioranobe.data.TitleFull
 import org.foxgirls.audioranobe.ui.components.ArButton
+import org.foxgirls.audioranobe.ui.components.ArImage
 import org.foxgirls.audioranobe.ui.components.ArModal
 import org.foxgirls.audioranobe.ui.components.ArTextField
 import org.foxgirls.audioranobe.ui.components.ArToggle
@@ -112,6 +113,47 @@ private fun ErrorLine(error: String) { if (error.isNotEmpty()) Text(error, color
 @Serializable
 private data class CreatedTitle(val title: TitleFull, val applied: Boolean = true)
 
+/** GET /panel/titles/duplicates — an existing title that looks like the one being created. */
+@Serializable
+private data class DuplicateTitle(
+    val id: Int,
+    val slug: String = "",
+    val name: String = "",
+    val cover_thumb_url: String? = null,
+    val mod_status: String = "approved",
+    val narrators: List<String> = emptyList(),
+    val exact: Boolean = false,
+)
+
+@Composable
+private fun DuplicateWarning(items: List<DuplicateTitle>) {
+    if (items.isEmpty()) return
+    GlassPanel(Modifier.fillMaxWidth().padding(top = 8.dp), borderColor = Ar.amber.copy(alpha = 0.45f), background = Ar.amber.copy(alpha = 0.08f)) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Icon(Lucide.TriangleAlert, null, tint = Ar.amber, modifier = Modifier.size(15.dp))
+            Spacer(Modifier.width(6.dp))
+            Text(if (items.any { it.exact }) "Тайтл с таким названием уже есть" else "Похожие тайтлы уже есть", color = Ar.amber, fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
+        }
+        Text(
+            "Проверьте, не дубль ли это. Если тайтл уже есть, добавьте свою озвучку к нему, а не создавайте новый.",
+            color = Ar.textSecondary, fontSize = 12.sp, lineHeight = 17.sp, modifier = Modifier.padding(top = 4.dp, bottom = 6.dp),
+        )
+        items.forEach { d ->
+            Row(Modifier.fillMaxWidth().padding(vertical = 3.dp), verticalAlignment = Alignment.CenterVertically) {
+                ArImage(d.cover_thumb_url, Modifier.width(26.dp).height(39.dp), fallbackIcon = Lucide.BookOpen, shape = androidx.compose.foundation.shape.RoundedCornerShape(4.dp))
+                Spacer(Modifier.width(8.dp))
+                Column(Modifier.weight(1f)) {
+                    Text(d.name, color = Ar.text, fontSize = 13.sp, maxLines = 1, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis)
+                    Text(
+                        listOf(d.narrators.joinToString(", "), if (d.mod_status != "approved") "на модерации" else "").filter { it.isNotEmpty() }.joinToString(" · ").ifEmpty { "без чтецов" },
+                        color = Ar.textMuted, fontSize = 11.5.sp, maxLines = 1,
+                    )
+                }
+            }
+        }
+    }
+}
+
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
 private fun TitleForm(onDone: () -> Unit, onBack: () -> Unit) {
@@ -132,6 +174,13 @@ private fun TitleForm(onDone: () -> Unit, onBack: () -> Unit) {
     var busy by remember { mutableStateOf(false) }
     var error by remember { mutableStateOf("") }
     val scope = rememberCoroutineScope()
+    var duplicates by remember { mutableStateOf<List<DuplicateTitle>>(emptyList()) }
+    LaunchedEffect(name) {
+        val q = name.trim()
+        if (q.length < 3) { duplicates = emptyList(); return@LaunchedEffect }
+        kotlinx.coroutines.delay(400)
+        duplicates = runCatching { Api.get<List<DuplicateTitle>>("/panel/titles/duplicates", mapOf("name" to q)) }.getOrDefault(emptyList())
+    }
 
     if (loaded && narrators.isEmpty()) {
         Text("Сначала создайте чтеца — книга всегда привязана к профилю озвучки.", color = Ar.textSecondary, fontSize = 14.sp, lineHeight = 20.sp)
@@ -145,6 +194,7 @@ private fun TitleForm(onDone: () -> Unit, onBack: () -> Unit) {
     }
     Spacer(Modifier.height(10.dp))
     ArTextField(name, { name = it }, label = "Название", maxLength = 300)
+    DuplicateWarning(duplicates)
     Spacer(Modifier.height(10.dp))
     ArTextField(slug, { slug = it }, label = "Slug (необязательно)", maxLength = 200, placeholder = "my-book-slug")
     Spacer(Modifier.height(10.dp))
