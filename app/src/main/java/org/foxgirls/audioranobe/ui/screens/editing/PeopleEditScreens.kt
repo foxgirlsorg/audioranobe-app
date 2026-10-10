@@ -42,8 +42,8 @@ import org.foxgirls.audioranobe.data.AuthorFull
 import org.foxgirls.audioranobe.data.LocalAuth
 import org.foxgirls.audioranobe.data.NarratorFull
 import org.foxgirls.audioranobe.data.NarratorMember
-import org.foxgirls.audioranobe.data.NarratorStats
 import org.foxgirls.audioranobe.data.UserSearchHit
+import org.foxgirls.audioranobe.ui.components.NarratorStatsDashboard
 import org.foxgirls.audioranobe.ui.components.ArButton
 import org.foxgirls.audioranobe.ui.components.ArImage
 import org.foxgirls.audioranobe.ui.components.ArTabs
@@ -198,7 +198,6 @@ fun NarratorEditScreen(slug: String) {
     var saving by remember { mutableStateOf(false) }
 
     val members = rememberLoader(n.id) { Api.get<List<NarratorMember>>("/panel/narrators/${n.id}/members") }
-    val stats = rememberLoader(n.id, tab == "stats") { if (tab == "stats") Api.get<NarratorStats>("/panel/narrators/${n.id}/stats") else null }
 
     var transferTo by remember { mutableStateOf<UserSearchHit?>(null) }
     var confirmTransfer by remember { mutableStateOf(false) }
@@ -298,24 +297,7 @@ fun NarratorEditScreen(slug: String) {
                     ArButton(if (n.cover_url != null) "Сменить обложку" else "Загрузить обложку", { coverCropper.pick() }, icon = Lucide.ImagePlus, fullWidth = true)
                 }
             }
-            "stats" -> GlassPanel(Modifier.fillMaxWidth()) {
-                when (val ss = stats.state) {
-                    is Load.Err -> Text(ss.message, color = Ar.danger, fontSize = 13.sp)
-                    is Load.Loading -> Spinner()
-                    is Load.Ok -> {
-                        val st = ss.data ?: return@GlassPanel
-                        Row(horizontalArrangement = Arrangement.SpaceEvenly, modifier = Modifier.fillMaxWidth()) {
-                            StatCard(st.subscribers_count.toString(), "Подписчиков"); StatCard(st.totals.listens.toString(), "Прослушиваний"); StatCard(st.titles.size.toString(), "Тайтлов")
-                        }
-                        st.titles.forEach { t ->
-                            Column(Modifier.fillMaxWidth().padding(top = 10.dp)) {
-                                Text(t.name, color = Ar.accentHover, fontSize = 14.sp, fontWeight = FontWeight.Medium, modifier = Modifier.clickable { nav.go(Routes.title(t.slug)) })
-                                Text("${t.listens} прослушиваний" + (t.avg_rating?.let { " · ${"%.1f".format(it)}★" } ?: ""), color = Ar.textMuted, fontSize = 12.sp)
-                            }
-                        }
-                    }
-                }
-            }
+            "stats" -> NarratorStatsDashboard(n.id)
             "transfer" -> GlassPanel(Modifier.fillMaxWidth()) {
                 Text(
                     "Найдите пользователя, которому хотите передать права владельца чтеца. " + if (transferIsInstant) "Передача произойдёт сразу, без модерации." else "Запрос уйдёт на модерацию; до одобрения чтец остаётся за вами.",
@@ -349,13 +331,5 @@ fun NarratorEditScreen(slug: String) {
                 )
             }
         }
-    }
-}
-
-@Composable
-private fun StatCard(value: String, label: String) {
-    Column(horizontalAlignment = Alignment.CenterHorizontally) {
-        Text(value, color = Ar.white, fontSize = 22.sp, fontWeight = FontWeight.SemiBold)
-        Text(label, color = Ar.textMuted, fontSize = 12.sp)
     }
 }

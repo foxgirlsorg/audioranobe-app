@@ -714,14 +714,114 @@ data class ListeningNowVolume(val number: Double = 0.0, val name: String = "")
 @Serializable
 data class ListeningNowChapter(val id: Int, val name: String = "", val number: Double = 0.0, val number_end: Double? = null)
 
+/** One day of a stats window (title or narrator); `subscribers` is narrator-only. */
 @Serializable
-data class NarratorStatsTitle(val id: Int, val slug: String = "", val name: String = "", val listens: Long = 0, val avg_rating: Double? = null, val rating_count: Int = 0, val favorites_count: Int = 0, val chapters_count: Int = 0)
+data class StatsDay(
+    val day: String,
+    val listen_seconds: Long = 0,
+    val listeners: Int = 0,
+    val views: Int = 0,
+    val ratings: Int = 0,
+    val favorites: Int = 0,
+    val library_adds: Int = 0,
+    val comments: Int = 0,
+    val embed_plays: Int = 0,
+    val subscribers: Int = 0,
+)
 
 @Serializable
-data class NarratorStatsTotals(val listens: Long = 0, val favorites: Int = 0, val ratings: Int = 0)
+data class StatsLists(val planning: Int = 0, val in_progress: Int = 0, val completed: Int = 0, val dropped: Int = 0) {
+    fun of(status: String): Int = when (status) {
+        "planning" -> planning; "in_progress" -> in_progress; "completed" -> completed; "dropped" -> dropped; else -> 0
+    }
+    val total: Int get() = planning + in_progress + completed + dropped
+}
 
 @Serializable
-data class NarratorStats(val subscribers_count: Int = 0, val totals: NarratorStatsTotals = NarratorStatsTotals(), val titles: List<NarratorStatsTitle> = emptyList())
+data class NarratorStatsTitle(
+    val id: Int,
+    val slug: String = "",
+    val name: String = "",
+    val listens: Long = 0,
+    val avg_rating: Double? = null,
+    val rating_count: Int = 0,
+    val favorites_count: Int = 0,
+    val chapters_count: Int = 0,
+    val views_count: Long = 0,
+    val listeners: Int = 0,
+    val comments_count: Int = 0,
+    val favorites_30d: Int = 0,
+    val lists: StatsLists = StatsLists(),
+    val lists_30d: Int = 0,
+    val rating_distribution: Map<String, Int> = emptyMap(),
+)
+
+@Serializable
+data class NarratorStatsTotals(
+    val listens: Long = 0,
+    val favorites: Int = 0,
+    val ratings: Int = 0,
+    val views: Long = 0,
+    val comments: Int = 0,
+    val listeners: Int = 0,
+    val avg_rating: Double? = null,
+    val listen_seconds: Long = 0,
+    val embed_plays: Long = 0,
+    val favorites_30d: Int = 0,
+    val lists: StatsLists = StatsLists(),
+    val lists_30d: Int = 0,
+    val rating_distribution: Map<String, Int> = emptyMap(),
+)
+
+@Serializable
+data class NarratorStats(
+    val subscribers_count: Int = 0,
+    val subscribers_30d: Int = 0,
+    val totals: NarratorStatsTotals = NarratorStatsTotals(),
+    val titles: List<NarratorStatsTitle> = emptyList(),
+    val days: Int = 30,
+    val series: List<StatsDay> = emptyList(),
+)
+
+@Serializable
+data class TitleStatsChapter(
+    val id: Int,
+    val number: Double = 0.0,
+    val number_end: Double? = null,
+    val name: String = "",
+    val volume_number: Double = 0.0,
+    val duration_seconds: Double = 0.0,
+    val listeners: Int = 0,
+    /** Listeners who reached 95% of the chapter. */
+    val finished: Int = 0,
+)
+
+@Serializable
+data class EmbedSite(val host: String, val plays: Int = 0, val first_seen: Long = 0, val last_seen: Long = 0)
+
+/** GET /panel/titles/{id}/stats?days= */
+@Serializable
+data class TitleStats(
+    val id: Int,
+    val slug: String = "",
+    val name: String = "",
+    val listens: Long = 0,
+    val avg_rating: Double? = null,
+    val rating_count: Int = 0,
+    val favorites_count: Int = 0,
+    val chapters_count: Int = 0,
+    val views_count: Long = 0,
+    val listeners: Int = 0,
+    val comments_count: Int = 0,
+    val lists: StatsLists = StatsLists(),
+    val rating_distribution: Map<String, Int> = emptyMap(),
+    val embed_plays: Long = 0,
+    val embed_sites: List<EmbedSite> = emptyList(),
+    val days: Int = 30,
+    val listen_seconds: Long = 0,
+    val series: List<StatsDay> = emptyList(),
+    val chapters: List<TitleStatsChapter> = emptyList(),
+)
 
 @Serializable
 data class Author(val id: Int, val name: String = "", val slug: String = "", val titles_count: Int = 0)

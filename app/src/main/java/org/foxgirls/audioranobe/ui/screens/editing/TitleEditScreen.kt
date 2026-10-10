@@ -45,6 +45,7 @@ import org.foxgirls.audioranobe.data.Stores
 import org.foxgirls.audioranobe.data.TitleFull
 import org.foxgirls.audioranobe.data.TitleInfoBanner
 import org.foxgirls.audioranobe.data.Volume
+import org.foxgirls.audioranobe.ui.components.TitleStatsDashboard
 import org.foxgirls.audioranobe.ui.components.ArButton
 import org.foxgirls.audioranobe.ui.components.ArImage
 import org.foxgirls.audioranobe.ui.components.ArTabs
@@ -100,6 +101,7 @@ fun TitleEditScreen(slug: String, initialTab: String?) {
         add(TabItem("info", "Инфо")); add(TabItem("artwork", "Оформление"))
         if (canIllustrations) add(TabItem("illustrations", "Иллюстрации"))
         add(TabItem("content", "Главы"))
+        add(TabItem("stats", "Статистика"))
     }
     val reload: suspend () -> Unit = { loader.reload() }
 
@@ -111,6 +113,7 @@ fun TitleEditScreen(slug: String, initialTab: String?) {
             "artwork" -> TitleArtwork(title, reload)
             "illustrations" -> IllustrationManager(title)
             "content" -> TitleContentManager(title, reload)
+            "stats" -> TitleStatsDashboard(title.id)
         }
     }
 }
