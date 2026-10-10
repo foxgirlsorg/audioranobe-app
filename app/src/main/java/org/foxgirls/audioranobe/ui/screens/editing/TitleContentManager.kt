@@ -160,6 +160,18 @@ fun TitleContentManager(title: TitleFull, reload: suspend () -> Unit) {
         if (!isAlt) emptyMap() else (title.alt_chapters[currentVersion.toString()] ?: emptyList()).filter { !it.is_deleted }.associateBy { "${it.volume_id}:${it.number}" }
     }
     fun altSlot(volumeId: Int, number: Double) = altByKey["$volumeId:$number"]
+    // A standalone volume in an alt version has its own chapter split instead of mirroring the main slots.
+    val canStandalone = auth.can("versions.standalone_volume")
+    fun standaloneHere(v: Volume) = isAlt && title.versions.firstOrNull { it.id == currentVersion }?.standalone_volume_ids?.contains(v.id) == true
+    fun ownAltChapters(v: Volume) = (title.alt_chapters[currentVersion.toString()] ?: emptyList()).filter { it.volume_id == v.id && !it.is_deleted }.sortedBy { it.number }
+    fun toggleStandalone(v: Volume) = scope.launch {
+        val next = !standaloneHere(v)
+        try {
+            Api.put<Unit>("/panel/versions/$currentVersion/volumes/${v.id}/standalone", buildJsonObject { put("standalone", next) })
+            toast(if (next) "Том стал отдельным — своя разбивка на главы" else "Том снова повторяет главы основной версии")
+            reload()
+        } catch (e: Exception) { toastError(e) }
+    }
     fun visibleChapters(v: Volume) = if (isAdmin) v.chapters else v.chapters.filter { !it.is_deleted }
     fun pendingIn(v: Volume) = v.chapters.count { it.mod_status == "pending" && !it.is_deleted }
     val pendingTotal = if (isAlt) 0 else title.volumes.sumOf { pendingIn(it) }
@@ -224,7 +236,11 @@ fun TitleContentManager(title: TitleFull, reload: suspend () -> Unit) {
             IconBtn(Lucide.Plus, "Добавить версию", { versionName = ""; versionForm = "add" }, size = 32.dp, iconSize = 14.dp)
         }
     }
-    if (isAlt) Text("Альтернативная версия: загружайте аудио для тех же глав, что и в основной. Главы без своего аудио будут проигрываться из основной версии.", color = Ar.textMuted, fontSize = 12.sp, lineHeight = 16.sp, modifier = Modifier.padding(bottom = 10.dp))
+    if (isAlt) Text(
+        "Альтернативная версия: загружайте аудио для тех же глав, что и в основной. Главы без своего аудио будут проигрываться из основной версии." +
+            if (canStandalone) " «Отдельный том» даёт тому свою разбивку на главы, без привязки к основной." else "",
+        color = Ar.textMuted, fontSize = 12.sp, lineHeight = 16.sp, modifier = Modifier.padding(bottom = 10.dp),
+    )
 
     // ---- header row ----
     Row(Modifier.fillMaxWidth().padding(bottom = 10.dp), verticalAlignment = Alignment.CenterVertically) {
@@ -258,7 +274,8 @@ fun TitleContentManager(title: TitleFull, reload: suspend () -> Unit) {
         val vis = visibleChapters(v)
         GlassPanel(Modifier.fillMaxWidth().padding(bottom = 10.dp), padding = androidx.compose.foundation.layout.PaddingValues(0.dp)) {
             Row(Modifier.fillMaxWidth().clickable { openVolumes = if (open) openVolumes - v.id else openVolumes + v.id }.padding(start = 6.dp, end = 4.dp, top = 6.dp, bottom = 6.dp), verticalAlignment = Alignment.CenterVertically) {
-                if (!isAlt && vis.isNotEmpty()) Checkbox(vis.all { it.id in selected }, { on -> val ids = vis.map { it.id }; selected = if (on) (selected + ids).distinct() else selected - ids.toSet() }, colors = CheckboxDefaults.colors(checkedColor = Ar.accent, uncheckedColor = Ar.textMuted))
+                val selectable = if (standaloneHere(v)) ownAltChapters(v) else if (!isAlt) vis else emptyList()
+                if (selectable.isNotEmpty()) Checkbox(selectable.all { it.id in selected }, { on -> val ids = selectable.map { it.id }; selected = if (on) (selected + ids).distinct() else selected - ids.toSet() }, colors = CheckboxDefaults.colors(checkedColor = Ar.accent, uncheckedColor = Ar.textMuted))
                 else Spacer(Modifier.width(10.dp))
                 Column(Modifier.weight(1f)) {
                     Row(verticalAlignment = Alignment.CenterVertically) {
@@ -266,7 +283,8 @@ fun TitleContentManager(title: TitleFull, reload: suspend () -> Unit) {
                         if (v.name.isNotBlank()) Text("  ${v.name}", color = Ar.textSecondary, fontSize = 13.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
                     }
                     Text(
-                        if (isAlt) "Озвучено: ${liveChapters(v).count { altSlot(v.id, it.number) != null }} из ${liveChapters(v).size}" else "Глав: ${liveChapters(v).size}" + (if (isMod && pendingIn(v) > 0) " · на проверке: ${pendingIn(v)}" else ""),
+                        if (standaloneHere(v)) "Глав: ${ownAltChapters(v).size} · отдельный том"
+                        else if (isAlt) "Озвучено: ${liveChapters(v).count { altSlot(v.id, it.number) != null }} из ${liveChapters(v).size}" else "Глав: ${liveChapters(v).size}" + (if (isMod && pendingIn(v) > 0) " · на проверке: ${pendingIn(v)}" else ""),
                         color = Ar.textMuted, fontSize = 12.sp,
                     )
                 }
@@ -278,13 +296,39 @@ fun TitleContentManager(title: TitleFull, reload: suspend () -> Unit) {
                     IconBtn(Lucide.Plus, "Добавить главу", { openVolumes = openVolumes + v.id; addChapterVol = v }, size = 32.dp, iconSize = 15.dp)
                     IconBtn(Lucide.Pencil, "Переименовать том", { volumeForm = v }, size = 32.dp, iconSize = 14.dp)
                     IconBtn(Lucide.Trash2, "Удалить том", { volumeToDelete = v }, size = 32.dp, iconSize = 14.dp, tint = Ar.danger)
+                } else {
+                    if (canStandalone) IconBtn(
+                        if (standaloneHere(v)) Lucide.Link else Lucide.Layers,
+                        if (standaloneHere(v)) "Привязать к основной" else "Отдельный том",
+                        { toggleStandalone(v) }, size = 32.dp, iconSize = 14.dp,
+                        tint = if (standaloneHere(v)) Ar.accent else Ar.textSecondary,
+                    )
+                    if (standaloneHere(v)) IconBtn(Lucide.Plus, "Добавить главу", { openVolumes = openVolumes + v.id; addChapterVol = v.copy(chapters = ownAltChapters(v)) }, size = 32.dp, iconSize = 15.dp)
                 }
                 Icon(Lucide.ChevronRight, null, tint = Ar.textMuted, modifier = Modifier.size(16.dp).rotate(if (open) 90f else 0f))
             }
             AnimatedVisibility(open, enter = expandVertically(), exit = shrinkVertically()) {
                 Column(Modifier.padding(start = 10.dp, end = 10.dp, bottom = 8.dp)) {
                     HairlineDivider(Modifier.padding(bottom = 4.dp))
-                    if (isAlt) {
+                    if (standaloneHere(v)) {
+                        val own = ownAltChapters(v)
+                        if (own.isEmpty()) Text("В этом томе пока нет глав.", color = Ar.textMuted, fontSize = 13.sp, modifier = Modifier.padding(8.dp))
+                        own.forEach { c ->
+                            Row(Modifier.fillMaxWidth().padding(vertical = 4.dp), verticalAlignment = Alignment.CenterVertically) {
+                                Checkbox(c.id in selected, { toggleSelected(c.id) }, colors = CheckboxDefaults.colors(checkedColor = Ar.accent, uncheckedColor = Ar.textMuted))
+                                Column(Modifier.weight(1f)) {
+                                    Text(Fmt.chapterLabel(c.number, c.number_end, c.name), color = Ar.text, fontSize = 13.sp, maxLines = 2, overflow = TextOverflow.Ellipsis)
+                                    FlowRow(Modifier.padding(top = 2.dp), horizontalArrangement = Arrangement.spacedBy(6.dp), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                                        if (c.duration_seconds > 0) Text(Fmt.duration(c.duration_seconds), color = Ar.textMuted, fontSize = 11.sp)
+                                        if (c.narrators.isNotEmpty()) Text(c.narrators.joinToString(", ") { it.name }, color = Ar.textMuted, fontSize = 11.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                                        StatusBadge(c.audio_status); if (c.mod_status != "approved") StatusBadge(c.mod_status)
+                                    }
+                                    uploads[c.id]?.let { ProgressTrack(it, Modifier.padding(top = 4.dp)) }
+                                }
+                                IconBtn(Lucide.Ellipsis, "Действия", { chapterMenu = c }, size = 32.dp, iconSize = 16.dp)
+                            }
+                        }
+                    } else if (isAlt) {
                         if (liveChapters(v).isEmpty()) Text("В основной версии нет глав.", color = Ar.textMuted, fontSize = 13.sp, modifier = Modifier.padding(8.dp))
                         liveChapters(v).forEach { mainCh ->
                             val alt = altSlot(v.id, mainCh.number)
