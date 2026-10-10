@@ -14,6 +14,7 @@ import androidx.compose.runtime.currentCompositeKeyHash
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
@@ -32,10 +33,25 @@ sealed class Load<out T> {
     data class Err(val message: String, val notFound: Boolean = false) : Load<Nothing>()
 }
 
+/**
+ * Pull-to-refresh for the screen on top (AppShell): a pull sets [active] and bumps
+ * [nonce]; every loader and paged list composed at that moment refetches in place,
+ * counting itself in [busy] so the indicator stays up until they all finish.
+ */
+class ScreenRefresh {
+    var nonce by mutableIntStateOf(0)
+    var busy by mutableIntStateOf(0)
+    var active by mutableStateOf(false)
+}
+
+val LocalScreenRefresh = staticCompositionLocalOf<ScreenRefresh?> { null }
+
 class Loader<T>(initial: Load<T> = Load.Loading) {
     var state: Load<T> by mutableStateOf(initial)
     var nonce by mutableIntStateOf(0)
     var fetchedNonce = -1
+    internal var quiet = false
+    internal var refreshSeen = 0
     val data: T? get() = (state as? Load.Ok<T>)?.data
 
     fun reload() { nonce++ }
@@ -59,17 +75,29 @@ fun <V : Any> rememberCached(vararg key: Any?, create: () -> V): V {
 /** Runs [fetch] when [key] changes (and on reload), storing the result. */
 @Composable
 fun <T> rememberLoader(vararg key: Any?, keepOnReload: Boolean = false, fetch: suspend () -> T): Loader<T> {
-    val loader = rememberCached(*key) { Loader<T>() }
+    val refresh = LocalScreenRefresh.current
+    val loader = rememberCached(*key) { Loader<T>().also { it.refreshSeen = refresh?.nonce ?: 0 } }
+    val pulled = refresh?.nonce ?: 0
+    LaunchedEffect(loader, pulled) {
+        if (pulled <= loader.refreshSeen) return@LaunchedEffect
+        loader.refreshSeen = pulled
+        if (refresh?.active == true) { loader.quiet = true; loader.reload() }
+    }
     LaunchedEffect(loader, loader.nonce) {
         val revisit = loader.data != null && loader.fetchedNonce == loader.nonce
-        if (!revisit && (!keepOnReload || loader.data == null)) loader.state = Load.Loading
+        val quiet = loader.quiet
+        loader.quiet = false
+        if (!revisit && !quiet && (!keepOnReload || loader.data == null)) loader.state = Load.Loading
+        refresh?.let { it.busy++ }
         try {
             loader.state = Load.Ok(fetch())
             loader.fetchedNonce = loader.nonce
         } catch (e: CancellationException) {
             throw e
         } catch (e: Exception) {
-            loader.state = Load.Err(e.msg(), (e as? ApiError)?.status == 404)
+            if (!quiet || loader.data == null) loader.state = Load.Err(e.msg(), (e as? ApiError)?.status == 404)
+        } finally {
+            refresh?.let { it.busy-- }
         }
     }
     return loader
@@ -103,6 +131,7 @@ class PagedList<T>(private val fetch: suspend (page: Int) -> Paginated<T>) {
     var error by mutableStateOf("")
     var moreError by mutableStateOf("")
     private var run = 0
+    internal var refreshSeen = 0
     val hasMore get() = items != null && (items!!.size < total)
 
     suspend fun load() {
@@ -155,8 +184,18 @@ class PagedList<T>(private val fetch: suspend (page: Int) -> Paginated<T>) {
 
 @Composable
 fun <T> rememberPagedList(vararg key: Any?, fetch: suspend (page: Int) -> Paginated<T>): PagedList<T> {
-    val list = rememberCached(*key) { PagedList(fetch) }
+    val refresh = LocalScreenRefresh.current
+    val list = rememberCached(*key) { PagedList(fetch).also { it.refreshSeen = refresh?.nonce ?: 0 } }
+    val pulled = refresh?.nonce ?: 0
     LaunchedEffect(list) { if (list.items == null) list.load() }
+    LaunchedEffect(list, pulled) {
+        if (pulled <= list.refreshSeen) return@LaunchedEffect
+        list.refreshSeen = pulled
+        val r = refresh ?: return@LaunchedEffect
+        if (!r.active) return@LaunchedEffect
+        r.busy++
+        try { list.load() } finally { r.busy-- }
+    }
     return list
 }
 

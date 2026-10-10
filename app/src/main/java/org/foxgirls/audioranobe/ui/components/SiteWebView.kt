@@ -15,7 +15,16 @@ import android.webkit.WebViewClient
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import android.view.MotionEvent
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.pulltorefresh.PullToRefreshDefaults
+import androidx.compose.material3.pulltorefresh.rememberPullToRefreshState
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.ui.Alignment
+import kotlin.math.abs
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -38,7 +47,8 @@ import org.foxgirls.audioranobe.ui.toast.toastError
  * A site page in a WebView with the app's session; the page drops its own chrome when it sees the
  * app's UA marker. Navigation to paths outside [inside] opens natively instead.
  */
-@SuppressLint("SetJavaScriptEnabled", "JavascriptInterface")
+@OptIn(ExperimentalMaterial3Api::class)
+@SuppressLint("SetJavaScriptEnabled", "JavascriptInterface", "ClickableViewAccessibility")
 @Composable
 fun SiteWebView(path: String, inside: (String) -> Boolean, modifier: Modifier = Modifier) {
     val nav = LocalNav.current
@@ -75,8 +85,15 @@ fun SiteWebView(path: String, inside: (String) -> Boolean, modifier: Modifier = 
 
     BackHandler(enabled = canGoBack) { web?.goBack() }
 
+    // Pull-to-refresh: the WebView doesn't take part in Compose nested scrolling,
+    // so a downward drag that starts at the top of the page is tracked by hand.
+    val pull = rememberPullToRefreshState()
+    var refreshing by remember { mutableStateOf(false) }
+    val scope = rememberCoroutineScope()
+
+    Box(modifier) {
     AndroidView(
-        modifier = modifier,
+        modifier = Modifier.fillMaxSize(),
         factory = { ctx ->
             val apiUrl = Api.baseUrl.toHttpUrl()
             val apiOrigin = "${apiUrl.scheme}://${apiUrl.host}:${apiUrl.port}"
@@ -91,6 +108,31 @@ fun SiteWebView(path: String, inside: (String) -> Boolean, modifier: Modifier = 
                 settings.domStorageEnabled = true
                 settings.userAgentString = "${settings.userAgentString} AudioRanobeApp"
                 setBackgroundColor(Ar.bg.toArgb())
+                val slop = android.view.ViewConfiguration.get(ctx).scaledTouchSlop
+                val threshold = 110 * ctx.resources.displayMetrics.density
+                var startX = 0f
+                var startY = 0f
+                var atTop = false
+                var pulling = false
+                setOnTouchListener { v, e ->
+                    when (e.actionMasked) {
+                        MotionEvent.ACTION_DOWN -> { startX = e.x; startY = e.y; atTop = v.scrollY == 0; pulling = false }
+                        MotionEvent.ACTION_MOVE -> {
+                            val dy = e.y - startY
+                            if (!pulling && atTop && !refreshing && dy > slop && dy > abs(e.x - startX)) pulling = true
+                            if (pulling) scope.launch { pull.snapTo(((dy - slop) / threshold).coerceIn(0f, 1.5f)) }
+                        }
+                        MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> if (pulling) {
+                            pulling = false
+                            if (e.actionMasked == MotionEvent.ACTION_UP && pull.distanceFraction >= 1f) {
+                                refreshing = true
+                                scope.launch { pull.animateToThreshold() }
+                                (v as WebView).reload()
+                            } else scope.launch { pull.animateToHidden() }
+                        }
+                    }
+                    false
+                }
                 // lib/exportImage.ts hands rendered JPEGs here instead of an <a download> the WebView can't save.
                 addJavascriptInterface(object {
                     @JavascriptInterface
@@ -127,6 +169,12 @@ fun SiteWebView(path: String, inside: (String) -> Boolean, modifier: Modifier = 
                     }
                 }
                 webViewClient = object : WebViewClient() {
+                    override fun onPageFinished(view: WebView, url: String) {
+                        if (!refreshing) return
+                        refreshing = false
+                        scope.launch { pull.animateToHidden() }
+                    }
+
                     override fun shouldOverrideUrlLoading(view: WebView, request: WebResourceRequest): Boolean {
                         val url = request.url.toString()
                         if (isInside(url)) return false
@@ -148,4 +196,10 @@ fun SiteWebView(path: String, inside: (String) -> Boolean, modifier: Modifier = 
             }
         },
     )
+    PullToRefreshDefaults.Indicator(
+        state = pull, isRefreshing = refreshing,
+        modifier = Modifier.align(Alignment.TopCenter),
+        containerColor = Ar.surfaceRaised, color = Ar.accent,
+    )
+    }
 }

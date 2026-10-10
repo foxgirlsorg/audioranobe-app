@@ -28,6 +28,17 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.staticCompositionLocalOf
+import androidx.compose.runtime.snapshotFlow
+import androidx.compose.foundation.layout.statusBarsPadding
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.pulltorefresh.PullToRefreshBox
+import androidx.compose.material3.pulltorefresh.PullToRefreshDefaults
+import androidx.compose.material3.pulltorefresh.rememberPullToRefreshState
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.withTimeoutOrNull
+import org.foxgirls.audioranobe.ui.components.LocalScreenRefresh
+import org.foxgirls.audioranobe.ui.components.ScreenRefresh
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
@@ -84,6 +95,7 @@ val LocalShell = staticCompositionLocalOf<ShellState> { error("no shell") }
  * unknown a splash spinner shows, while nobody is signed in (or the profile is
  * not set up) only the auth screens exist, and the real shell appears after.
  */
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun AppShell(pendingRoute: String?, pendingSeq: Int, onRouteConsumed: () -> Unit) {
     val user by Stores.auth.user.collectAsStateWithLifecycle()
@@ -109,6 +121,14 @@ private fun MainShell(pendingRoute: String?, pendingSeq: Int, onRouteConsumed: (
     val context = LocalContext.current
     val nav = remember(controller) { AppNav(controller, context) }
     val shell = remember { ShellState() }
+    val screenRefresh = remember { ScreenRefresh() }
+    val pullState = rememberPullToRefreshState()
+    LaunchedEffect(screenRefresh.nonce) {
+        if (!screenRefresh.active) return@LaunchedEffect
+        delay(300)
+        withTimeoutOrNull(15_000) { snapshotFlow { screenRefresh.busy }.first { it <= 0 } }
+        screenRefresh.active = false
+    }
     val current by PlayerController.current.collectAsStateWithLifecycle()
     val full by PlayerController.full.collectAsStateWithLifecycle()
     val backStack by controller.currentBackStackEntryAsState()
@@ -136,6 +156,20 @@ private fun MainShell(pendingRoute: String?, pendingSeq: Int, onRouteConsumed: (
                 BannedBanner()
                 UnverifiedEmailBanner()
                 Box(Modifier.weight(1f)) {
+                    CompositionLocalProvider(LocalScreenRefresh provides screenRefresh) {
+                    PullToRefreshBox(
+                        isRefreshing = screenRefresh.active,
+                        onRefresh = { screenRefresh.active = true; screenRefresh.nonce++ },
+                        modifier = Modifier.fillMaxSize(),
+                        state = pullState,
+                        indicator = {
+                            PullToRefreshDefaults.Indicator(
+                                state = pullState, isRefreshing = screenRefresh.active,
+                                modifier = Modifier.align(Alignment.TopCenter).statusBarsPadding(),
+                                containerColor = Ar.surfaceRaised, color = Ar.accent,
+                            )
+                        },
+                    ) {
                     NavHost(
                         controller, startDestination = Routes.HOME,
                         enterTransition = { slideInHorizontally(tween(260)) { it / 5 } + fadeIn(tween(260)) },
@@ -157,6 +191,8 @@ private fun MainShell(pendingRoute: String?, pendingSeq: Int, onRouteConsumed: (
                         }
                         composable(Routes.NOT_FOUND) { NotFoundScreen() }
                         ScreenRegistry.register(this)
+                    }
+                    }
                     }
                     if (current != null && !hideChrome) FloatingMiniPlayer(shell.dockCompact, Modifier.align(Alignment.BottomCenter))
                 }
