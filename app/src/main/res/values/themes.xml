@@ -7,6 +7,10 @@
         <item name="android:windowLightStatusBar">false</item>
         <item name="android:windowLayoutInDisplayCutoutMode" tools:targetApi="27">shortEdges</item>
         <item name="android:forceDarkAllowed" tools:targetApi="29">false</item>
+        <!-- Android Auto takes its accents (selected tab, progress bar, highlights) from these. -->
+        <item name="android:colorPrimary">@color/accent</item>
+        <item name="android:colorPrimaryDark">@color/accent</item>
+        <item name="android:colorAccent">@color/accent</item>
     </style>
 
     <style name="Theme.AudioRanobe.Splash" parent="Theme.SplashScreen">

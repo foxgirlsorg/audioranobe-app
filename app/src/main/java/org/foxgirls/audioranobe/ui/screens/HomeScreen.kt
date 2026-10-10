@@ -59,8 +59,6 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import org.foxgirls.audioranobe.data.ContinueItem
-import org.foxgirls.audioranobe.data.ContinueChapter
-import org.foxgirls.audioranobe.data.ContinueTitle
 import kotlinx.serialization.builtins.ListSerializer
 import org.foxgirls.audioranobe.core.AppJson
 import org.foxgirls.audioranobe.offline.OfflineStore
@@ -158,13 +156,7 @@ fun HomeScreen() {
             when (val s = loader.state) {
                 is Load.Loading -> item { CenterSpinner(minHeight = 300.dp) }
                 is Load.Err -> {
-                    val local = offlineTitles.sortedByDescending { m -> pending.filter { it.titleId == m.titleId }.maxOfOrNull { it.updatedAt } ?: 0L }.mapNotNull { m ->
-                        val t = OfflineStore.offlineTitle(m)
-                        val ch = t.volumes.flatMap { it.liveChapters }.filter { m.chapters.containsKey(it.id) && (it.my_position ?: 0.0) > 0 }.maxByOrNull { it.number } ?: return@mapNotNull null
-                        ContinueItem(ContinueTitle(t.id, t.slug, t.name, t.cover_url), ContinueChapter(ch.id, ch.name, ch.number, ch.duration_seconds), ch.my_position ?: 0.0)
-                    }
-                    val cont = local + cachedContinue.filter { c -> local.none { it.title.id == c.title.id } }
-                        .map { c -> pending.firstOrNull { it.chapterId == c.chapter.id }?.let { c.copy(position_seconds = it.position) } ?: c }
+                    val cont = OfflineStore.continueFallback(cachedContinue)
                     if (cont.isEmpty() && offlineTitles.isEmpty()) item { ErrorState(s.message, { loader.reload() }, "Не удалось загрузить главную") }
                     else {
                         item {

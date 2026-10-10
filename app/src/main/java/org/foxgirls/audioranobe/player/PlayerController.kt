@@ -2,13 +2,28 @@ package org.foxgirls.audioranobe.player
 
 import android.content.ComponentName
 import android.content.Context
+import android.content.Intent
+import android.graphics.Bitmap
+import android.graphics.BitmapFactory
+import android.graphics.Canvas
+import android.graphics.Paint
+import android.graphics.Rect
 import android.net.Uri
+import androidx.core.content.FileProvider
+import org.foxgirls.audioranobe.R
+import kotlinx.coroutines.withContext
+import okhttp3.Request
+import java.io.File
+import java.security.MessageDigest
 import androidx.media3.common.MediaItem
 import androidx.media3.common.MediaMetadata
 import androidx.media3.common.PlaybackException
 import androidx.media3.common.PlaybackParameters
 import androidx.media3.common.Player
+import androidx.media3.common.util.UnstableApi
+import androidx.annotation.OptIn
 import androidx.media3.session.MediaController
+import androidx.media3.session.MediaSession
 import androidx.media3.session.SessionToken
 import org.foxgirls.audioranobe.core.Api
 import org.foxgirls.audioranobe.core.Fmt
@@ -81,6 +96,7 @@ object PlayerController {
         connect()
     }
 
+    @OptIn(UnstableApi::class)
     private fun connect() {
         val token = SessionToken(appContext, ComponentName(appContext, PlaybackService::class.java))
         val future = MediaController.Builder(appContext, token).buildAsync()
@@ -217,16 +233,65 @@ object PlayerController {
         scope.launch { runCatching { playChapter(id, pos, autoplay = false) } }
     }
 
-    private fun mediaItem(ch: ChapterPlay): MediaItem {
+    private fun mediaItem(ch: ChapterPlay, art: Uri): MediaItem {
         val md = MediaMetadata.Builder()
-            .setTitle(Fmt.chapterLabel(ch.number, ch.number_end, ch.name))
-            .setArtist(ch.title.name)
+            .setTitle(ch.title.name)
+            .setArtist(Fmt.chapterLabel(ch.number, ch.number_end, ch.name))
             .setAlbumTitle(ch.narrator?.name)
-            .setArtworkUri(ch.coverUrl?.let { Uri.parse(it) })
+            .setArtworkUri(art)
             .setIsPlayable(true)
             .build()
         return MediaItem.Builder().setMediaId(ch.id.toString()).setUri(ch.audio_url).setMediaMetadata(md).build()
     }
+
+    /**
+     * Android Auto can't load http or file artwork, so covers are downloaded (or copied from a
+     * downloaded title) into the cache and handed out through the FileProvider; no cover → app icon.
+     * [square] center-crops it for the browse list; the player gets the cover as is.
+     */
+    suspend fun carArt(url: String?, square: Boolean = true): Uri {
+        val fallback = Uri.parse("android.resource://${appContext.packageName}/${R.drawable.ic_launcher_foreground}")
+        val src = OfflineStore.resolveImage(url) ?: return fallback
+        return withContext(Dispatchers.IO) {
+            runCatching {
+                val dir = File(appContext.cacheDir, "art").apply { mkdirs() }
+                val file = File(dir, MessageDigest.getInstance("SHA-1").digest(src.toByteArray()).joinToString("") { "%02x".format(it) } + if (square) ".jpg" else ".img")
+                if (!file.exists()) {
+                    val tmp = File(dir, file.name + ".tmp")
+                    if (src.startsWith("/")) File(src).copyTo(tmp, overwrite = true)
+                    else Api.client.newCall(Request.Builder().url(src).build()).execute().use { r ->
+                        check(r.isSuccessful)
+                        val body = r.body ?: error("empty body")
+                        tmp.outputStream().use { body.byteStream().copyTo(it) }
+                    }
+                    if (square) { squareCover(tmp, file); tmp.delete() } else tmp.renameTo(file)
+                }
+                val uri = FileProvider.getUriForFile(appContext, "${appContext.packageName}.files", file)
+                CAR_HOSTS.forEach { runCatching { appContext.grantUriPermission(it, uri, Intent.FLAG_GRANT_READ_URI_PERMISSION) } }
+                uri
+            }.getOrDefault(fallback)
+        }
+    }
+
+    /** Auto shows artwork in squares and stretches it, so covers are center-cropped to a square. */
+    private fun squareCover(src: File, dst: File) {
+        val bounds = BitmapFactory.Options().apply { inJustDecodeBounds = true }
+        BitmapFactory.decodeFile(src.path, bounds)
+        var sample = 1
+        while (minOf(bounds.outWidth, bounds.outHeight) / (sample * 2) >= COVER_PX) sample *= 2
+        val bmp = BitmapFactory.decodeFile(src.path, BitmapFactory.Options().apply { inSampleSize = sample }) ?: error("not an image")
+        val side = minOf(bmp.width, bmp.height)
+        val x = (bmp.width - side) / 2
+        val y = (bmp.height - side) / 2
+        val out = Bitmap.createBitmap(COVER_PX, COVER_PX, Bitmap.Config.ARGB_8888)
+        Canvas(out).drawBitmap(bmp, Rect(x, y, x + side, y + side), Rect(0, 0, COVER_PX, COVER_PX), Paint(Paint.FILTER_BITMAP_FLAG))
+        bmp.recycle()
+        dst.outputStream().use { out.compress(Bitmap.CompressFormat.JPEG, 90, it) }
+        out.recycle()
+    }
+
+    private val CAR_HOSTS = listOf("com.google.android.projection.gearhead", "com.android.car.media")
+    private const val COVER_PX = 512
 
     suspend fun playChapter(id: Int, startAt: Double? = null, autoplay: Boolean = true) {
         val c = controller ?: throw IllegalStateException("Плеер ещё не готов")
@@ -239,8 +304,6 @@ object PlayerController {
             if (autoplay) c.play()
             return
         }
-        if (cur != null && cur.id != id) saveProgress()
-
         val seq = ++loadSeq
         _loading.value = true
         // Downloaded chapters play from the device; otherwise stream, and fall back to the
@@ -251,8 +314,22 @@ object PlayerController {
             _loading.value = false
             throw e
         }
+        val art = carArt(ch.coverUrl, square = false)
         if (seq != loadSeq) return
 
+        val start = adopt(ch, startAt)
+        c.setMediaItem(mediaItem(ch, art), (start * 1000).toLong())
+        c.playbackParameters = PlaybackParameters(_rate.value)
+        c.prepare()
+        c.playWhenReady = autoplay
+        if (!autoplay) _loading.value = false
+    }
+
+    /** Makes [ch] the current chapter (saving the one it replaces) and returns where to start it. */
+    private fun adopt(ch: ChapterPlay, startAt: Double?): Double {
+        val cur = _current.value
+        if (cur != null && cur.id != ch.id) saveProgress()
+        loadSeq++
         _current.value = ch
         _buffered.value = 0.0
         _duration.value = ch.duration_seconds
@@ -260,13 +337,18 @@ object PlayerController {
         _position.value = start
         switching = true
         pendingStart = null
-        c.setMediaItem(mediaItem(ch), (start * 1000).toLong())
-        c.playbackParameters = PlaybackParameters(_rate.value)
-        c.prepare()
-        c.playWhenReady = autoplay
         persistOpen()
         ensureSaveTicker()
-        if (!autoplay) _loading.value = false
+        return start
+    }
+
+    /** A chapter picked outside the app (Android Auto, media resumption): the session plays the returned item. */
+    @OptIn(UnstableApi::class)
+    suspend fun resolve(id: Int, startAt: Double? = null): MediaSession.MediaItemsWithStartPosition {
+        val ch = OfflineStore.chapterPlay(id) ?: Api.get<ChapterPlay>("/chapters/$id")
+        val art = carArt(ch.coverUrl, square = false)
+        val start = adopt(ch, startAt)
+        return MediaSession.MediaItemsWithStartPosition(listOf(mediaItem(ch, art)), 0, (start * 1000).toLong())
     }
 
     fun play(id: Int, startAt: Double? = null) {

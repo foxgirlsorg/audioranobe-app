@@ -11,6 +11,9 @@ import org.foxgirls.audioranobe.core.Api
 import org.foxgirls.audioranobe.core.AppJson
 import org.foxgirls.audioranobe.data.ChapterPlay
 import org.foxgirls.audioranobe.data.ChapterRow
+import org.foxgirls.audioranobe.data.ContinueChapter
+import org.foxgirls.audioranobe.data.ContinueItem
+import org.foxgirls.audioranobe.data.ContinueTitle
 import org.foxgirls.audioranobe.data.Stores
 import org.foxgirls.audioranobe.data.TitleFull
 import org.foxgirls.audioranobe.data.Volume
@@ -176,6 +179,18 @@ object OfflineStore {
         val local = _pending.value.filter { it.titleId == m.titleId }.associate { it.chapterId to it.position }
         if (local.isEmpty()) return m.title
         return m.title.copy(volumes = m.title.volumes.map { v -> v.copy(chapters = v.chapters.map { c -> local[c.id]?.let { p -> c.copy(my_position = p) } ?: c }) })
+    }
+
+    /** "Continue listening" without the server: downloaded titles in progress, then the last cached server list. */
+    fun continueFallback(cached: List<ContinueItem>): List<ContinueItem> {
+        val pending = _pending.value
+        val local = _titles.value.sortedByDescending { m -> pending.filter { it.titleId == m.titleId }.maxOfOrNull { it.updatedAt } ?: 0L }.mapNotNull { m ->
+            val t = offlineTitle(m)
+            val ch = t.volumes.flatMap { it.liveChapters }.filter { m.chapters.containsKey(it.id) && (it.my_position ?: 0.0) > 0 }.maxByOrNull { it.number } ?: return@mapNotNull null
+            ContinueItem(ContinueTitle(t.id, t.slug, t.name, t.cover_url), ContinueChapter(ch.id, ch.name, ch.number, ch.duration_seconds), ch.my_position ?: 0.0)
+        }
+        return local + cached.filter { c -> local.none { it.title.id == c.title.id } }
+            .map { c -> pending.firstOrNull { it.chapterId == c.chapter.id }?.let { c.copy(position_seconds = it.position) } ?: c }
     }
 
     // ---------- downloads ----------

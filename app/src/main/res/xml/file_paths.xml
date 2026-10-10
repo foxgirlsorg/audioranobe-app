@@ -2,4 +2,6 @@
 <paths>
     <!-- Downloaded update APKs, shared with the package installer. -->
     <cache-path name="updates" path="updates/" />
+    <!-- Covers copied for Android Auto, which only loads content:// artwork. -->
+    <cache-path name="art" path="art/" />
 </paths>
