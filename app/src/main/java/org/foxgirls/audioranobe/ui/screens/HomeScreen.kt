@@ -1,6 +1,7 @@
 package org.foxgirls.audioranobe.ui.screens
 
 import org.foxgirls.audioranobe.ui.components.ditheredBackground
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.lazy.rememberLazyListState
 import org.foxgirls.audioranobe.ui.components.edgeFade
 import androidx.compose.animation.core.animateFloatAsState
@@ -330,21 +331,25 @@ private fun ContinueSection(list: List<ContinueItem>) {
             items(list, key = { it.chapter.id }) { c ->
                 val pct = if (c.chapter.duration_seconds > 0) (c.position_seconds / c.chapter.duration_seconds).toFloat().coerceAtMost(1f) else 0f
                 GlassPanel(Modifier.width(300.dp), padding = PaddingValues(10.dp)) {
-                    Row {
+                    Row(Modifier.height(IntrinsicSize.Min), verticalAlignment = Alignment.CenterVertically) {
                         ArImage(c.title.cover_url, Modifier.size(64.dp, 88.dp).clickable { nav.go(Routes.title(c.title.slug)) }, fallbackIcon = Lucide.Play, shape = RoundedCornerShape(8.dp))
                         Spacer(Modifier.width(10.dp))
-                        Column(Modifier.weight(1f)) {
+                        Column(Modifier.weight(1f).fillMaxHeight()) {
                             Text(c.title.name, color = Ar.text, fontSize = 14.sp, fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.clickable { nav.go(Routes.title(c.title.slug)) })
                             Text("Гл. ${Fmt.trimNum(c.chapter.number)}" + (if (c.chapter.name.isNotBlank()) " — ${c.chapter.name}" else ""), color = Ar.textSecondary, fontSize = 12.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
                             Spacer(Modifier.height(8.dp))
                             ProgressTrack(pct)
-                            Spacer(Modifier.height(8.dp))
+                            Spacer(Modifier.weight(1f).heightIn(min = 8.dp))
                             Row(verticalAlignment = Alignment.CenterVertically) {
                                 Text("${Fmt.duration(c.position_seconds)} / ${Fmt.duration(c.chapter.duration_seconds)}", color = Ar.textMuted, fontSize = 11.sp, modifier = Modifier.weight(1f))
-                                Row(Modifier.clip(CircleShape).background(Ar.accent).clickable { PlayerController.play(c.chapter.id) }.padding(horizontal = 10.dp, vertical = 5.dp), verticalAlignment = Alignment.CenterVertically) {
-                                    Icon(Lucide.Play, null, tint = Ar.accentOn, modifier = Modifier.size(12.dp))
+                                Row(
+                                    Modifier.clip(CircleShape).background(Ar.accent.copy(alpha = 0.12f)).border(1.dp, Ar.accent.copy(alpha = 0.5f), CircleShape)
+                                        .clickable { PlayerController.play(c.chapter.id) }.padding(horizontal = 10.dp, vertical = 4.dp),
+                                    verticalAlignment = Alignment.CenterVertically,
+                                ) {
+                                    Icon(Lucide.Play, null, tint = Ar.text, modifier = Modifier.size(11.dp))
                                     Spacer(Modifier.width(4.dp))
-                                    Text("Продолжить", color = Ar.accentOn, fontSize = 11.sp, fontWeight = FontWeight.SemiBold)
+                                    Text("ПРОДОЛЖИТЬ", color = Ar.text, fontSize = 10.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.sp)
                                 }
                             }
                         }
