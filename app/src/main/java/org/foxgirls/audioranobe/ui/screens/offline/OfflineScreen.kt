@@ -18,6 +18,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
@@ -25,6 +26,8 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.Checkbox
+import androidx.compose.material3.CheckboxDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -84,8 +87,8 @@ fun OfflineScreen() {
     val syncing by OfflineStore.syncing.collectAsStateWithLifecycle()
     val bottom = LocalBottomInset.current
     var toDelete by remember { mutableStateOf<OfflineManifest?>(null) }
-    var ask by remember { mutableStateOf<DownloadAsk?>(null) }
-    DownloadConfirm(ask) { ask = null }
+    var pick by remember { mutableStateOf<TitleFull?>(null) }
+    DownloadPicker(pick) { pick = null }
 
     LazyColumn(Modifier.fillMaxSize().dockScrollAware().statusBarsPadding(), contentPadding = PaddingValues(bottom = bottom + 24.dp)) {
         item {
@@ -161,7 +164,7 @@ fun OfflineScreen() {
                         Row(Modifier.padding(top = 6.dp), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                             val resume = all.lastOrNull { c -> (c.my_position ?: 0.0) > 0 && m.chapters.containsKey(c.id) } ?: all.firstOrNull { m.chapters.containsKey(it.id) }
                             if (resume != null) ArButton("Слушать", { PlayerController.play(resume.id); PlayerController.setFull(true) }, kind = ButtonKind.Primary, icon = Lucide.Play, small = true)
-                            if (done < all.size) ArButton("Докачать", { ask = DownloadAsk.of(t, all.map { it.id }, "остальные главы", "Остальные главы добавлены в загрузки") }, icon = Lucide.Download, small = true)
+                            if (done < all.size) ArButton("Докачать", { pick = t }, icon = Lucide.Download, small = true)
                         }
                     }
                     IconBtn(Lucide.Trash2, "Удалить загрузки", { toDelete = m }, size = 34.dp, iconSize = 16.dp, tint = Ar.danger)
@@ -245,4 +248,54 @@ fun DownloadConfirm(ask: DownloadAsk?, onClose: () -> Unit) {
         body = "${chapters.size} ${Fmt.plural(chapters.size, "глава", "главы", "глав")} · ${Fmt.duration(seconds)} · примерно ${Fmt.bytes(OfflineStore.estimateBytes(seconds))}",
         confirmLabel = "Скачать",
     )
+}
+
+/** "Докачать": pick which of the not-yet-downloaded chapters to fetch, grouped by volume. */
+@Composable
+fun DownloadPicker(open: TitleFull?, onClose: () -> Unit) {
+    var last by remember { mutableStateOf(open) }
+    if (open != null) last = open
+    val title = last
+    val queue by OfflineStore.queue.collectAsStateWithLifecycle()
+    val volumes = title?.let { t ->
+        val missing = OfflineStore.missing(t, t.volumes.flatMap { v -> v.liveChapters.filter { it.playable }.map { it.id } }).toSet() - queue.map { it.chapterId }.toSet()
+        t.volumes.map { v -> v to v.liveChapters.filter { it.id in missing } }.filter { it.second.isNotEmpty() }
+    } ?: emptyList()
+    var selected by remember(title) { mutableStateOf(volumes.flatMap { (_, cs) -> cs.map { it.id } }.toSet()) }
+    val chosen = volumes.flatMap { it.second }.filter { it.id in selected }
+    val seconds = chosen.sumOf { it.duration_seconds }
+    val box = CheckboxDefaults.colors(checkedColor = Ar.accent, uncheckedColor = Ar.textMuted)
+    ArSheet(open != null, onClose, "Что докачать") {
+        if (volumes.isEmpty()) {
+            Text("Все доступные главы уже скачаны или в очереди.", color = Ar.textMuted, fontSize = 13.sp, modifier = Modifier.padding(vertical = 8.dp))
+            return@ArSheet
+        }
+        LazyColumn(Modifier.fillMaxWidth().heightIn(max = 440.dp)) {
+            volumes.forEach { (v, cs) ->
+                item(key = "v${v.id}") {
+                    val ids = cs.map { it.id }
+                    Row(Modifier.fillMaxWidth().clickable { selected = if (ids.all { it in selected }) selected - ids.toSet() else selected + ids }, verticalAlignment = Alignment.CenterVertically) {
+                        Checkbox(ids.all { it in selected }, null, colors = box)
+                        Text("${title!!.volume_label} ${v.num}" + (if (v.name.isNotBlank()) " — ${v.name}" else ""), color = Ar.white, fontSize = 14.sp, fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f))
+                        Text("${ids.count { it in selected }}/${ids.size}", color = Ar.textMuted, fontSize = 12.sp)
+                    }
+                }
+                items(cs, key = { it.id }) { c ->
+                    Row(Modifier.fillMaxWidth().clickable { selected = if (c.id in selected) selected - c.id else selected + c.id }.padding(start = 24.dp), verticalAlignment = Alignment.CenterVertically) {
+                        Checkbox(c.id in selected, null, colors = box)
+                        Text(Fmt.chapterLabel(c.number, c.number_end, c.name), color = Ar.text, fontSize = 13.sp, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f))
+                        Text(Fmt.duration(c.duration_seconds), color = Ar.textMuted, fontSize = 12.sp)
+                    }
+                }
+            }
+        }
+        HairlineDivider(Modifier.padding(vertical = 8.dp))
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Text(
+                if (chosen.isEmpty()) "Ничего не выбрано" else "${chosen.size} ${Fmt.plural(chosen.size, "глава", "главы", "глав")} · примерно ${Fmt.bytes(OfflineStore.estimateBytes(seconds))}",
+                color = Ar.textMuted, fontSize = 12.sp, modifier = Modifier.weight(1f),
+            )
+            ArButton("Скачать", { OfflineStore.download(title!!, chosen.map { it.id }); toast("Главы добавлены в загрузки"); onClose() }, kind = ButtonKind.Primary, icon = Lucide.Download, small = true, enabled = chosen.isNotEmpty())
+        }
+    }
 }
