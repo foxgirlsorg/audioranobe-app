@@ -657,7 +657,7 @@ data class SearchSuggest(
 data class OrderStatus(val authenticated: Boolean = false, val enabled: Boolean? = null, val can_order: Boolean = false, val next_at: String? = null)
 
 @Serializable
-data class Banner(val id: Int, val image_url: String = "", val url: String = "", val is_enabled: Boolean? = null, val is_public: Boolean? = null, val sort_order: Int? = null)
+data class Banner(val id: Int, val image_url: String = "", val url: String = "", val is_enabled: Boolean? = null, val is_public: Boolean? = null, val group: String = "", val sort_order: Int? = null)
 
 @Serializable
 data class Friendship(val status: String = "none", val friends_count: Int = 0)

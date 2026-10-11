@@ -273,7 +273,11 @@ private fun Hero() {
 /** components/BannerCarousel: auto-advancing 3:1 banners. */
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
-fun BannerCarousel(banners: List<Banner>, modifier: Modifier = Modifier) {
+fun BannerCarousel(all: List<Banner>, modifier: Modifier = Modifier) {
+    val banners = remember(all) {
+        val groups = all.filter { it.group.isNotEmpty() }.groupBy { it.group }
+        all.filter { it.group.isEmpty() || groups.getValue(it.group).first() === it }.map { if (it.group.isEmpty()) it else groups.getValue(it.group).random() }
+    }
     if (banners.isEmpty()) return
     val nav = LocalNav.current
     val pager = rememberPagerState(pageCount = { banners.size })
