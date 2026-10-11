@@ -34,6 +34,8 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.border
+import androidx.compose.ui.draw.alpha
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -349,11 +351,13 @@ fun TitleScreen(slug: String, initialTab: String?) {
                     }
                     for ((v, chapters) in displayVolumes) {
                         val open = v.id in openVols
+                        val volFrom = chapters.firstOrNull()?.second?.takeIf { f -> chapters.all { it.second == f } }
                         item(key = "vol${v.id}") {
-                            GlassPanel(Modifier.padding(horizontal = 16.dp, vertical = 5.dp), padding = PaddingValues(0.dp)) {
+                            GlassPanel(Modifier.padding(horizontal = 16.dp, vertical = 5.dp).alpha(if (volFrom != null) 0.55f else 1f), padding = PaddingValues(0.dp)) {
                                 Row(Modifier.fillMaxWidth().clickable { openVols = if (open) openVols - v.id else openVols + v.id }.padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
                                     Column(Modifier.weight(1f)) {
-                                        Row { Text("${title.volume_label} ${v.num}", color = Ar.white, fontSize = 14.sp, fontWeight = FontWeight.SemiBold); if (v.name.isNotBlank()) Text("  ${v.name}", color = Ar.textSecondary, fontSize = 14.sp, maxLines = 1, overflow = TextOverflow.Ellipsis) }
+                                        Row { Text("${title.volume_label} ${v.num}", color = Ar.white, fontSize = 14.sp, fontWeight = FontWeight.SemiBold); if (v.name.isNotBlank()) Text("  ${v.name}", color = Ar.textSecondary, fontSize = 14.sp, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f, fill = false)) }
+                                        if (volFrom != null) Text(volFrom, color = Ar.textMuted, fontSize = 10.sp, maxLines = 1, modifier = Modifier.padding(top = 4.dp).border(1.dp, Ar.borderStrong, RoundedCornerShape(50)).padding(horizontal = 7.dp, vertical = 1.dp))
                                         Row(Modifier.padding(top = 2.dp), verticalAlignment = Alignment.CenterVertically) {
                                             Icon(Lucide.ListMusic, null, tint = Ar.textMuted, modifier = Modifier.size(12.dp)); Text(" Глав: ${v.liveChapters.size}", color = Ar.textMuted, fontSize = 12.sp)
                                             val total = volumeDuration(v)
@@ -383,7 +387,7 @@ fun TitleScreen(slug: String, initialTab: String?) {
                                                     Column(Modifier.weight(1f)) {
                                                         Text(Fmt.chapterLabel(ch.number, ch.number_end, ch.name), color = if (isCurrent) Ar.accentHover else Ar.text, fontSize = 13.sp, maxLines = 2, overflow = TextOverflow.Ellipsis)
                                                         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                                                            if (sourceLabel != null) Text(sourceLabel, color = Ar.textMuted, fontSize = 10.sp, maxLines = 1)
+                                                            if (sourceLabel != null && volFrom == null) Text(sourceLabel, color = Ar.textMuted, fontSize = 10.sp, maxLines = 1)
                                                             if (ch.narrators.isNotEmpty()) Text(ch.narrators.joinToString(", ") { it.name }, color = Ar.textMuted, fontSize = 10.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
                                                             if (ch.mod_status != "approved") StatusBadge(ch.mod_status)
                                                             if (ch.audio_status != "ready" && (title.can_edit || ch.audio_status != "none")) StatusBadge(ch.audio_status)
