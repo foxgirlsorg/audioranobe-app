@@ -34,7 +34,6 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.foundation.border
 import androidx.compose.ui.draw.alpha
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
@@ -50,7 +49,10 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.text.SpanStyle
+import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -82,6 +84,7 @@ import org.foxgirls.audioranobe.ui.components.ArTabs
 import org.foxgirls.audioranobe.ui.components.ButtonKind
 import org.foxgirls.audioranobe.ui.components.CardGrid
 import org.foxgirls.audioranobe.ui.components.CenterSpinner
+import org.foxgirls.audioranobe.ui.components.ConfirmDialog
 import org.foxgirls.audioranobe.ui.components.EmptyState
 import org.foxgirls.audioranobe.ui.components.ErrorState
 import org.foxgirls.audioranobe.ui.components.Eyebrow
@@ -116,6 +119,8 @@ import org.foxgirls.audioranobe.ui.toast.toast
 import org.foxgirls.audioranobe.ui.toast.toastError
 import kotlinx.coroutines.launch
 import kotlinx.serialization.Serializable
+import kotlinx.serialization.json.JsonArray
+import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.put
 
@@ -123,6 +128,12 @@ import kotlinx.serialization.json.put
 private data class RateRes(val avg_rating: Double? = null, val rating_count: Int = 0, val my_rating: Int? = null)
 
 private fun volumeDuration(v: Volume) = v.liveChapters.sumOf { it.duration_seconds }
+
+/** A chapter counts as listened once its progress reaches the end (mirrors isListened on the site). */
+private fun isListened(c: ChapterRow) = c.duration_seconds > 0 && (c.my_position ?: 0.0) >= c.duration_seconds - 5
+
+/** Chapters that can be marked listened by hand: voiced and with a known duration. */
+private fun markable(chapters: List<ChapterRow>) = chapters.filter { it.audio_status == "ready" && it.duration_seconds > 0 }
 
 /** app/title/[slug]: the app-style single-column title page. */
 @Composable
@@ -148,6 +159,7 @@ fun TitleScreen(slug: String, initialTab: String?) {
     var selectedVersion by remember { mutableStateOf(0) }
     var coverViewer by remember { mutableStateOf(false) }
     var reNarrating by remember { mutableStateOf<Int?>(null) }
+    var confirmUnlisten by remember { mutableStateOf<Pair<List<ChapterRow>, String>?>(null) }
     val current by PlayerController.current.collectAsStateWithLifecycle()
     val playing by PlayerController.playing.collectAsStateWithLifecycle()
     val position by PlayerController.position.collectAsStateWithLifecycle()
@@ -205,6 +217,30 @@ fun TitleScreen(slug: String, initialTab: String?) {
     val commentsTotal = title.comments?.total ?: 0
 
     fun playChapter(ch: ChapterRow) { if (current?.id == ch.id) PlayerController.toggle() else PlayerController.play(ch.id) }
+
+    // Mirror of the site's mark-listened control: POST /me/progress/listened, then patch my_position.
+    suspend fun setListened(chapters: List<ChapterRow>, listened: Boolean) {
+        val ids = chapters.map { it.id }.toSet()
+        if (ids.isEmpty()) return
+        try {
+            Api.post<Unit>("/me/progress/listened", buildJsonObject {
+                put("chapter_ids", JsonArray(ids.map { JsonPrimitive(it) }))
+                put("listened", listened)
+            })
+        } catch (e: Exception) { toastError(e); return }
+        loader.update { prev ->
+            fun patch(c: ChapterRow) = if (c.id in ids) c.copy(my_position = if (listened) c.duration_seconds else null) else c
+            prev.copy(
+                volumes = prev.volumes.map { v -> v.copy(chapters = v.chapters.map { patch(it) }) },
+                alt_chapters = prev.alt_chapters.mapValues { (_, cs) -> cs.map { patch(it) } },
+            )
+        }
+    }
+
+    fun toggleListened(chapters: List<ChapterRow>, what: String) {
+        if (chapters.isNotEmpty() && chapters.all { isListened(it) }) confirmUnlisten = chapters to what
+        else scope.launch { setListened(chapters, true) }
+    }
 
     fun rate(v: Int?) {
         scope.launch {
@@ -356,8 +392,13 @@ fun TitleScreen(slug: String, initialTab: String?) {
                             GlassPanel(Modifier.padding(horizontal = 16.dp, vertical = 5.dp).alpha(if (volFrom != null) 0.55f else 1f), padding = PaddingValues(0.dp)) {
                                 Row(Modifier.fillMaxWidth().clickable { openVols = if (open) openVols - v.id else openVols + v.id }.padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
                                     Column(Modifier.weight(1f)) {
-                                        Row { Text("${title.volume_label} ${v.num}", color = Ar.white, fontSize = 14.sp, fontWeight = FontWeight.SemiBold); if (v.name.isNotBlank()) Text("  ${v.name}", color = Ar.textSecondary, fontSize = 14.sp, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f, fill = false)) }
-                                        if (volFrom != null) Text(volFrom, color = Ar.textMuted, fontSize = 10.sp, maxLines = 1, modifier = Modifier.padding(top = 4.dp).border(1.dp, Ar.borderStrong, RoundedCornerShape(50)).padding(horizontal = 7.dp, vertical = 1.dp))
+                                        Row {
+                                            Text(buildAnnotatedString {
+                                                append("${title.volume_label} ${v.num}")
+                                                if (v.name.isNotBlank()) { append("  "); withStyle(SpanStyle(color = Ar.textSecondary, fontWeight = FontWeight.Normal)) { append(v.name) } }
+                                                if (volFrom != null) { append("  "); withStyle(SpanStyle(color = Ar.textMuted, fontSize = 10.sp, fontWeight = FontWeight.Normal)) { append(volFrom) } }
+                                            }, color = Ar.white, fontSize = 14.sp, fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f, fill = false))
+                                        }
                                         Row(Modifier.padding(top = 2.dp), verticalAlignment = Alignment.CenterVertically) {
                                             Icon(Lucide.ListMusic, null, tint = Ar.textMuted, modifier = Modifier.size(12.dp)); Text(" Глав: ${v.liveChapters.size}", color = Ar.textMuted, fontSize = 12.sp)
                                             val total = volumeDuration(v)
@@ -367,6 +408,8 @@ fun TitleScreen(slug: String, initialTab: String?) {
                                     val volReady = v.liveChapters.filter { it.audio_status == "ready" }
                                     val volManifest = offlineTitles.firstOrNull { it.titleId == title.id }
                                     val volDone = volReady.isNotEmpty() && volReady.all { volManifest?.chapters?.containsKey(it.id) == true }
+                                    val volMarkable = markable(chapters.map { it.first })
+                                    if (user != null && volMarkable.isNotEmpty()) IconBtn(Lucide.CheckCheck, if (volMarkable.all { isListened(it) }) "Снять отметку «прослушано» с тома" else "Отметить том прослушанным", { toggleListened(volMarkable, "тома ${v.num}") }, size = 30.dp, iconSize = 14.dp, tint = if (volMarkable.all { isListened(it) }) Ar.accent else Ar.textSecondary)
                                     if (volReady.isNotEmpty()) IconBtn(if (volDone) Lucide.CircleCheck else Lucide.Download, if (volDone) "Том скачан" else "Скачать том", { if (volDone) OfflineStore.removeVolume(title.id, v) else { dlAsk = DownloadAsk.of(title, volReady.map { it.id }, "${title.volume_label.lowercase()} ${v.num}", "Том ${v.num} добавлен в загрузки") } }, size = 30.dp, iconSize = 14.dp, tint = if (volDone) Ar.accent else Ar.textSecondary)
                                     Chevron(open, 16.dp)
                                 }
@@ -385,15 +428,18 @@ fun TitleScreen(slug: String, initialTab: String?) {
                                                     Spacer(Modifier.width(8.dp))
                                                     Text(Fmt.chapterNumber(ch.number, ch.number_end), color = Ar.textMuted, fontSize = 12.sp, modifier = Modifier.width(34.dp))
                                                     Column(Modifier.weight(1f)) {
-                                                        Text(Fmt.chapterLabel(ch.number, ch.number_end, ch.name), color = if (isCurrent) Ar.accentHover else Ar.text, fontSize = 13.sp, maxLines = 2, overflow = TextOverflow.Ellipsis)
+                                                        Text(buildAnnotatedString {
+                                                            append(Fmt.chapterLabel(ch.number, ch.number_end, ch.name))
+                                                            if (sourceLabel != null && volFrom == null) { append("  "); withStyle(SpanStyle(color = Ar.textMuted, fontSize = 10.sp)) { append(sourceLabel) } }
+                                                        }, color = if (isCurrent) Ar.accentHover else Ar.text, fontSize = 13.sp, maxLines = 2, overflow = TextOverflow.Ellipsis)
                                                         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                                                            if (sourceLabel != null && volFrom == null) Text(sourceLabel, color = Ar.textMuted, fontSize = 10.sp, maxLines = 1)
                                                             if (ch.narrators.isNotEmpty()) Text(ch.narrators.joinToString(", ") { it.name }, color = Ar.textMuted, fontSize = 10.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
                                                             if (ch.mod_status != "approved") StatusBadge(ch.mod_status)
                                                             if (ch.audio_status != "ready" && (title.can_edit || ch.audio_status != "none")) StatusBadge(ch.audio_status)
                                                         }
                                                     }
                                                     if (ch.duration_seconds > 0) Text(Fmt.duration(ch.duration_seconds), color = Ar.textMuted, fontSize = 11.sp)
+                                                    if (user != null && chPlayable && ch.duration_seconds > 0) IconBtn(Lucide.Check, if (isListened(ch)) "Снять отметку «прослушано»" else "Отметить прослушанной", { toggleListened(listOf(ch), "главы ${Fmt.chapterNumber(ch.number, ch.number_end)}") }, size = 30.dp, iconSize = 14.dp, tint = if (isListened(ch)) Ar.accent else Ar.textSecondary)
                                                     if (isMod && title.is_imported && title.is_ai) IconBtn(Lucide.RefreshCw, "Переозвучить главу", {
                                                         if (reNarrating != null) return@IconBtn
                                                         reNarrating = ch.id
@@ -419,6 +465,13 @@ fun TitleScreen(slug: String, initialTab: String?) {
     }
     DownloadSheet(downloadSheet, { downloadSheet = false }, title, offlineTitles.firstOrNull { it.titleId == title.id }, dlStates)
     DownloadConfirm(dlAsk) { dlAsk = null }
+    ConfirmDialog(
+        open = confirmUnlisten != null,
+        onClose = { confirmUnlisten = null },
+        onConfirm = { confirmUnlisten?.let { (chs, _) -> scope.launch { setListened(chs, false) } } },
+        title = "Снять отметку «прослушано»?",
+        body = "Прогресс ${confirmUnlisten?.second ?: ""} будет сброшен.",
+    )
     ImageViewer(coverViewer, listOfNotNull(title.cover_url) + title.volumes.mapNotNull { it.cover_url }.filter { it != title.cover_url }, 0, listOf(title.name) + title.volumes.filter { it.cover_url != null && it.cover_url != title.cover_url }.map { it.name.ifBlank { "${title.volume_label} ${it.num}" } }) { coverViewer = false }
 }
 
