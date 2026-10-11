@@ -56,6 +56,7 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
+import androidx.compose.ui.unit.coerceAtMost
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -280,6 +281,8 @@ fun BannerCarousel(all: List<Banner>, modifier: Modifier = Modifier) {
     }
     if (banners.isEmpty()) return
     val nav = LocalNav.current
+    var modal by remember { mutableStateOf<Banner?>(null) }
+    BannerHtmlModal(modal) { modal = null }
     val pager = rememberPagerState(pageCount = { banners.size })
     LaunchedEffect(pager, banners.size) {
         if (banners.size < 2) return@LaunchedEffect
@@ -291,13 +294,50 @@ fun BannerCarousel(all: List<Banner>, modifier: Modifier = Modifier) {
     Column(modifier) {
         HorizontalPager(pager, Modifier.fillMaxWidth().aspectRatio(3f).clip(RoundedCornerShape(16.dp))) { i ->
             val b = banners[i]
-            ArImage(b.image_url, Modifier.fillMaxSize().clickable(enabled = b.url.isNotBlank()) { Links.open(nav, b.url) })
+            ArImage(b.image_url, Modifier.fillMaxSize().clickable(enabled = b.modal_html.isNotBlank() || b.url.isNotBlank()) {
+                if (b.modal_html.isNotBlank()) modal = b else Links.open(nav, b.url)
+            })
         }
         if (banners.size > 1) Row(Modifier.fillMaxWidth().padding(top = 8.dp), horizontalArrangement = Arrangement.Center) {
             for (i in banners.indices) Box(Modifier.padding(3.dp).size(6.dp).background(if (i == pager.currentPage) Ar.accent else Ar.borderStrong, CircleShape))
         }
     }
 }
+
+/** A banner's custom HTML in a modal; links leave the WebView for the browser / in-app routes. */
+@Composable
+private fun BannerHtmlModal(banner: Banner?, onClose: () -> Unit) {
+    val nav = LocalNav.current
+    var last by remember { mutableStateOf(banner) }
+    if (banner != null) last = banner
+    org.foxgirls.audioranobe.ui.components.ArModal(banner != null, onClose, last?.modal_title?.ifBlank { null }, scrollable = false) {
+        var contentHeight by remember { mutableStateOf(120.dp) }
+        androidx.compose.ui.viewinterop.AndroidView(
+            factory = { ctx ->
+                android.webkit.WebView(ctx).apply {
+                    settings.javaScriptEnabled = true
+                    setBackgroundColor(android.graphics.Color.TRANSPARENT)
+                    webViewClient = object : android.webkit.WebViewClient() {
+                        override fun shouldOverrideUrlLoading(view: android.webkit.WebView, request: android.webkit.WebResourceRequest): Boolean {
+                            Links.open(nav, request.url.toString())
+                            return true
+                        }
+
+                        override fun onPageFinished(view: android.webkit.WebView, url: String?) {
+                            // CSS px equal dp here (viewport is device-width), so the page height maps straight to dp.
+                            view.evaluateJavascript("document.documentElement.scrollHeight") { v -> v.toFloatOrNull()?.let { contentHeight = it.dp } }
+                        }
+                    }
+                    loadDataWithBaseURL(null, BANNER_FRAME_CSS + (last?.modal_html ?: ""), "text/html", "utf-8", null)
+                }
+            },
+            modifier = Modifier.fillMaxWidth().height(contentHeight.coerceAtMost(560.dp)),
+        )
+    }
+}
+
+private const val BANNER_FRAME_CSS =
+    "<!doctype html><meta charset=\"utf-8\"><meta name=\"viewport\" content=\"width=device-width,initial-scale=1\"><style>html{color-scheme:dark}body{margin:0;font:15px/1.6 sans-serif;color:#e8e8e8;background:transparent}a{color:#de6161}img{max-width:100%}</style>"
 
 /** components/CatalogGrid .controls at phone width: sort dropdown, direction toggle, finished-only toggle. */
 @Composable
