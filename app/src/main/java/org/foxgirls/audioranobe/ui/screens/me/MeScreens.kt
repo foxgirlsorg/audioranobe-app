@@ -184,7 +184,7 @@ fun HistoryScreen() {
                             Spacer(Modifier.width(10.dp))
                             Column(Modifier.weight(1f)) {
                                 Text(h.title.name, color = Ar.text, fontSize = 14.sp, fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.clickable { nav.go(Routes.title(h.title.slug)) })
-                                Text("Глава ${Fmt.trimNum(h.chapter.number)}" + (if (h.chapter.name.isNotBlank()) " — ${h.chapter.name}" else ""), color = Ar.textSecondary, fontSize = 12.sp, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.clickable { nav.go(Routes.chapter(h.chapter.id)) })
+                                Text("Глава ${Fmt.trimNum(h.chapter.number)}" + (if (h.chapter.name.isNotBlank()) " — ${h.chapter.name}" else ""), color = Ar.textSecondary, fontSize = 12.sp, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.clickable { PlayerController.play(h.chapter.id) })
                                 Spacer(Modifier.height(6.dp)); ProgressTrack(pct); Spacer(Modifier.height(4.dp))
                                 Row(verticalAlignment = Alignment.CenterVertically) {
                                     Text("${Fmt.duration(h.position_seconds)}${if (dur > 0) " / ${Fmt.duration(dur)}" else ""} · ${Fmt.timeAgo(h.updated_at)}", color = Ar.textMuted, fontSize = 11.sp, modifier = Modifier.weight(1f))

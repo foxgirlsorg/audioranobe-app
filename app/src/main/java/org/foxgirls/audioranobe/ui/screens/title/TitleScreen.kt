@@ -421,7 +421,7 @@ fun TitleScreen(slug: String, initialTab: String?) {
                                             val chPlayable = ch.audio_status == "ready"
                                             val staticPct = if (ch.duration_seconds > 0) ((ch.my_position ?: 0.0) / ch.duration_seconds).toFloat() else 0f
                                             Column(Modifier.fillMaxWidth().background(if (isCurrent) Ar.accentSoft.copy(alpha = 0.5f) else androidx.compose.ui.graphics.Color.Transparent)) {
-                                                Row(Modifier.fillMaxWidth().clickable { nav.go(Routes.chapter(ch.id)) }.padding(horizontal = 10.dp, vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
+                                                Row(Modifier.fillMaxWidth().clickable { if (chPlayable) playChapter(ch) }.padding(horizontal = 10.dp, vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
                                                     if (chPlayable) Box(Modifier.size(30.dp).clip(CircleShape).background(if (isCurrent) Ar.accent else Ar.fill08).clickable { playChapter(ch) }, contentAlignment = Alignment.Center) {
                                                         PlayPauseIcon(isCurrent && playing, if (isCurrent) Ar.accentOn else Ar.text, 13.dp, 0.dp)
                                                     } else Box(Modifier.size(30.dp), contentAlignment = Alignment.Center) { Icon(Lucide.Headphones, "Аудио ещё не готово", tint = Ar.textMuted, modifier = Modifier.size(13.dp)) }
