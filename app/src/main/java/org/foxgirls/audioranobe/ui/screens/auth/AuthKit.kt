@@ -129,8 +129,7 @@ fun CaptchaWidget(nonce: Int, onToken: (String) -> Unit) {
     val c = config?.captcha ?: return
     if (!c.enabled || c.site_key.isBlank() || c.script_url.isBlank() || c.widget_var.isBlank()) return
     val html = remember(c, nonce) {
-        """<!doctype html><html><head><meta name="viewport" content="width=device-width, initial-scale=1">
-        <style>html,body{margin:0;background:#161616;color:#a6acb2;font:13px sans-serif}#w{padding:6px 0}</style>
+        """<!doctype html><html><head><meta name="viewport" content="width=device-width, initial-scale=        <style>html,body{margin:0;background:#161616;color:#a6acb2;font:13px sans-serif}body{display:flex;flex-direction:column;align-items:center}#w{padding:6px 0}</style>
         <script src="${c.script_url}" async defer onload="init()"></script>
         <script>
         function init(){var api=window["${c.widget_var}"];if(!api||typeof api.render!=='function'){setTimeout(init,300);return;}
