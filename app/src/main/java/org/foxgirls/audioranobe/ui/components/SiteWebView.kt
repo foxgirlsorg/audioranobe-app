@@ -109,22 +109,27 @@ fun SiteWebView(path: String, inside: (String) -> Boolean, modifier: Modifier = 
                 settings.userAgentString = "${settings.userAgentString} AudioRanobeApp"
                 setBackgroundColor(Ar.bg.toArgb())
                 val slop = android.view.ViewConfiguration.get(ctx).scaledTouchSlop
-                val threshold = 110 * ctx.resources.displayMetrics.density
+                // Same distance as the state's default trigger; snapTo takes pixels, so the drag is passed as-is.
+                val threshold = 80 * ctx.resources.displayMetrics.density
                 var startX = 0f
                 var startY = 0f
                 var atTop = false
                 var pulling = false
+                var pulledPx = 0f
                 setOnTouchListener { v, e ->
                     when (e.actionMasked) {
-                        MotionEvent.ACTION_DOWN -> { startX = e.x; startY = e.y; atTop = v.scrollY == 0; pulling = false }
+                        MotionEvent.ACTION_DOWN -> { startX = e.x; startY = e.y; atTop = v.scrollY == 0; pulling = false; pulledPx = 0f }
                         MotionEvent.ACTION_MOVE -> {
                             val dy = e.y - startY
                             if (!pulling && atTop && !refreshing && dy > slop && dy > abs(e.x - startX)) pulling = true
-                            if (pulling) scope.launch { pull.snapTo(((dy - slop) / threshold).coerceIn(0f, 1.5f)) }
+                            if (pulling) {
+                                pulledPx = (dy - slop).coerceAtLeast(0f)
+                                scope.launch { pull.snapTo(pulledPx) }
+                            }
                         }
                         MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> if (pulling) {
                             pulling = false
-                            if (e.actionMasked == MotionEvent.ACTION_UP && pull.distanceFraction >= 1f) {
+                            if (e.actionMasked == MotionEvent.ACTION_UP && pulledPx >= threshold) {
                                 refreshing = true
                                 scope.launch { pull.animateToThreshold() }
                                 (v as WebView).reload()

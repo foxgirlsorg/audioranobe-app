@@ -84,6 +84,7 @@ import org.foxgirls.audioranobe.ui.components.Eyebrow
 import org.foxgirls.audioranobe.ui.components.GlassPanel
 import org.foxgirls.audioranobe.ui.components.IconBtn
 import org.foxgirls.audioranobe.ui.components.NarratorPersonCard
+import org.foxgirls.audioranobe.ui.components.RefreshEffect
 import org.foxgirls.audioranobe.ui.components.SectionTitle
 import org.foxgirls.audioranobe.ui.components.SelectMenu
 import org.foxgirls.audioranobe.ui.components.SelectOption
@@ -186,7 +187,7 @@ fun CatalogScreen(args: Bundle?) {
     LaunchedEffect(q) { delay(450); if (debouncedQ != q) { debouncedQ = q; page = 1 } }
     val show18 = nsfw ?: !userHideNsfw
 
-    LaunchedEffect(tab, debouncedQ, genreSlugs, author, yearFrom, yearTo, status, country, showAi, nsfw, sort, order, finished, page, nonce) {
+    RefreshEffect(tab, debouncedQ, genreSlugs, author, yearFrom, yearTo, status, country, showAi, nsfw, sort, order, finished, page, nonce) {
         loading = true; error = null
         try {
             when (tab) {

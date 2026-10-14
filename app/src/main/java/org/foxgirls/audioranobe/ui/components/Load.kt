@@ -24,8 +24,8 @@ import org.foxgirls.audioranobe.core.ApiError
 import org.foxgirls.audioranobe.core.msg
 import org.foxgirls.audioranobe.data.Paginated
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.launch
-
 /** Loading / data / error triple used by nearly every screen. */
 sealed class Load<out T> {
     data object Loading : Load<Nothing>()
@@ -101,6 +101,19 @@ fun <T> rememberLoader(vararg key: Any?, keepOnReload: Boolean = false, fetch: s
         }
     }
     return loader
+}
+
+/**
+ * Runs [block] on mount and again on each pull-to-refresh, for screens whose data isn't held in a [Loader].
+ * Counts itself in [ScreenRefresh.busy] like the loaders do, so the indicator waits for it.
+ */
+@Composable
+fun RefreshEffect(vararg keys: Any?, block: suspend CoroutineScope.() -> Unit) {
+    val refresh = LocalScreenRefresh.current
+    LaunchedEffect(*keys, refresh?.nonce ?: 0) {
+        refresh?.let { it.busy++ }
+        try { block() } finally { refresh?.let { it.busy-- } }
+    }
 }
 
 /** Renders the usual three states. */

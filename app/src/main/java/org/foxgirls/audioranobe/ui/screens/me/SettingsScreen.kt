@@ -55,6 +55,7 @@ import org.foxgirls.audioranobe.ui.components.CenterSpinner
 import org.foxgirls.audioranobe.ui.components.ConfirmDialog
 import org.foxgirls.audioranobe.ui.components.GlassPanel
 import org.foxgirls.audioranobe.ui.components.MarkdownEditor
+import org.foxgirls.audioranobe.ui.components.RefreshEffect
 import org.foxgirls.audioranobe.ui.components.UserAvatar
 import org.foxgirls.audioranobe.ui.components.pickers.SocialsEditor
 import org.foxgirls.audioranobe.ui.components.rememberImageCropper
@@ -183,7 +184,7 @@ fun SettingsBody(scopeUserId: Int?, onSaved: (Me) -> Unit) {
         if (scoped) onSaved(m) else auth.setUser(m)
     }
 
-    LaunchedEffect(scopeUserId, viewer?.id) {
+    RefreshEffect(scopeUserId, viewer?.id) {
         try {
             val m = Api.get<Me>("/me", asParam)
             me = m

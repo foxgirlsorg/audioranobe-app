@@ -40,7 +40,6 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
-import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -152,7 +151,7 @@ fun HomeScreen() {
     }
     LaunchedEffect(online) { if (online && loader.state is Load.Err) loader.reload() }
 
-    PullToRefreshBox(isRefreshing = loader.state is Load.Loading && loader.data != null, onRefresh = { loader.reload() }, modifier = Modifier.fillMaxSize()) {
+    Box(Modifier.fillMaxSize()) {
         LazyColumn(Modifier.fillMaxSize().dockScrollAware(), contentPadding = PaddingValues(bottom = bottom + 24.dp)) {
             item { TopBar(onSearch = { shell.searchOpen = true }) }
             when (val s = loader.state) {
