@@ -107,8 +107,8 @@ fun DonateGoalBar(goal: DonateGoal, modifier: Modifier = Modifier, compact: Bool
 fun DonateScreen() {
     val nav = LocalNav.current
     val context = LocalContext.current
-    val loader = rememberLoader(Unit) { Api.get<DonateConfig>("/donations/config") }
-    val recent = rememberLoader(Unit) { try { Api.get<RecentDonations>("/donations/recent").items } catch (_: Exception) { emptyList() } }
+    val loader = rememberLoader("config") { Api.get<DonateConfig>("/donations/config") }
+    val recent = rememberLoader("recent") { try { Api.get<RecentDonations>("/donations/recent").items } catch (_: Exception) { emptyList() } }
 
     Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).statusBarsPadding().padding(pagePadding())) {
         Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(bottom = 8.dp)) { IconBtn(Lucide.ArrowLeft, "Назад", { nav.back() }, tint = Ar.text) }

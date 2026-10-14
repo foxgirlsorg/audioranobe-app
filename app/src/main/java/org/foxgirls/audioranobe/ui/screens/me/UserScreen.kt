@@ -144,11 +144,12 @@ fun UserScreen(userRef: String, initialTab: String?) {
     val canEditLibrary = viewer != null && (isOwn || auth.can("users.edit"))
     val libraryTotal = stats.planning + stats.in_progress + stats.completed + stats.dropped
 
-    val library = rememberPagedList<LibraryEntry>(userRef, libStatus) { p -> Api.get("/users/${Routes.enc(userRef)}/library", mapOf("status" to libStatus.takeIf { it != "all" }, "page" to p)) }
-    val comments = rememberPagedList<Comment>(userRef) { p -> Api.get("/users/${Routes.enc(userRef)}/comments", mapOf("page" to p)) }
-    val favorites = rememberPagedList<TitleCard>(userRef) { p -> Api.get("/users/${Routes.enc(userRef)}/favorites", mapOf("page" to p)) }
-    val collections = rememberPagedList<CollectionCard>(user.username) { p -> Api.get("/collections", mapOf("user" to user.username, "page" to p)) }
-    val friends = rememberPagedList<UserBrief>(userRef) { p -> Api.get("/users/${Routes.enc(userRef)}/friends", mapOf("page" to p)) }
+    // Each list needs its own tag: the cache key is only the call site plus these args, so lists sharing args would swap entries.
+    val library = rememberPagedList<LibraryEntry>("library", userRef, libStatus) { p -> Api.get("/users/${Routes.enc(userRef)}/library", mapOf("status" to libStatus.takeIf { it != "all" }, "page" to p)) }
+    val comments = rememberPagedList<Comment>("comments", userRef) { p -> Api.get("/users/${Routes.enc(userRef)}/comments", mapOf("page" to p)) }
+    val favorites = rememberPagedList<TitleCard>("favorites", userRef) { p -> Api.get("/users/${Routes.enc(userRef)}/favorites", mapOf("page" to p)) }
+    val collections = rememberPagedList<CollectionCard>("collections", user.username) { p -> Api.get("/collections", mapOf("user" to user.username, "page" to p)) }
+    val friends = rememberPagedList<UserBrief>("friends", userRef) { p -> Api.get("/users/${Routes.enc(userRef)}/friends", mapOf("page" to p)) }
 
     var blockBusy by remember { mutableStateOf(false) }
     var confirmBlock by remember { mutableStateOf(false) }
