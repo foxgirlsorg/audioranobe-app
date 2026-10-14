@@ -16,6 +16,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyListScope
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -34,6 +35,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -53,7 +55,11 @@ import org.foxgirls.audioranobe.ui.components.ArButton
 import org.foxgirls.audioranobe.ui.components.ArImage
 import org.foxgirls.audioranobe.ui.components.ArTabs
 import org.foxgirls.audioranobe.ui.components.ButtonKind
-import org.foxgirls.audioranobe.ui.components.CenterSpinner
+import org.foxgirls.audioranobe.ui.components.AvatarRowSkeleton
+import org.foxgirls.audioranobe.ui.components.CardRowSkeleton
+import org.foxgirls.audioranobe.ui.components.FillRowsSkeleton
+import org.foxgirls.audioranobe.ui.components.Skeleton
+import org.foxgirls.audioranobe.ui.components.TextSkeleton
 import org.foxgirls.audioranobe.ui.components.EmptyState
 import org.foxgirls.audioranobe.ui.components.ErrorState
 import org.foxgirls.audioranobe.ui.components.Eyebrow
@@ -91,7 +97,7 @@ fun RequireAuth(): Boolean {
     val user by auth.user.collectAsStateWithLifecycle()
     val loading by auth.loading.collectAsStateWithLifecycle()
     LaunchedEffect(loading, user) { if (!loading && user == null) nav.replace(Routes.LOGIN) }
-    if (loading || user == null) { CenterSpinner(Modifier.fillMaxSize().statusBarsPadding(), 300.dp); return true }
+    if (loading || user == null) { MeGateSkeleton(); return true }
     return false
 }
 
@@ -108,6 +114,84 @@ fun MeHeader(eyebrow: String, title: String, accent: String, trailing: (@Composa
         Spacer(Modifier.height(6.dp))
         Eyebrow(eyebrow)
         SectionTitle(title, accent, Modifier.padding(top = 4.dp, bottom = 12.dp), size = 24)
+    }
+}
+
+/** Placeholder for [MeHeader]: back circle, eyebrow line, title line. */
+@Composable
+private fun MeHeaderSkeleton() {
+    Column(Modifier.fillMaxWidth().statusBarsPadding().padding(horizontal = 16.dp, vertical = 8.dp)) {
+        Skeleton(Modifier.size(38.dp), CircleShape)
+        Spacer(Modifier.height(6.dp))
+        Skeleton(Modifier.width(110.dp).height(11.dp))
+        Skeleton(Modifier.padding(top = 4.dp, bottom = 12.dp).width(220.dp).height(24.dp))
+    }
+}
+
+/** Fills the rest of a LazyColumn below a page's header with [row] placeholders stacked at [rowHeight]. */
+private fun LazyListScope.fillRows(rowHeight: Dp, gap: Dp = 8.dp, row: @Composable () -> Unit) {
+    item { Box(Modifier.fillParentMaxHeight().padding(horizontal = 16.dp)) { FillRowsSkeleton(rowHeight, gap) { row() } } }
+}
+
+/** Friend row: glass panel with a 44dp avatar and two text lines (matches [PersonRow]). */
+@Composable
+private fun PersonRowSkeleton() {
+    GlassPanel(Modifier.fillMaxWidth(), padding = PaddingValues(10.dp)) { AvatarRowSkeleton(avatar = 44.dp) }
+}
+
+/** History entry: glass panel with a 56x80 cover and text lines (matches [HistoryScreen] rows). */
+@Composable
+private fun HistoryRowSkeleton() {
+    GlassPanel(Modifier.fillMaxWidth(), padding = PaddingValues(10.dp)) { CardRowSkeleton(coverWidth = 56.dp, coverHeight = 80.dp) }
+}
+
+/** Notification: glass panel with a round icon, a label, the body text and a time line. */
+@Composable
+private fun NotificationRowSkeleton() {
+    GlassPanel(Modifier.fillMaxWidth(), padding = PaddingValues(12.dp)) {
+        Row(verticalAlignment = Alignment.Top) {
+            Skeleton(Modifier.size(34.dp), CircleShape)
+            Spacer(Modifier.width(10.dp))
+            Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                Skeleton(Modifier.fillMaxWidth(0.3f).height(10.dp))
+                TextSkeleton(lines = 2)
+                Skeleton(Modifier.fillMaxWidth(0.2f).height(10.dp))
+            }
+        }
+    }
+}
+
+/** Moderation request: glass panel with badges, a few field rows and the sent/reviewed footer (matches [RequestCard]). */
+@Composable
+private fun RequestCardSkeleton() {
+    GlassPanel(Modifier.fillMaxWidth(), padding = PaddingValues(12.dp)) {
+        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+            Skeleton(Modifier.width(64.dp).height(20.dp), RoundedCornerShape(6.dp))
+            Skeleton(Modifier.width(72.dp).height(20.dp), RoundedCornerShape(6.dp))
+            Spacer(Modifier.weight(1f))
+            Skeleton(Modifier.width(70.dp).height(20.dp), RoundedCornerShape(6.dp))
+        }
+        Column(Modifier.padding(top = 10.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            repeat(3) {
+                Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                    Skeleton(Modifier.width(72.dp).height(12.dp))
+                    Skeleton(Modifier.weight(1f).height(12.dp))
+                }
+            }
+        }
+        Row(Modifier.padding(top = 10.dp), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+            Skeleton(Modifier.width(90.dp).height(11.dp))
+            Skeleton(Modifier.width(110.dp).height(11.dp))
+        }
+    }
+}
+
+/** Gate placeholder shown while the session loads: the page header, then rows filling the rest of the screen. */
+@Composable
+private fun MeGateSkeleton() {
+    Column(Modifier.fillMaxSize()) {
+        MeHeaderSkeleton()
+        FillRowsSkeleton(72.dp, 8.dp, Modifier.weight(1f).padding(horizontal = 16.dp)) { PersonRowSkeleton() }
     }
 }
 
@@ -131,7 +215,7 @@ fun FriendsScreen() {
     LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(bottom = bottom + 24.dp)) {
         item { MeHeader("Люди", "Друзья", "") }
         when (val s = loader.state) {
-            is Load.Loading -> item { CenterSpinner() }
+            is Load.Loading -> fillRows(72.dp) { PersonRowSkeleton() }
             is Load.Err -> item { ErrorState(s.message, { loader.reload() }, "Не удалось загрузить друзей") }
             is Load.Ok -> {
                 val d = s.data
@@ -170,7 +254,7 @@ fun HistoryScreen() {
     LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(bottom = bottom + 24.dp)) {
         item { MeHeader("Где вы остановились", "История", "прослушивания") }
         when (val s = loader.state) {
-            is Load.Loading -> item { CenterSpinner() }
+            is Load.Loading -> fillRows(100.dp) { HistoryRowSkeleton() }
             is Load.Err -> item { ErrorState(s.message, { loader.reload() }) }
             is Load.Ok -> {
                 val d = s.data
@@ -245,7 +329,7 @@ fun NotificationsScreen() {
             }
         }
         when (val s = loader.state) {
-            is Load.Loading -> item { CenterSpinner() }
+            is Load.Loading -> fillRows(96.dp) { NotificationRowSkeleton() }
             is Load.Err -> item { ErrorState(s.message, { loader.reload() }) }
             is Load.Ok -> {
                 val d = s.data
@@ -323,7 +407,7 @@ fun RequestsScreen() {
     LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(bottom = bottom + 24.dp)) {
         item { MeHeader("История модерации", "Мои", "заявки") }
         when (val s = loader.state) {
-            is Load.Loading -> item { CenterSpinner() }
+            is Load.Loading -> fillRows(150.dp) { RequestCardSkeleton() }
             is Load.Err -> item { ErrorState(s.message, { loader.reload() }, "Не удалось загрузить заявки") }
             is Load.Ok -> {
                 val d = s.data

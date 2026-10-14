@@ -16,6 +16,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
@@ -51,7 +52,7 @@ import org.foxgirls.audioranobe.ui.components.ArModal
 import org.foxgirls.audioranobe.ui.components.ArTextField
 import org.foxgirls.audioranobe.ui.components.ArToggle
 import org.foxgirls.audioranobe.ui.components.ButtonKind
-import org.foxgirls.audioranobe.ui.components.CenterSpinner
+import org.foxgirls.audioranobe.ui.components.Skeleton
 import org.foxgirls.audioranobe.ui.components.ConfirmDialog
 import org.foxgirls.audioranobe.ui.components.GlassPanel
 import org.foxgirls.audioranobe.ui.components.MarkdownEditor
@@ -115,6 +116,29 @@ fun SettingsScreen(tab: String?) {
     LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(bottom = bottom + 24.dp)) {
         item { MeHeader("Аккаунт", "Мои", "настройки") }
         item { Column(Modifier.padding(horizontal = 16.dp)) { SettingsBody(scopeUserId = null, onSaved = {}) } }
+    }
+}
+
+/** Settings while the account loads: panel cards with a title, a hint and field rows, as in [Panel]. Fills the screen. */
+@Composable
+private fun SettingsSkeleton() {
+    Column(Modifier.fillMaxSize().padding(horizontal = 16.dp)) {
+        repeat(3) { i ->
+            GlassPanel(Modifier.padding(bottom = 12.dp), borderColor = Ar.border) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Skeleton(Modifier.size(16.dp), CircleShape)
+                    Spacer(Modifier.width(10.dp))
+                    Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                        Skeleton(Modifier.fillMaxWidth(0.4f).height(14.dp))
+                        Skeleton(Modifier.fillMaxWidth(if (i == 0) 0.8f else 0.6f).height(11.dp))
+                    }
+                }
+                Spacer(Modifier.height(12.dp))
+                repeat(if (i == 0) 3 else 2) { j ->
+                    Skeleton(Modifier.fillMaxWidth().padding(bottom = 10.dp).height(if (j == 0) 44.dp else 36.dp), RoundedCornerShape(10.dp))
+                }
+            }
+        }
     }
 }
 
@@ -205,7 +229,7 @@ fun SettingsBody(scopeUserId: Int?, onSaved: (Me) -> Unit) {
     }
 
     val m = me
-    if (m == null) { CenterSpinner(); return }
+    if (m == null) { SettingsSkeleton(); return }
     val hasPassword = m.has_password
     val providerLabel = { id: String -> m.auth_providers?.firstOrNull { it.id == id }?.name ?: mapOf("google" to "Google", "discord" to "Discord", "telegram" to "Telegram")[id] ?: id }
     fun run(block: suspend () -> Unit) { scope.launch { try { block() } catch (e: Exception) { toastError(e) } } }

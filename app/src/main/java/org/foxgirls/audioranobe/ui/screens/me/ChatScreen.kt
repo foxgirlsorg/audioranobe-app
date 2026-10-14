@@ -82,7 +82,8 @@ import org.foxgirls.audioranobe.ui.components.ArImage
 import org.foxgirls.audioranobe.ui.components.ArMarkdown
 import org.foxgirls.audioranobe.ui.components.ArSheet
 import org.foxgirls.audioranobe.ui.components.ArTextField
-import org.foxgirls.audioranobe.ui.components.CenterSpinner
+import org.foxgirls.audioranobe.ui.components.FillRowsSkeleton
+import org.foxgirls.audioranobe.ui.components.Skeleton
 import org.foxgirls.audioranobe.ui.components.CountBubble
 import org.foxgirls.audioranobe.ui.components.EmptyState
 import org.foxgirls.audioranobe.ui.components.HairlineDivider
@@ -144,7 +145,7 @@ private fun ConversationList() {
         item { MeHeader("Личные", "Сообщения", "") }
         val c = convos
         when {
-            c == null -> item { CenterSpinner() }
+            c == null -> item { Box(Modifier.fillParentMaxHeight().padding(horizontal = 16.dp)) { FillRowsSkeleton(64.dp, 0.dp) { ConvRowSkeleton() } } }
             c.isEmpty() -> item { EmptyState("Пока нет переписок", "Откройте профиль пользователя и нажмите «Написать».", Lucide.MessageCircle) }
             else -> items(c, key = { it.user.id }) { conv ->
                 Row(Modifier.fillMaxWidth().clickable { nav.push(Routes.chat(conv.user.id)) }.padding(horizontal = 16.dp, vertical = 10.dp), verticalAlignment = Alignment.CenterVertically) {
@@ -166,6 +167,36 @@ private fun ConversationList() {
                 HairlineDivider(Modifier.padding(horizontal = 16.dp))
             }
         }
+    }
+}
+
+/** Conversation row: 48dp avatar, name line, last-message line (matches the chat list rows). */
+@Composable
+private fun ConvRowSkeleton() {
+    Row(Modifier.fillMaxWidth().padding(vertical = 10.dp), verticalAlignment = Alignment.CenterVertically) {
+        Skeleton(Modifier.size(48.dp), CircleShape)
+        Spacer(Modifier.width(12.dp))
+        Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            Skeleton(Modifier.fillMaxWidth(0.5f).height(14.dp))
+            Skeleton(Modifier.fillMaxWidth(0.75f).height(12.dp))
+        }
+    }
+}
+
+/** Thread placeholder: alternating incoming and outgoing bubbles at the real 300dp cap, with a day chip above. */
+@Composable
+private fun ThreadSkeleton() {
+    Column(Modifier.fillMaxSize().padding(horizontal = 12.dp, vertical = 16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+        Skeleton(Modifier.align(Alignment.CenterHorizontally).width(90.dp).height(20.dp), RoundedCornerShape(10.dp))
+        Skeleton(Modifier.widthIn(max = 300.dp).fillMaxWidth(0.62f).height(44.dp), RoundedCornerShape(topStart = 14.dp, topEnd = 14.dp, bottomStart = 4.dp, bottomEnd = 14.dp))
+        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
+            Skeleton(Modifier.widthIn(max = 300.dp).fillMaxWidth(0.5f).height(36.dp), RoundedCornerShape(topStart = 14.dp, topEnd = 14.dp, bottomStart = 14.dp, bottomEnd = 4.dp))
+        }
+        Skeleton(Modifier.widthIn(max = 300.dp).fillMaxWidth(0.78f).height(62.dp), RoundedCornerShape(topStart = 14.dp, topEnd = 14.dp, bottomStart = 4.dp, bottomEnd = 14.dp))
+        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
+            Skeleton(Modifier.widthIn(max = 300.dp).fillMaxWidth(0.4f).height(36.dp), RoundedCornerShape(topStart = 14.dp, topEnd = 14.dp, bottomStart = 14.dp, bottomEnd = 4.dp))
+        }
+        Skeleton(Modifier.widthIn(max = 300.dp).fillMaxWidth(0.55f).height(44.dp), RoundedCornerShape(topStart = 14.dp, topEnd = 14.dp, bottomStart = 4.dp, bottomEnd = 14.dp))
     }
 }
 
@@ -287,7 +318,7 @@ private fun Thread(userId: Int) {
         HairlineDivider()
         Box(Modifier.weight(1f).fillMaxWidth()) {
             when {
-                loading && t == null -> CenterSpinner(Modifier.fillMaxSize(), 200.dp)
+                loading && t == null -> ThreadSkeleton()
                 t == null -> EmptyState("Не удалось открыть переписку", null, Lucide.MessageCircle)
                 visible.isEmpty() -> EmptyState("Напишите первое сообщение.", null, Lucide.MessageCircle)
                 else -> LazyColumn(Modifier.fillMaxSize(), state = listState, reverseLayout = true, contentPadding = PaddingValues(start = 12.dp, end = 12.dp, top = 16.dp, bottom = 8.dp)) {

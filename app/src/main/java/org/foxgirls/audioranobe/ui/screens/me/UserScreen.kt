@@ -13,6 +13,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -20,6 +21,7 @@ import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.ui.unit.Dp
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Icon
@@ -68,7 +70,12 @@ import org.foxgirls.audioranobe.ui.components.ArToggle
 import org.foxgirls.audioranobe.ui.components.ButtonKind
 import org.foxgirls.audioranobe.ui.components.ConfirmDialog
 import org.foxgirls.audioranobe.ui.components.CardGrid
-import org.foxgirls.audioranobe.ui.components.CenterSpinner
+import org.foxgirls.audioranobe.ui.components.AvatarRowSkeleton
+import org.foxgirls.audioranobe.ui.components.CardGridSkeleton
+import org.foxgirls.audioranobe.ui.components.CardRowSkeleton
+import org.foxgirls.audioranobe.ui.components.FillRowsSkeleton
+import org.foxgirls.audioranobe.ui.components.Skeleton
+import org.foxgirls.audioranobe.ui.components.TextSkeleton
 import org.foxgirls.audioranobe.ui.components.CollectionCardC
 import org.foxgirls.audioranobe.ui.components.EmptyState
 import org.foxgirls.audioranobe.ui.components.ErrorState
@@ -132,7 +139,7 @@ fun UserScreen(userRef: String, initialTab: String?) {
     var avatarViewer by remember { mutableStateOf(false) }
 
     when (val s = loader.state) {
-        is Load.Loading -> { CenterSpinner(Modifier.fillMaxSize().statusBarsPadding(), 400.dp); return }
+        is Load.Loading -> { ProfileSkeleton(Modifier.fillMaxSize()); return }
         is Load.Err -> { if (s.notFound) NotFoundScreen("Такого пользователя не существует.") else Box(Modifier.statusBarsPadding()) { ErrorState(s.message, { loader.reload() }, "Пользователь не найден") }; return }
         is Load.Ok -> {}
     }
@@ -290,19 +297,19 @@ fun UserScreen(userRef: String, initialTab: String?) {
                     ArTabs(opts, libStatus, { libStatus = it }, Modifier.padding(horizontal = 16.dp), variant = TabsVariant.Pill)
                     Spacer(Modifier.height(10.dp))
                 }
-                pagedItems(library, emptyTitle = "Здесь пусто", emptyBody = (if (isOwn) OWN_LIB_EMPTY else LIB_EMPTY)[libStatus] ?: "", icon = Lucide.Library, key = { it.title.id }) { e ->
+                pagedItems(library, emptyTitle = "Здесь пусто", emptyBody = (if (isOwn) OWN_LIB_EMPTY else LIB_EMPTY)[libStatus] ?: "", icon = Lucide.Library, key = { it.title.id }, rowHeight = 100.dp, placeholder = { LibraryRowSkeleton() }) { e ->
                     LibraryRow(e, user.id, canEditLibrary, isOwn, { n -> library.patch({ it.title.id == e.title.id }, { n }) }, { library.remove { it.title.id == e.title.id } })
                 }
             }
             "favorites" -> {
                 val items = favorites.items
                 when {
-                    favorites.loading || items == null -> item { CenterSpinner() }
+                    items == null -> item { Box(Modifier.padding(horizontal = 16.dp)) { CardGridSkeleton(count = 12) } }
                     items.isEmpty() -> item { EmptyState("Избранного пока нет", "У ${user.username} нет избранных тайтлов.", Lucide.Heart) }
                     else -> item { Box(Modifier.padding(horizontal = 16.dp)) { CardGrid(items) }; InfiniteScrollTrigger(favorites) }
                 }
             }
-            "comments" -> pagedItems(comments, "Комментариев пока нет", "У ${user.username} пока нет ни одного комментария.", Lucide.MessageSquare, key = { it.id }) { c ->
+            "comments" -> pagedItems(comments, "Комментариев пока нет", "У ${user.username} пока нет ни одного комментария.", Lucide.MessageSquare, key = { it.id }, rowHeight = 112.dp, placeholder = { CommentRowSkeleton() }) { c ->
                 GlassPanel(Modifier.padding(horizontal = 16.dp, vertical = 4.dp), padding = PaddingValues(12.dp), onClick = { c.target?.link?.let { nav.openLink(it + "#comment-${c.id}") } }) {
                     Row { Text("к ", color = Ar.textMuted, fontSize = 12.sp); Text(c.target?.name ?: c.target?.type ?: "", color = Ar.accent, fontSize = 12.sp, fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f)); Text(Fmt.timeAgo(c.created_at), color = Ar.textMuted, fontSize = 11.sp) }
                     Spacer(Modifier.height(6.dp))
@@ -315,14 +322,94 @@ fun UserScreen(userRef: String, initialTab: String?) {
                     }
                 }
             }
-            "collections" -> pagedItems(collections, "Коллекций нет", "У ${user.username} нет опубликованных коллекций.", Lucide.BookOpen, key = { it.id }) { c -> CollectionCardC(c, Modifier.padding(horizontal = 16.dp, vertical = 5.dp)) }
-            "friends" -> pagedItems(friends, "Друзей пока нет", if (isOwn) "У вас пока нет друзей. Найдите пользователей и отправьте заявку." else "У ${user.shownName} пока нет друзей.", Lucide.Users, key = { it.id }) { f ->
+            "collections" -> pagedItems(collections, "Коллекций нет", "У ${user.username} нет опубликованных коллекций.", Lucide.BookOpen, key = { it.id }, rowHeight = 200.dp, placeholder = { CollectionCardSkeleton() }) { c -> CollectionCardC(c, Modifier.padding(horizontal = 16.dp, vertical = 5.dp)) }
+            "friends" -> pagedItems(friends, "Друзей пока нет", if (isOwn) "У вас пока нет друзей. Найдите пользователей и отправьте заявку." else "У ${user.shownName} пока нет друзей.", Lucide.Users, key = { it.id }, rowHeight = 64.dp, placeholder = { PersonRowSkeleton() }) { f ->
                 PersonRow(f, Modifier.padding(horizontal = 16.dp, vertical = 4.dp)) {}
             }
         }
     }
     ImageViewer(avatarViewer, listOfNotNull(user.avatar_url), 0, listOf(user.username)) { avatarViewer = false }
     if (editing) UserEditModal(user.id, { editing = false }) { loader.reload() }
+}
+
+/** Profile page while the user loads: cover, avatar, name, meta line, action row, tab row. Mirrors the header block of the real page. */
+@Composable
+private fun ProfileSkeleton(modifier: Modifier = Modifier) {
+    Column(modifier) {
+        Box(Modifier.fillMaxWidth()) {
+            Skeleton(Modifier.fillMaxWidth().height(170.dp), RoundedCornerShape(0.dp))
+            Row(Modifier.statusBarsPadding().padding(8.dp)) { Skeleton(Modifier.size(38.dp), CircleShape) }
+            Column(Modifier.fillMaxWidth().padding(top = 120.dp).padding(horizontal = 16.dp)) {
+                Skeleton(Modifier.size(96.dp), CircleShape)
+                Spacer(Modifier.height(10.dp))
+                Skeleton(Modifier.width(180.dp).height(22.dp))
+                Skeleton(Modifier.padding(top = 6.dp).width(240.dp).height(12.dp))
+                Row(Modifier.padding(top = 10.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Skeleton(Modifier.width(120.dp).height(34.dp), RoundedCornerShape(10.dp))
+                    Skeleton(Modifier.width(96.dp).height(34.dp), RoundedCornerShape(10.dp))
+                }
+                Row(Modifier.padding(top = 16.dp, bottom = 12.dp), horizontalArrangement = Arrangement.spacedBy(18.dp)) {
+                    repeat(4) { Skeleton(Modifier.width(64.dp).height(13.dp)) }
+                }
+            }
+        }
+        Column(Modifier.fillMaxWidth().padding(horizontal = 16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+            // Mirrors the info tab: a stats panel with three rows, then the heatmap block.
+            GlassPanel(Modifier.fillMaxWidth()) {
+                repeat(3) {
+                    Row(Modifier.padding(vertical = 5.dp), verticalAlignment = Alignment.CenterVertically) {
+                        Skeleton(Modifier.size(36.dp), CircleShape)
+                        Spacer(Modifier.width(12.dp))
+                        Skeleton(Modifier.width(56.dp).height(18.dp))
+                        Spacer(Modifier.width(6.dp))
+                        Skeleton(Modifier.width(120.dp).height(13.dp))
+                    }
+                }
+            }
+            GlassPanel(Modifier.fillMaxWidth()) { Skeleton(Modifier.fillMaxWidth().height(96.dp), RoundedCornerShape(8.dp)) }
+        }
+    }
+}
+
+/** Library entry: glass panel with a 56x80 cover, title, chapter line, progress and action row (matches [LibraryRow]). */
+@Composable
+private fun LibraryRowSkeleton() {
+    GlassPanel(Modifier.fillMaxWidth(), padding = PaddingValues(10.dp)) { CardRowSkeleton(coverWidth = 56.dp, coverHeight = 80.dp) }
+}
+
+/** Comment entry: panel with "к <target>" line, body text and vote row (matches the me/ comments list). */
+@Composable
+private fun CommentRowSkeleton() {
+    GlassPanel(Modifier.fillMaxWidth(), padding = PaddingValues(12.dp)) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Skeleton(Modifier.fillMaxWidth(0.4f).height(12.dp))
+            Spacer(Modifier.weight(1f))
+            Skeleton(Modifier.width(48.dp).height(11.dp))
+        }
+        TextSkeleton(lines = 2, modifier = Modifier.padding(top = 10.dp))
+        Skeleton(Modifier.padding(top = 10.dp).width(40.dp).height(11.dp))
+    }
+}
+
+/** Collection card: three-cover strip, name, description, owner and counts (matches [CollectionCardC]). */
+@Composable
+private fun CollectionCardSkeleton() {
+    GlassPanel(Modifier.fillMaxWidth(), padding = PaddingValues(0.dp)) {
+        Row(Modifier.fillMaxWidth().height(96.dp)) {
+            repeat(3) { Skeleton(Modifier.weight(1f).fillMaxHeight(), RoundedCornerShape(0.dp)) }
+        }
+        Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+            Skeleton(Modifier.fillMaxWidth(0.6f).height(15.dp))
+            Skeleton(Modifier.fillMaxWidth(0.9f).height(12.dp))
+            Skeleton(Modifier.padding(top = 4.dp).fillMaxWidth(0.4f).height(12.dp))
+        }
+    }
+}
+
+/** User row: 44dp avatar with two text lines (matches [PersonRow]). */
+@Composable
+private fun PersonRowSkeleton() {
+    GlassPanel(Modifier.fillMaxWidth(), padding = PaddingValues(10.dp)) { AvatarRowSkeleton(avatar = 44.dp) }
 }
 
 @Composable
@@ -337,10 +424,14 @@ private fun StatRow(icon: ImageVector, value: String, label: String) {
 }
 
 /** Adds a PagedList to a LazyColumn with loading / empty / infinite-scroll states. */
-fun <T> androidx.compose.foundation.lazy.LazyListScope.pagedItems(list: PagedList<T>, emptyTitle: String, emptyBody: String, icon: ImageVector, key: (T) -> Any, content: @Composable (T) -> Unit) {
+fun <T> androidx.compose.foundation.lazy.LazyListScope.pagedItems(list: PagedList<T>, emptyTitle: String, emptyBody: String, icon: ImageVector, key: (T) -> Any, rowHeight: Dp, placeholder: @Composable () -> Unit, content: @Composable (T) -> Unit) {
     val items = list.items
     when {
-        list.loading || items == null -> item { if (list.error.isNotEmpty()) ErrorState(list.error, null) else CenterSpinner() }
+        // Skeleton only before the first page: a refresh keeps the rows on screen while it refetches.
+        items == null -> item {
+            if (list.error.isNotEmpty()) ErrorState(list.error, null)
+            else Box(Modifier.fillParentMaxHeight().padding(horizontal = 16.dp)) { FillRowsSkeleton(rowHeight, 8.dp) { placeholder() } }
+        }
         items.isEmpty() -> item { EmptyState(emptyTitle, emptyBody, icon) }
         else -> {
             items(items, key = key) { content(it) }
