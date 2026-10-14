@@ -53,7 +53,7 @@ import androidx.navigation.navArgument
 import org.foxgirls.audioranobe.data.LocalAuth
 import org.foxgirls.audioranobe.data.Stores
 import org.foxgirls.audioranobe.player.PlayerController
-import org.foxgirls.audioranobe.ui.components.CenterSpinner
+import org.foxgirls.audioranobe.ui.components.HomeSkeleton
 import org.foxgirls.audioranobe.ui.components.UpdateDialog
 import org.foxgirls.audioranobe.ui.nav.AppNav
 import org.foxgirls.audioranobe.ui.nav.LocalNav
@@ -108,7 +108,7 @@ fun AppShell(pendingRoute: String?, pendingSeq: Int, onRouteConsumed: () -> Unit
     LaunchedEffect(state) { if (state == 1) PlayerController.stop() }
     AnimatedContent(state, transitionSpec = { (fadeIn(tween(380)) + scaleIn(tween(380), initialScale = 0.98f)) togetherWith fadeOut(tween(220)) }, label = "shell") { s ->
         when (s) {
-            0 -> Box(Modifier.fillMaxSize().background(Ar.bg)) { CenterSpinner(Modifier.fillMaxSize(), 0.dp) }
+            0 -> HomeSkeleton(Modifier.fillMaxSize().background(Ar.bg).statusBarsPadding())
             1 -> AuthShell(pendingRoute, pendingSeq, onRouteConsumed)
             else -> MainShell(pendingRoute, pendingSeq, onRouteConsumed)
         }

@@ -4,8 +4,12 @@ import org.foxgirls.audioranobe.ui.components.ditheredBackground
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.lazy.rememberLazyListState
 import org.foxgirls.audioranobe.ui.components.edgeFade
+import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.togetherWith
 import androidx.compose.ui.draw.rotate
 import androidx.compose.foundation.border
 import androidx.compose.ui.graphics.Color
@@ -51,6 +55,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
@@ -79,7 +84,6 @@ import org.foxgirls.audioranobe.ui.components.ArButton
 import org.foxgirls.audioranobe.ui.components.ArImage
 import org.foxgirls.audioranobe.ui.components.ButtonKind
 import org.foxgirls.audioranobe.ui.components.CardGrid
-import org.foxgirls.audioranobe.ui.components.CenterSpinner
 import org.foxgirls.audioranobe.ui.components.ErrorState
 import org.foxgirls.audioranobe.ui.components.Eyebrow
 import org.foxgirls.audioranobe.ui.components.GlassPanel
@@ -88,7 +92,16 @@ import org.foxgirls.audioranobe.ui.components.Load
 import org.foxgirls.audioranobe.ui.components.ProgressTrack
 import org.foxgirls.audioranobe.ui.components.Section
 import org.foxgirls.audioranobe.ui.components.SectionTitle
-import org.foxgirls.audioranobe.ui.components.Spinner
+import org.foxgirls.audioranobe.ui.components.BannerSkeleton
+import org.foxgirls.audioranobe.ui.components.CardGridSkeleton
+import org.foxgirls.audioranobe.ui.components.CatalogControlsSkeleton
+import org.foxgirls.audioranobe.ui.components.ContinueCardSkeleton
+import org.foxgirls.audioranobe.ui.components.LocalScreenRefresh
+import org.foxgirls.audioranobe.ui.components.SectionHeaderSkeleton
+import org.foxgirls.audioranobe.ui.components.SectionRailSkeleton
+import org.foxgirls.audioranobe.ui.components.catalogSkeletonCount
+import org.foxgirls.audioranobe.ui.components.HeroSkeleton
+import org.foxgirls.audioranobe.ui.components.SkeletonFadeMillis
 import org.foxgirls.audioranobe.ui.components.TitleRail
 import org.foxgirls.audioranobe.ui.components.rememberLoader
 import org.foxgirls.audioranobe.ui.icons.Lucide
@@ -99,6 +112,14 @@ import org.foxgirls.audioranobe.ui.theme.Ar
 import kotlinx.coroutines.delay
 
 private data class HomeSort(val key: String, val param: String, val label: String)
+
+/** What the home catalog block shows; [Ready] carries the loaded page so the grid reads it without re-deriving null. */
+private sealed interface CatalogPhase {
+    data object Error : CatalogPhase
+    data object Loading : CatalogPhase
+    data object Empty : CatalogPhase
+    data class Ready(val data: Paginated<TitleCard>) : CatalogPhase
+}
 
 private val SORTS = listOf(
     HomeSort("updated", "updated", "Обновлению"), HomeSort("rating", "rating", "Рейтингу"),
@@ -114,6 +135,7 @@ fun HomeScreen() {
     val user by auth.user.collectAsStateWithLifecycle()
     val authLoading by auth.loading.collectAsStateWithLifecycle()
     val loader = rememberLoader(user?.id, keepOnReload = true) { Api.get<HomeData>("/home") }
+    val refresh = LocalScreenRefresh.current
     var seen by remember { mutableStateOf(Stores.prefs.seenAnnouncements) }
     val bottom = LocalBottomInset.current
 
@@ -122,7 +144,6 @@ fun HomeScreen() {
     var asc by rememberSaveable { mutableStateOf(false) }
     var finished by rememberSaveable { mutableStateOf(false) }
     var catalog by rememberCached("catalog") { mutableStateOf<Paginated<TitleCard>?>(null) }
-    var catalogLoading by remember { mutableStateOf(false) }
     var catalogError by remember { mutableStateOf("") }
     var catalogNonce by remember { mutableStateOf(0) }
     LaunchedEffect(sort, asc, finished, catalogNonce, loader.state) {
@@ -130,13 +151,15 @@ fun HomeScreen() {
         if (sort == "updated" && !asc && !finished && catalogNonce == 0) {
             catalog = Paginated(home.catalog.items, 1, 50, home.catalog.total); return@LaunchedEffect
         }
-        catalogLoading = true; catalogError = ""
+        // A sort, direction or finished change replaces the cards, so show the skeleton; a pull keeps them while it refetches.
+        if (refresh?.active != true) catalog = null
+        catalogError = ""
         try {
             catalog = Api.get<Paginated<TitleCard>>("/titles", mapOf(
                 "per_page" to 50, "page" to 1, "sort" to SORTS.first { it.key == sort }.param, "hide_ai" to "1",
                 "order" to if (asc) "asc" else null, "finished" to if (finished) "1" else null,
             ))
-        } catch (e: Exception) { catalogError = e.message ?: "Ошибка" } finally { catalogLoading = false }
+        } catch (e: Exception) { catalogError = e.message ?: "Ошибка" }
     }
 
     val online by OfflineStore.online.collectAsStateWithLifecycle()
@@ -155,7 +178,25 @@ fun HomeScreen() {
         LazyColumn(Modifier.fillMaxSize().dockScrollAware(), contentPadding = PaddingValues(bottom = bottom + 24.dp)) {
             item { TopBar(onSearch = { shell.searchOpen = true }) }
             when (val s = loader.state) {
-                is Load.Loading -> item { CenterSpinner(minHeight = 300.dp) }
+                is Load.Loading -> {
+                    // Same blocks, order and paddings as the Ok branch below; the continue row shows only when the cached home had one.
+                    if (!authLoading && user == null) item { HeroSkeleton(Modifier.padding(horizontal = 16.dp, vertical = 8.dp)) }
+                    if (cachedContinue.isNotEmpty()) item {
+                        Column(Modifier.padding(start = 16.dp, top = 18.dp).fillMaxWidth()) {
+                            SectionHeaderSkeleton(eyebrowWidth = 240.dp, titleWidth = 180.dp)
+                            Row(Modifier.clipToBounds(), horizontalArrangement = Arrangement.spacedBy(12.dp)) { repeat(2) { ContinueCardSkeleton() } }
+                        }
+                    }
+                    item { SectionRailSkeleton(Modifier.padding(top = 22.dp), eyebrowWidth = 90.dp, titleWidth = 150.dp) }
+                    item { BannerSkeleton(Modifier.padding(horizontal = 16.dp, vertical = 22.dp)) }
+                    item {
+                        Column(Modifier.padding(horizontal = 16.dp, vertical = 8.dp)) {
+                            SectionHeaderSkeleton(eyebrowWidth = 90.dp, titleWidth = 180.dp)
+                            CatalogControlsSkeleton()
+                        }
+                    }
+                    item { Box(Modifier.padding(horizontal = 16.dp)) { CardGridSkeleton(catalogSkeletonCount()) } }
+                }
                 is Load.Err -> {
                     val cont = OfflineStore.continueFallback(cachedContinue)
                     if (cont.isEmpty() && offlineTitles.isEmpty()) item { ErrorState(s.message, { loader.reload() }, "Не удалось загрузить главную") }
@@ -213,17 +254,28 @@ fun HomeScreen() {
                     item {
                         val c = catalog
                         Box(Modifier.padding(horizontal = 16.dp)) {
-                            when {
-                                catalogError.isNotEmpty() -> ErrorState(catalogError, { catalogNonce++ }, "Не удалось загрузить каталог")
-                                c == null -> CenterSpinner()
-                                c.items.isEmpty() -> org.foxgirls.audioranobe.ui.components.EmptyState(if (finished) "Завершённых тайтлов пока нет" else "Каталог пока пуст", if (finished) "Снимите фильтр, чтобы увидеть остальные." else "Здесь появятся аудиокниги, как только их добавят.", Lucide.ListMusic)
-                                else -> Column {
-                                    if (catalogLoading) Row(Modifier.padding(bottom = 8.dp)) { Spinner(size = 14.dp) }
-                                    CardGrid(c.items)
-                                    if (c.total > c.items.size) {
-                                        Text("Показаны ${Fmt.count(c.items.size)} из ${Fmt.count(c.total)} — откройте каталог, чтобы увидеть остальные.", color = Ar.textMuted, fontSize = 13.sp, modifier = Modifier.padding(top = 16.dp).clickable {
-                                            nav.go(Routes.catalog(sort = SORTS.first { it.key == sort }.param.takeIf { it != "popular" }, order = if (asc) "asc" else null, finished = if (finished) "1" else null))
-                                        })
+                            AnimatedContent(
+                                targetState = when {
+                                    catalogError.isNotEmpty() -> CatalogPhase.Error
+                                    c == null -> CatalogPhase.Loading
+                                    c.items.isEmpty() -> CatalogPhase.Empty
+                                    else -> CatalogPhase.Ready(c)
+                                },
+                                transitionSpec = { fadeIn(tween(SkeletonFadeMillis)) togetherWith fadeOut(tween(SkeletonFadeMillis)) },
+                                contentKey = { it::class },
+                                label = "catalogPhase",
+                            ) { phase ->
+                                when (phase) {
+                                    CatalogPhase.Error -> ErrorState(catalogError, { catalogNonce++ }, "Не удалось загрузить каталог")
+                                    CatalogPhase.Loading -> CardGridSkeleton(catalogSkeletonCount())
+                                    CatalogPhase.Empty -> org.foxgirls.audioranobe.ui.components.EmptyState(if (finished) "Завершённых тайтлов пока нет" else "Каталог пока пуст", if (finished) "Снимите фильтр, чтобы увидеть остальные." else "Здесь появятся аудиокниги, как только их добавят.", Lucide.ListMusic)
+                                    is CatalogPhase.Ready -> Column {
+                                        CardGrid(phase.data.items)
+                                        if (phase.data.total > phase.data.items.size) {
+                                            Text("Показаны ${Fmt.count(phase.data.items.size)} из ${Fmt.count(phase.data.total)} — откройте каталог, чтобы увидеть остальные.", color = Ar.textMuted, fontSize = 13.sp, modifier = Modifier.padding(top = 16.dp).clickable {
+                                                nav.go(Routes.catalog(sort = SORTS.first { it.key == sort }.param.takeIf { it != "popular" }, order = if (asc) "asc" else null, finished = if (finished) "1" else null))
+                                            })
+                                        }
                                     }
                                 }
                             }
