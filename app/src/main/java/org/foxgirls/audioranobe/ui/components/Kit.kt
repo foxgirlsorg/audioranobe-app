@@ -25,6 +25,7 @@ import androidx.compose.foundation.layout.offset
 import kotlin.math.roundToInt
 import kotlinx.coroutines.launch
 import androidx.compose.animation.core.tween
+import com.eygraber.compose.placeholder.placeholder
 import androidx.compose.foundation.ScrollState
 import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.ui.draw.drawWithContent
@@ -594,11 +595,6 @@ fun Spinner(modifier: Modifier = Modifier, size: Dp = 26.dp) {
     CircularProgressIndicator(modifier.size(size), color = Ar.accent, trackColor = Color.White.copy(alpha = 0.12f), strokeWidth = 2.dp)
 }
 
-@Composable
-fun CenterSpinner(modifier: Modifier = Modifier, minHeight: Dp = 160.dp) {
-    Box(modifier.fillMaxWidth().heightIn(min = minHeight), contentAlignment = Alignment.Center) { Spinner(size = 34.dp) }
-}
-
 /** components/EmptyState */
 @Composable
 fun EmptyState(title: String, body: String? = null, icon: ImageVector? = null, modifier: Modifier = Modifier, action: (@Composable () -> Unit)? = null) {
@@ -657,10 +653,10 @@ fun BackLink(text: String = "Назад", onClick: () -> Unit, modifier: Modifie
     }
 }
 
-/** Skeleton placeholder block. */
+/** Skeleton placeholder block: the shared loading shimmer (Skeletons.kt holds the layouts built from these). */
 @Composable
 fun Skeleton(modifier: Modifier = Modifier, shape: Shape = RoundedCornerShape(6.dp)) {
-    Box(modifier.background(Ar.surfaceRaised, shape))
+    Box(modifier.placeholder(visible = true, color = Ar.surfaceRaised, shape = shape, highlight = SkeletonHighlight))
 }
 
 @Composable

@@ -121,7 +121,7 @@ fun RefreshEffect(vararg keys: Any?, block: suspend CoroutineScope.() -> Unit) {
 fun <T> LoadBox(
     loader: Loader<T>,
     modifier: Modifier = Modifier,
-    loading: @Composable () -> Unit = { CenterSpinner() },
+    loading: @Composable () -> Unit = { FillRowsSkeleton(88.dp, 16.dp, Modifier.padding(16.dp)) { CardRowSkeleton() } },
     notFound: (@Composable () -> Unit)? = null,
     content: @Composable (T) -> Unit,
 ) {
@@ -230,7 +230,7 @@ fun LoadMoreRow(list: PagedList<*>, label: String = "Показать ещё") {
 @Composable
 fun InfiniteScrollTrigger(list: PagedList<*>) {
     LaunchedEffect(list, list.items?.size) { if (list.hasMore && !list.loadingMore) list.loadMore() }
-    if (list.loadingMore) CenterSpinner(minHeight = 48.dp)
+    if (list.loadingMore) AvatarRowSkeleton()
     else if (list.moreError.isNotEmpty()) LoadMoreRow(list)
 }
 
