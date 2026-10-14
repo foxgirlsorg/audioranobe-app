@@ -18,6 +18,7 @@ import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
@@ -33,6 +34,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
@@ -52,7 +54,6 @@ import org.foxgirls.audioranobe.ui.components.ArMarkdown
 import org.foxgirls.audioranobe.ui.components.ArTabs
 import org.foxgirls.audioranobe.ui.components.ButtonKind
 import org.foxgirls.audioranobe.ui.components.CardGrid
-import org.foxgirls.audioranobe.ui.components.CenterSpinner
 import org.foxgirls.audioranobe.ui.components.EmptyState
 import org.foxgirls.audioranobe.ui.components.ErrorState
 import org.foxgirls.audioranobe.ui.components.Eyebrow
@@ -60,6 +61,11 @@ import org.foxgirls.audioranobe.ui.components.GlassPanel
 import org.foxgirls.audioranobe.ui.components.IconBtn
 import org.foxgirls.audioranobe.ui.components.ImageViewer
 import org.foxgirls.audioranobe.ui.components.Load
+import org.foxgirls.audioranobe.ui.components.CardGridSkeleton
+import org.foxgirls.audioranobe.ui.components.SectionHeaderSkeleton
+import org.foxgirls.audioranobe.ui.components.Skeleton
+import org.foxgirls.audioranobe.ui.components.TextSkeleton
+import org.foxgirls.audioranobe.ui.components.gridColumns
 import org.foxgirls.audioranobe.ui.components.Section
 import org.foxgirls.audioranobe.ui.components.StatusBadge
 import org.foxgirls.audioranobe.ui.components.TabItem
@@ -94,7 +100,7 @@ fun NarratorScreen(slug: String, initialTab: String?) {
     var viewer by remember { mutableStateOf<String?>(null) }
 
     when (val s = loader.state) {
-        is Load.Loading -> { CenterSpinner(Modifier.fillMaxSize().statusBarsPadding(), 300.dp); return }
+        is Load.Loading -> { NarratorPageSkeleton(); return }
         is Load.Err -> {
             if (s.notFound) { NotFoundScreen("Такого чтеца не существует, или его страница ещё не опубликована."); return }
             Column(Modifier.fillMaxSize().statusBarsPadding().padding(pagePadding())) { ErrorState(s.message, { loader.reload() }, title = "Чтец не найден") }
@@ -199,6 +205,63 @@ private fun ProfileStat(icon: ImageVector, value: String, label: String, modifie
     }
 }
 
+/** Placeholder for [NarratorScreen]: cover banner, overlapping avatar, name, actions, bio panel, stats, then a card grid. */
+@Composable
+private fun NarratorPageSkeleton() {
+    val columns = gridColumns(LocalConfiguration.current.screenWidthDp)
+    Column(Modifier.fillMaxSize()) {
+        Box(Modifier.fillMaxWidth()) {
+            Skeleton(Modifier.fillMaxWidth().height(170.dp), RoundedCornerShape(0.dp))
+            Skeleton(Modifier.statusBarsPadding().padding(8.dp).size(40.dp), CircleShape)
+            Column(Modifier.fillMaxWidth().padding(top = 120.dp).padding(horizontal = 16.dp)) {
+                Skeleton(Modifier.size(96.dp), CircleShape)
+                Spacer(Modifier.height(8.dp))
+                Skeleton(Modifier.width(180.dp).height(22.dp))
+                Skeleton(Modifier.padding(top = 6.dp).width(140.dp).height(12.dp))
+                Skeleton(Modifier.padding(top = 10.dp).width(200.dp).height(34.dp), CircleShape)
+            }
+        }
+        Row(Modifier.padding(top = 18.dp, start = 16.dp, end = 16.dp), horizontalArrangement = Arrangement.spacedBy(20.dp)) {
+            repeat(3) { Skeleton(Modifier.width(72.dp).height(14.dp)) }
+        }
+        GlassPanel(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 12.dp)) { TextSkeleton(lines = 3) }
+        Row(Modifier.fillMaxWidth().padding(horizontal = 16.dp), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+            repeat(3) {
+                Row(Modifier.weight(1f), verticalAlignment = Alignment.CenterVertically) {
+                    Skeleton(Modifier.size(38.dp), CircleShape)
+                    Spacer(Modifier.width(12.dp))
+                    Column {
+                        Skeleton(Modifier.width(40.dp).height(18.dp))
+                        Skeleton(Modifier.padding(top = 4.dp).width(60.dp).height(11.dp))
+                    }
+                }
+            }
+        }
+        SectionHeaderSkeleton(Modifier.padding(start = 16.dp, top = 22.dp), eyebrowWidth = 80.dp, titleWidth = 150.dp)
+        CardGridSkeleton(count = columns * 3, modifier = Modifier.padding(horizontal = 16.dp))
+    }
+}
+
+/** Placeholder for [AuthorScreen]: back button, eyebrow and name, bio panel, then a titles section of cards. */
+@Composable
+private fun AuthorPageSkeleton() {
+    val columns = gridColumns(LocalConfiguration.current.screenWidthDp)
+    Column(Modifier.fillMaxSize().statusBarsPadding().padding(pagePadding())) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Skeleton(Modifier.size(40.dp), CircleShape)
+            Spacer(Modifier.weight(1f))
+        }
+        Spacer(Modifier.height(6.dp))
+        Skeleton(Modifier.width(60.dp).height(11.dp))
+        Skeleton(Modifier.padding(top = 4.dp).fillMaxWidth(0.7f).height(26.dp))
+        Skeleton(Modifier.padding(top = 4.dp).width(100.dp).height(13.dp))
+        GlassPanel(Modifier.fillMaxWidth().padding(top = 16.dp)) { TextSkeleton(lines = 3) }
+        Spacer(Modifier.height(24.dp))
+        SectionHeaderSkeleton(eyebrowWidth = 70.dp, titleWidth = 160.dp)
+        CardGridSkeleton(count = columns * 3)
+    }
+}
+
 // ---------- app/author/[id] ----------
 
 @Composable
@@ -206,7 +269,7 @@ fun AuthorScreen(ref: String) {
     val nav = LocalNav.current
     val loader = rememberLoader(ref) { Api.get<AuthorFull>("/authors/${Routes.enc(ref)}") }
     when (val s = loader.state) {
-        is Load.Loading -> CenterSpinner(Modifier.fillMaxSize().statusBarsPadding(), 300.dp)
+        is Load.Loading -> AuthorPageSkeleton()
         is Load.Err -> if (s.notFound) NotFoundScreen("Такого автора не существует, или его страница ещё не опубликована.")
         else Column(Modifier.fillMaxSize().statusBarsPadding().padding(pagePadding())) { ErrorState(s.message, { loader.reload() }, title = "Автор не найден") }
         is Load.Ok -> {

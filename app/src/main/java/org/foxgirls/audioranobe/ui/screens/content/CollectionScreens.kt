@@ -10,6 +10,8 @@ import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -58,7 +60,6 @@ import org.foxgirls.audioranobe.ui.components.ArTabs
 import org.foxgirls.audioranobe.ui.components.ArTextField
 import org.foxgirls.audioranobe.ui.components.ArToggle
 import org.foxgirls.audioranobe.ui.components.ButtonKind
-import org.foxgirls.audioranobe.ui.components.CenterSpinner
 import org.foxgirls.audioranobe.ui.components.CollectionCardC
 import org.foxgirls.audioranobe.ui.components.ConfirmDialog
 import org.foxgirls.audioranobe.ui.components.EmptyState
@@ -68,6 +69,9 @@ import org.foxgirls.audioranobe.ui.components.GlassPanel
 import org.foxgirls.audioranobe.ui.components.IconBtn
 import org.foxgirls.audioranobe.ui.components.Load
 import org.foxgirls.audioranobe.ui.components.PageHeader
+import org.foxgirls.audioranobe.ui.components.CardGridSkeleton
+import org.foxgirls.audioranobe.ui.components.Skeleton
+import org.foxgirls.audioranobe.ui.components.TextSkeleton
 import org.foxgirls.audioranobe.ui.components.Spinner
 import org.foxgirls.audioranobe.ui.components.TabItem
 import org.foxgirls.audioranobe.ui.components.TabsVariant
@@ -122,7 +126,9 @@ fun CollectionsScreen() {
         }
         Spacer(Modifier.height(16.dp))
         when (val s = loader.state) {
-            is Load.Loading -> CenterSpinner()
+            is Load.Loading -> FlowRow(horizontalArrangement = Arrangement.spacedBy(12.dp), verticalArrangement = Arrangement.spacedBy(12.dp), maxItemsInEachRow = columns) {
+                repeat(columns * 4) { CollectionCardSkeleton(Modifier.weight(1f)) }
+            }
             is Load.Err -> ErrorState(s.message, { loader.reload() }, title = "Не удалось загрузить коллекции")
             is Load.Ok -> {
                 val data = s.data
@@ -186,6 +192,51 @@ private fun CollectionFormDialog(open: Boolean, onClose: () -> Unit, initial: Co
     }
 }
 
+/** Placeholder with the shape of [CollectionCardC]: cover strip, name, description, owner line. */
+@Composable
+private fun CollectionCardSkeleton(modifier: Modifier = Modifier) {
+    GlassPanel(modifier, padding = PaddingValues(0.dp)) {
+        Row(Modifier.fillMaxWidth().height(96.dp)) {
+            repeat(3) { Skeleton(Modifier.weight(1f).fillMaxHeight()) }
+        }
+        Column(Modifier.padding(12.dp)) {
+            Skeleton(Modifier.fillMaxWidth(0.6f).height(15.dp))
+            Skeleton(Modifier.padding(top = 6.dp).fillMaxWidth().height(12.dp))
+            Skeleton(Modifier.padding(top = 4.dp).fillMaxWidth(0.7f).height(12.dp))
+            Row(Modifier.padding(top = 8.dp), verticalAlignment = Alignment.CenterVertically) {
+                Skeleton(Modifier.size(18.dp), CircleShape)
+                Spacer(Modifier.width(6.dp))
+                Skeleton(Modifier.weight(1f).height(12.dp))
+                Skeleton(Modifier.width(60.dp).height(12.dp))
+            }
+        }
+    }
+}
+
+/** Placeholder for [CollectionScreen]: back button, header panel (name, description, owner, actions), then a card grid down the screen. */
+@Composable
+private fun CollectionPageSkeleton() {
+    val columns = gridColumns(LocalConfiguration.current.screenWidthDp)
+    Column(Modifier.fillMaxSize().statusBarsPadding().padding(pagePadding())) {
+        Skeleton(Modifier.padding(bottom = 8.dp).size(40.dp), CircleShape)
+        GlassPanel {
+            Skeleton(Modifier.width(90.dp).height(11.dp))
+            Skeleton(Modifier.padding(top = 8.dp).fillMaxWidth(0.7f).height(24.dp))
+            TextSkeleton(Modifier.padding(top = 10.dp), lines = 2)
+            Row(Modifier.padding(top = 14.dp), verticalAlignment = Alignment.CenterVertically) {
+                Skeleton(Modifier.size(22.dp), CircleShape)
+                Spacer(Modifier.width(6.dp))
+                Skeleton(Modifier.width(120.dp).height(13.dp))
+            }
+            Row(Modifier.padding(top = 12.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                repeat(3) { Skeleton(Modifier.width(80.dp).height(34.dp), CircleShape) }
+            }
+        }
+        Spacer(Modifier.height(16.dp))
+        CardGridSkeleton(count = columns * 4)
+    }
+}
+
 // ---------- app/collections/[id] ----------
 
 @OptIn(ExperimentalLayoutApi::class)
@@ -207,7 +258,7 @@ fun CollectionScreen(id: Int) {
     val columns = gridColumns(LocalConfiguration.current.screenWidthDp)
 
     when (val s = loader.state) {
-        is Load.Loading -> { CenterSpinner(Modifier.fillMaxSize().statusBarsPadding(), 300.dp); return }
+        is Load.Loading -> { CollectionPageSkeleton(); return }
         is Load.Err -> {
             if (s.notFound) { NotFoundScreen("Коллекция не найдена. Возможно, она приватная или удалена."); return }
             Column(Modifier.fillMaxSize().statusBarsPadding().padding(pagePadding())) { ErrorState(s.message, { loader.reload() }, title = "Не удалось загрузить эту коллекцию") }

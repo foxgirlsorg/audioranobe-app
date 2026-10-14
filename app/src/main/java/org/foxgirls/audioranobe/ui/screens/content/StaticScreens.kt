@@ -13,8 +13,10 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
@@ -43,7 +45,6 @@ import org.foxgirls.audioranobe.ui.components.ArButton
 import org.foxgirls.audioranobe.ui.components.ArMarkdown
 import org.foxgirls.audioranobe.ui.components.ArTextField
 import org.foxgirls.audioranobe.ui.components.ButtonKind
-import org.foxgirls.audioranobe.ui.components.CenterSpinner
 import org.foxgirls.audioranobe.ui.components.EmptyState
 import org.foxgirls.audioranobe.ui.components.ErrorState
 import org.foxgirls.audioranobe.ui.components.FieldLabel
@@ -54,6 +55,8 @@ import org.foxgirls.audioranobe.ui.components.IconBtn
 import org.foxgirls.audioranobe.ui.components.Load
 import org.foxgirls.audioranobe.ui.components.OutlineChip
 import org.foxgirls.audioranobe.ui.components.PageHeader
+import org.foxgirls.audioranobe.ui.components.Skeleton
+import org.foxgirls.audioranobe.ui.components.TextSkeleton
 import org.foxgirls.audioranobe.ui.components.rememberLoader
 import org.foxgirls.audioranobe.ui.icons.Lucide
 import org.foxgirls.audioranobe.ui.nav.Links
@@ -116,7 +119,53 @@ fun DonateScreen() {
         Text("AudioRanobe живёт на пожертвования. Любая сумма помогает оплачивать серверы и хранилище.", color = Ar.textSecondary, fontSize = 14.sp, lineHeight = 20.sp)
         Spacer(Modifier.height(16.dp))
         when (val s = loader.state) {
-            is Load.Loading -> CenterSpinner()
+            is Load.Loading -> Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                // Goal panel: title and period, progress bar, figures.
+                GlassPanel(Modifier.fillMaxWidth()) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Skeleton(Modifier.fillMaxWidth(0.5f).height(14.dp))
+                        Spacer(Modifier.weight(1f))
+                        Skeleton(Modifier.width(60.dp).height(12.dp))
+                    }
+                    Skeleton(Modifier.padding(top = 10.dp).fillMaxWidth().height(6.dp), RoundedCornerShape(3.dp))
+                    Row(Modifier.padding(top = 10.dp), verticalAlignment = Alignment.CenterVertically) {
+                        Skeleton(Modifier.width(70.dp).height(13.dp))
+                        Spacer(Modifier.weight(1f))
+                        Skeleton(Modifier.width(36.dp).height(12.dp))
+                    }
+                }
+                // Notice about the nickname in the payment comment.
+                GlassPanel(Modifier.fillMaxWidth()) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Skeleton(Modifier.size(18.dp), CircleShape)
+                        Spacer(Modifier.width(10.dp))
+                        TextSkeleton(lines = 2)
+                    }
+                }
+                // Ko-fi and Boosty service cards.
+                Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                    repeat(2) {
+                        GlassPanel(Modifier.weight(1f)) {
+                            Skeleton(Modifier.width(70.dp).height(16.dp))
+                            Skeleton(Modifier.padding(top = 8.dp).fillMaxWidth(0.6f).height(12.dp))
+                            Skeleton(Modifier.padding(top = 6.dp).fillMaxWidth().height(12.dp))
+                        }
+                    }
+                }
+                // Tier-badge line, then the recent donations heading and list.
+                Skeleton(Modifier.padding(top = 14.dp).fillMaxWidth(0.8f).height(13.dp))
+                Skeleton(Modifier.padding(top = 14.dp).width(200.dp).height(18.dp))
+                GlassPanel(Modifier.fillMaxWidth()) {
+                    repeat(3) { i ->
+                        if (i > 0) Spacer(Modifier.height(16.dp))
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Skeleton(Modifier.fillMaxWidth(0.45f).height(14.dp))
+                            Spacer(Modifier.weight(1f))
+                            Skeleton(Modifier.width(44.dp).height(12.dp))
+                        }
+                    }
+                }
+            }
             is Load.Err -> ErrorState(s.message, { loader.reload() })
             is Load.Ok -> {
                 val cfg = s.data
@@ -283,7 +332,14 @@ fun LegalScreen(doc: String) {
         PageHeader("Документы", meta.title, meta.accent)
         if (meta.subtitle != null) Text(meta.subtitle, color = Ar.textSecondary, fontSize = 14.sp, modifier = Modifier.padding(bottom = 12.dp))
         when (val s = loader.state) {
-            is Load.Loading -> CenterSpinner()
+            is Load.Loading -> Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                if (doc == "rules") Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) { repeat(3) { Skeleton(Modifier.width(96.dp).height(26.dp), RoundedCornerShape(13.dp)) } }
+                // Document body: section headings, each followed by paragraph lines.
+                repeat(3) { i ->
+                    Skeleton(Modifier.padding(top = if (i == 0) 8.dp else 10.dp).fillMaxWidth(if (i == 1) 0.4f else 0.55f).height(18.dp))
+                    TextSkeleton(lines = if (i == 0) 6 else 5)
+                }
+            }
             is Load.Err -> ErrorState(s.message, { loader.reload() }, title = meta.errorTitle)
             is Load.Ok -> {
                 val body = s.data.body

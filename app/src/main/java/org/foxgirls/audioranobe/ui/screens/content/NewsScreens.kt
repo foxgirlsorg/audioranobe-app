@@ -55,7 +55,6 @@ import org.foxgirls.audioranobe.ui.components.ArModal
 import org.foxgirls.audioranobe.ui.components.ArTextField
 import org.foxgirls.audioranobe.ui.components.ArToggle
 import org.foxgirls.audioranobe.ui.components.ButtonKind
-import org.foxgirls.audioranobe.ui.components.CenterSpinner
 import org.foxgirls.audioranobe.ui.components.ConfirmDialog
 import org.foxgirls.audioranobe.ui.components.EmptyState
 import org.foxgirls.audioranobe.ui.components.ErrorState
@@ -70,7 +69,8 @@ import org.foxgirls.audioranobe.ui.components.PollBuilder
 import org.foxgirls.audioranobe.ui.components.PollCard
 import org.foxgirls.audioranobe.ui.components.PollDraft
 import org.foxgirls.audioranobe.ui.components.Section
-import org.foxgirls.audioranobe.ui.components.Spinner
+import org.foxgirls.audioranobe.ui.components.Skeleton
+import org.foxgirls.audioranobe.ui.components.TextSkeleton
 import org.foxgirls.audioranobe.ui.components.rememberLoader
 import org.foxgirls.audioranobe.ui.components.rememberPagedList
 import org.foxgirls.audioranobe.ui.components.social.CommentSection
@@ -124,7 +124,7 @@ fun NewsScreen() {
         }
         val items = list.items
         when {
-            list.loading && items == null -> item { CenterSpinner() }
+            list.loading && items == null -> items(6) { NewsRowSkeleton() }
             list.error.isNotEmpty() -> item { ErrorState(list.error, { scope.launch { list.load() } }, title = "Не удалось загрузить новости") }
             items == null || items.isEmpty() -> item { EmptyState("Объявлений пока нет", "Когда команда опубликует новости, они появятся здесь.", Lucide.Newspaper) }
             else -> {
@@ -233,6 +233,38 @@ private fun AnnouncementEditor(initial: Announcement?, onClose: () -> Unit, onSa
     }
 }
 
+/** Placeholder with the shape of a news row: icon and date line, title, summary. */
+@Composable
+private fun NewsRowSkeleton() {
+    GlassPanel(Modifier.fillMaxWidth().padding(bottom = 12.dp)) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Skeleton(Modifier.size(26.dp), CircleShape)
+            Spacer(Modifier.width(8.dp))
+            Skeleton(Modifier.width(96.dp).height(12.dp))
+        }
+        Skeleton(Modifier.padding(top = 8.dp).fillMaxWidth(0.85f).height(18.dp))
+        TextSkeleton(Modifier.padding(top = 8.dp), lines = 2)
+    }
+}
+
+/** Placeholder for [NewsItemScreen]: back button, header panel with date, title and body text. */
+@Composable
+private fun NewsItemSkeleton() {
+    Column(Modifier.fillMaxSize().statusBarsPadding().padding(pagePadding())) {
+        Skeleton(Modifier.width(96.dp).height(36.dp), RoundedCornerShape(10.dp))
+        Spacer(Modifier.height(12.dp))
+        GlassPanel(padding = androidx.compose.foundation.layout.PaddingValues(18.dp)) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Skeleton(Modifier.size(26.dp), CircleShape)
+                Spacer(Modifier.width(8.dp))
+                Skeleton(Modifier.width(120.dp).height(12.dp))
+            }
+            Skeleton(Modifier.padding(top = 10.dp, bottom = 10.dp).fillMaxWidth(0.9f).height(24.dp))
+            TextSkeleton(lines = 8)
+        }
+    }
+}
+
 // ---------- app/news/[slug] ----------
 
 @Composable
@@ -240,7 +272,7 @@ fun NewsItemScreen(slug: String) {
     val nav = LocalNav.current
     val loader = rememberLoader(slug) { Api.get<Announcement>("/announcements/${Routes.enc(slug)}") }
     when (val s = loader.state) {
-        is Load.Loading -> CenterSpinner(Modifier.fillMaxSize().statusBarsPadding(), 300.dp)
+        is Load.Loading -> NewsItemSkeleton()
         is Load.Err -> if (s.notFound) NotFoundScreen() else Column(Modifier.fillMaxSize().statusBarsPadding().padding(pagePadding())) { ErrorState(s.message, { loader.reload() }, title = "Не удалось загрузить новость") }
         is Load.Ok -> {
             val item = s.data
@@ -267,6 +299,30 @@ fun NewsItemScreen(slug: String) {
     }
 }
 
+/** Placeholder with the shape of a narrator post row: title and excerpt. */
+@Composable
+private fun PostRowSkeleton() {
+    GlassPanel(Modifier.fillMaxWidth().padding(bottom = 10.dp)) {
+        Skeleton(Modifier.fillMaxWidth(0.7f).height(18.dp))
+        TextSkeleton(Modifier.padding(top = 8.dp), lines = 2)
+    }
+}
+
+/** Placeholder for [PostScreen]: back button, author chip, title and body text. */
+@Composable
+private fun PostSkeleton() {
+    Column(Modifier.fillMaxSize().statusBarsPadding().padding(pagePadding())) {
+        Skeleton(Modifier.width(140.dp).height(36.dp), RoundedCornerShape(10.dp))
+        Skeleton(Modifier.padding(top = 12.dp).fillMaxWidth(0.9f).height(26.dp))
+        Row(Modifier.padding(top = 8.dp), verticalAlignment = Alignment.CenterVertically) {
+            Skeleton(Modifier.size(22.dp), CircleShape)
+            Spacer(Modifier.width(6.dp))
+            Skeleton(Modifier.width(110.dp).height(13.dp))
+        }
+        TextSkeleton(Modifier.padding(top = 16.dp), lines = 10)
+    }
+}
+
 // ---------- app/post/[id] ----------
 
 @Composable
@@ -275,7 +331,7 @@ fun PostScreen(id: Int) {
     val loader = rememberLoader(id) { Api.get<NarratorPost>("/posts/$id") }
     var editing by remember { mutableStateOf(false) }
     when (val s = loader.state) {
-        is Load.Loading -> CenterSpinner(Modifier.fillMaxSize().statusBarsPadding(), 300.dp)
+        is Load.Loading -> PostSkeleton()
         is Load.Err -> if (s.notFound) NotFoundScreen() else Column(Modifier.fillMaxSize().statusBarsPadding().padding(pagePadding())) { ErrorState(s.message, { loader.reload() }, title = "Не удалось загрузить запись") }
         is Load.Ok -> {
             val post = s.data
@@ -376,7 +432,7 @@ fun NarratorPosts(narratorId: Int, canEdit: Boolean, modifier: Modifier = Modifi
         }
         when (val s = loader.state) {
             is Load.Err -> Text(s.message, color = Ar.danger, fontSize = 13.sp)
-            is Load.Loading -> Spinner()
+            is Load.Loading -> Column(verticalArrangement = Arrangement.spacedBy(10.dp)) { repeat(2) { PostRowSkeleton() } }
             is Load.Ok -> if (s.data.isEmpty()) EmptyState("Записей пока нет", "Расскажите подписчикам, над чем работаете.") else s.data.forEach { p ->
                 if (editingId == p.id) Box(Modifier.padding(bottom = 12.dp)) {
                     PostEditor(p.title, p.body, onCancel = { editingId = null }, canPoll = p.poll == null) { title, body, poll ->
