@@ -16,8 +16,8 @@ android {
         minSdk = 26
         targetSdk = 36
         // Bump both before tagging a release; F-Droid reads them from here, the release workflow checks the tag against versionName.
-        versionCode = 10
-        versionName = "1.1.0"
+        versionCode = 11
+        versionName = "1.1.1"
 
         // Backend API base URL, including /api. Override with -PapiUrl=… or the API_URL env var.
         val apiUrl = (project.findProperty("apiUrl") as String?)
