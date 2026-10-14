@@ -43,7 +43,7 @@ import org.foxgirls.audioranobe.player.PlayerController
 import org.foxgirls.audioranobe.ui.LocalBottomInset
 import org.foxgirls.audioranobe.ui.components.ArButton
 import org.foxgirls.audioranobe.ui.components.ArImage
-import org.foxgirls.audioranobe.ui.components.CenterSpinner
+import org.foxgirls.audioranobe.ui.components.Skeleton
 import org.foxgirls.audioranobe.ui.components.ErrorState
 import org.foxgirls.audioranobe.ui.components.Eyebrow
 import org.foxgirls.audioranobe.ui.components.GlassPanel
@@ -75,7 +75,7 @@ fun ChapterScreen(id: Int, startAt: Double?) {
     }
 
     when (val s = loader.state) {
-        is Load.Loading -> { CenterSpinner(Modifier.fillMaxSize().statusBarsPadding(), 300.dp); return }
+        is Load.Loading -> { ChapterPageSkeleton(); return }
         is Load.Err -> {
             if (s.notFound) NotFoundScreen("Глава недоступна. Попробуйте позже.") else Box(Modifier.statusBarsPadding()) { ErrorState(s.message, { loader.reload() }, "Не удалось загрузить главу") }
             return
@@ -134,6 +134,42 @@ fun ChapterScreen(id: Int, startAt: Double?) {
                 }
             }
             Spacer(Modifier.height(8.dp))
+        }
+    }
+}
+
+/** Placeholder with the shape of the chapter page: backdrop, breadcrumb, player card, prev/next. */
+@Composable
+private fun ChapterPageSkeleton() {
+    Box(Modifier.fillMaxSize()) {
+        Skeleton(Modifier.fillMaxWidth().height(320.dp), RoundedCornerShape(0.dp))
+        Column(Modifier.fillMaxSize().statusBarsPadding().padding(horizontal = 16.dp)) {
+            Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                Skeleton(Modifier.size(40.dp), CircleShape)
+                Spacer(Modifier.weight(1f))
+                Skeleton(Modifier.size(40.dp), CircleShape)
+            }
+            Skeleton(Modifier.padding(vertical = 8.dp).width(200.dp).height(12.dp))
+            GlassPanel(padding = androidx.compose.foundation.layout.PaddingValues(20.dp)) {
+                Column(Modifier.fillMaxWidth(), horizontalAlignment = Alignment.CenterHorizontally) {
+                    Skeleton(Modifier.size(96.dp, 140.dp), RoundedCornerShape(10.dp))
+                    Skeleton(Modifier.padding(top = 14.dp).width(150.dp).height(11.dp))
+                    Skeleton(Modifier.padding(top = 6.dp).fillMaxWidth(0.7f).height(20.dp))
+                    Skeleton(Modifier.padding(top = 18.dp).size(76.dp), CircleShape)
+                    Skeleton(Modifier.padding(top = 8.dp).width(90.dp).height(11.dp))
+                    Skeleton(Modifier.padding(top = 16.dp).fillMaxWidth().height(4.dp), RoundedCornerShape(2.dp))
+                    Row(Modifier.fillMaxWidth().padding(top = 4.dp), horizontalArrangement = Arrangement.SpaceBetween) {
+                        Skeleton(Modifier.width(40.dp).height(11.dp))
+                        Skeleton(Modifier.width(40.dp).height(11.dp))
+                    }
+                    Row(Modifier.padding(top = 12.dp), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                        repeat(3) { Skeleton(Modifier.width(90.dp).height(24.dp), RoundedCornerShape(12.dp)) }
+                    }
+                    Row(Modifier.fillMaxWidth().padding(top = 18.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        repeat(2) { Skeleton(Modifier.weight(1f).height(44.dp), RoundedCornerShape(10.dp)) }
+                    }
+                }
+            }
         }
     }
 }

@@ -50,7 +50,7 @@ import org.foxgirls.audioranobe.ui.components.ArTabs
 import org.foxgirls.audioranobe.ui.components.ArTextField
 import org.foxgirls.audioranobe.ui.components.ArToggle
 import org.foxgirls.audioranobe.ui.components.ButtonKind
-import org.foxgirls.audioranobe.ui.components.CenterSpinner
+import org.foxgirls.audioranobe.ui.components.Skeleton
 import org.foxgirls.audioranobe.ui.components.ConfirmDialog
 import org.foxgirls.audioranobe.ui.components.EmptyState
 import org.foxgirls.audioranobe.ui.components.ErrorState
@@ -102,12 +102,39 @@ fun EditHeader(heading: String, subject: String, onBack: () -> Unit, avatarUrl: 
     }
 }
 
+/** Placeholder for an edit page: [EditHeader] (back, avatar, heading), a tab strip, then a form panel that fills the rest of the screen. */
+@Composable
+private fun EditPageSkeleton() {
+    Column(Modifier.fillMaxSize().statusBarsPadding().padding(pagePadding())) {
+        Row(Modifier.fillMaxWidth().padding(bottom = 14.dp), verticalAlignment = Alignment.CenterVertically) {
+            Skeleton(Modifier.size(40.dp), CircleShape)
+            Spacer(Modifier.width(4.dp))
+            Skeleton(Modifier.size(44.dp), CircleShape)
+            Spacer(Modifier.width(10.dp))
+            Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                Skeleton(Modifier.width(180.dp).height(20.dp))
+                Skeleton(Modifier.width(120.dp).height(13.dp))
+            }
+        }
+        Row(Modifier.padding(bottom = 14.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            repeat(3) { Skeleton(Modifier.width(84.dp).height(30.dp), RoundedCornerShape(15.dp)) }
+        }
+        GlassPanel(Modifier.fillMaxWidth().weight(1f)) {
+            repeat(3) { i ->
+                Skeleton(Modifier.padding(top = if (i == 0) 0.dp else 14.dp).width(90.dp).height(11.dp))
+                Skeleton(Modifier.padding(top = 8.dp).fillMaxWidth().height(44.dp), RoundedCornerShape(10.dp))
+            }
+            Skeleton(Modifier.padding(top = 18.dp).width(140.dp).height(44.dp), RoundedCornerShape(10.dp))
+        }
+    }
+}
+
 /** Renders the loading / error / no-access states of an edit page; returns the loaded value or null. */
 @Composable
 fun <T> editGate(loader: Loader<T>, canEdit: (T) -> Boolean, noAccessBody: String, backLabel: String, backRoute: String, errorTitle: String): T? {
     val nav = LocalNav.current
     when (val s = loader.state) {
-        is Load.Loading -> { CenterSpinner(Modifier.fillMaxSize().statusBarsPadding(), 300.dp); return null }
+        is Load.Loading -> { EditPageSkeleton(); return null }
         is Load.Err -> { Column(Modifier.fillMaxSize().statusBarsPadding().padding(pagePadding())) { ErrorState(s.message, { loader.reload() }, title = errorTitle) }; return null }
         is Load.Ok -> if (!canEdit(s.data)) {
             Column(Modifier.fillMaxSize().statusBarsPadding().padding(pagePadding())) {

@@ -47,7 +47,8 @@ import org.foxgirls.audioranobe.ui.components.ArButton
 import org.foxgirls.audioranobe.ui.components.ArMarkdown
 import org.foxgirls.audioranobe.ui.components.ArTabs
 import org.foxgirls.audioranobe.ui.components.ButtonKind
-import org.foxgirls.audioranobe.ui.components.CenterSpinner
+import org.foxgirls.audioranobe.ui.components.Skeleton
+import org.foxgirls.audioranobe.ui.components.TextSkeleton
 import org.foxgirls.audioranobe.ui.components.ConfirmDialog
 import org.foxgirls.audioranobe.ui.components.EmptyState
 import org.foxgirls.audioranobe.ui.components.MarkdownEditor
@@ -242,7 +243,7 @@ fun CommentSection(targetType: String, targetId: Int, initial: Paginated<Comment
         }
         Spacer(Modifier.height(16.dp))
         when {
-            st.loading -> CenterSpinner(minHeight = 80.dp)
+            st.loading && st.items == null -> CommentsSkeleton()
             st.error.isNotEmpty() -> EmptyState("Не удалось загрузить комментарии", st.error, Lucide.MessageSquare)
             roots.isEmpty() -> EmptyState("Комментариев пока нет", "Будьте первым, кто поделится впечатлениями.", Lucide.MessageSquare)
             else -> {
@@ -410,6 +411,27 @@ private fun NestedComment(
                         if (hidden > 0) Text("Показать ещё $hidden ${Fmt.plural(hidden, "ответ", "ответа", "ответов")}", color = Ar.accent, fontSize = 12.sp, fontWeight = FontWeight.SemiBold, modifier = Modifier.padding(start = 14.dp, top = 8.dp).clickable { st.expanded = st.expanded + comment.id })
                     }
                 }
+            }
+        }
+    }
+}
+
+/** Comment list while the first page loads: three comment rows shaped like [NestedComment] at top depth (34dp avatar, name and time, body, vote row). */
+@Composable
+private fun CommentsSkeleton() {
+    Column(Modifier.fillMaxWidth().padding(top = 4.dp), verticalArrangement = Arrangement.spacedBy(18.dp)) {
+        repeat(3) {
+            Column(Modifier.fillMaxWidth()) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Skeleton(Modifier.size(34.dp), CircleShape)
+                    Spacer(Modifier.width(8.dp))
+                    Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(5.dp)) {
+                        Skeleton(Modifier.fillMaxWidth(0.35f).height(13.dp))
+                        Skeleton(Modifier.fillMaxWidth(0.2f).height(10.dp))
+                    }
+                }
+                TextSkeleton(Modifier.padding(top = 8.dp), lines = 2)
+                Skeleton(Modifier.padding(top = 10.dp).width(56.dp).height(12.dp))
             }
         }
     }

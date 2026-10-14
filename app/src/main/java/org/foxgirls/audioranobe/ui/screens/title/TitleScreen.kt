@@ -83,7 +83,8 @@ import org.foxgirls.audioranobe.ui.components.ArMarkdown
 import org.foxgirls.audioranobe.ui.components.ArTabs
 import org.foxgirls.audioranobe.ui.components.ButtonKind
 import org.foxgirls.audioranobe.ui.components.CardGrid
-import org.foxgirls.audioranobe.ui.components.CenterSpinner
+import org.foxgirls.audioranobe.ui.components.FillRowsSkeleton
+import org.foxgirls.audioranobe.ui.components.Skeleton
 import org.foxgirls.audioranobe.ui.components.ConfirmDialog
 import org.foxgirls.audioranobe.ui.components.EmptyState
 import org.foxgirls.audioranobe.ui.components.ErrorState
@@ -166,7 +167,7 @@ fun TitleScreen(slug: String, initialTab: String?) {
     val liveDuration by PlayerController.duration.collectAsStateWithLifecycle()
 
     when (val s = loader.state) {
-        is Load.Loading -> { CenterSpinner(Modifier.fillMaxSize().statusBarsPadding(), 400.dp); return }
+        is Load.Loading -> { TitlePageSkeleton(); return }
         is Load.Err -> { if (s.notFound) NotFoundScreen() else Box(Modifier.statusBarsPadding()) { ErrorState(s.message, { loader.reload() }, "Не удалось загрузить тайтл") }; return }
         is Load.Ok -> {}
     }
@@ -501,3 +502,46 @@ fun TagsFlow(tags: List<Pair<String, String>>, onClick: (String) -> Unit) {
 
 @Composable
 fun AccentLabel(text: String) = AccentBadge(text)
+
+/** Placeholder with the shape of the title page: top bar, cover, name, action buttons, tabs, then chapter rows that fill the screen. */
+@Composable
+private fun TitlePageSkeleton() {
+    Column(Modifier.fillMaxSize().statusBarsPadding()) {
+        Row(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 4.dp), verticalAlignment = Alignment.CenterVertically) {
+            Skeleton(Modifier.size(40.dp), CircleShape)
+            Spacer(Modifier.weight(1f))
+            repeat(3) { Skeleton(Modifier.size(40.dp), CircleShape); Spacer(Modifier.width(4.dp)) }
+        }
+        Column(Modifier.fillMaxWidth().padding(horizontal = 16.dp).padding(top = 14.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+            Skeleton(Modifier.width(170.dp).aspectRatio(2f / 3f), RoundedCornerShape(12.dp))
+            Skeleton(Modifier.padding(top = 14.dp).fillMaxWidth(0.6f).height(22.dp))
+            Skeleton(Modifier.padding(top = 8.dp).fillMaxWidth(0.4f).height(12.dp))
+            Row(Modifier.padding(top = 14.dp), horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
+                Skeleton(Modifier.width(170.dp).height(44.dp), RoundedCornerShape(22.dp))
+                Skeleton(Modifier.size(44.dp), CircleShape)
+            }
+        }
+        Row(Modifier.fillMaxWidth().padding(horizontal = 16.dp).padding(top = 22.dp, bottom = 14.dp), horizontalArrangement = Arrangement.spacedBy(18.dp)) {
+            Skeleton(Modifier.width(60.dp).height(14.dp))
+            Skeleton(Modifier.width(70.dp).height(14.dp))
+            Skeleton(Modifier.width(96.dp).height(14.dp))
+        }
+        Box(Modifier.weight(1f).fillMaxWidth()) {
+            FillRowsSkeleton(56.dp, 10.dp, Modifier.padding(horizontal = 16.dp)) { TitleChapterRowSkeleton() }
+        }
+    }
+}
+
+/** One chapter row: number, name and length, and a play pill. */
+@Composable
+private fun TitleChapterRowSkeleton() {
+    Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+        Skeleton(Modifier.width(28.dp).height(12.dp))
+        Spacer(Modifier.width(12.dp))
+        Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            Skeleton(Modifier.fillMaxWidth(0.75f).height(14.dp))
+            Skeleton(Modifier.fillMaxWidth(0.4f).height(11.dp))
+        }
+        Skeleton(Modifier.width(44.dp).height(24.dp), RoundedCornerShape(12.dp))
+    }
+}
