@@ -22,6 +22,7 @@ zoomable = "2.9.0"
 cropper = "4.7.0"
 zxing = "3.5.4"
 unifiedpush = "3.3.5"
+composePlaceholder = "1.0.12"
 
 [libraries]
 unifiedpush-connector = { group = "org.unifiedpush.android", name = "connector", version.ref = "unifiedpush" }
@@ -57,6 +58,7 @@ compose-charts = { group = "io.github.ehsannarmani", name = "compose-charts", ve
 zoomable = { group = "net.engawapg.lib", name = "zoomable", version.ref = "zoomable" }
 image-cropper = { group = "com.vanniktech", name = "android-image-cropper", version.ref = "cropper" }
 zxing-core = { group = "com.google.zxing", name = "core", version.ref = "zxing" }
+compose-placeholder = { group = "com.eygraber", name = "compose-placeholder", version.ref = "composePlaceholder" }
 
 [plugins]
 android-application = { id = "com.android.application", version.ref = "agp" }

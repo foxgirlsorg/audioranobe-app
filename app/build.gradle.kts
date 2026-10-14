@@ -135,6 +135,7 @@ dependencies {
     implementation(libs.kotlinx.coroutines.android)
     implementation(libs.coil.compose)
     implementation(libs.coil.svg)
+    implementation(libs.compose.placeholder)
     implementation(libs.markdown.m3)
     implementation(libs.markdown.coil2)
     implementation(libs.compose.charts)
