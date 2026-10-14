@@ -76,7 +76,6 @@ import org.foxgirls.audioranobe.ui.components.ArTabs
 import org.foxgirls.audioranobe.ui.components.ArTextField
 import org.foxgirls.audioranobe.ui.components.ArToggle
 import org.foxgirls.audioranobe.ui.components.ButtonKind
-import org.foxgirls.audioranobe.ui.components.CenterSpinner
 import org.foxgirls.audioranobe.ui.components.CountBubble
 import org.foxgirls.audioranobe.ui.components.EmptyState
 import org.foxgirls.audioranobe.ui.components.ErrorState
@@ -84,11 +83,15 @@ import org.foxgirls.audioranobe.ui.components.Eyebrow
 import org.foxgirls.audioranobe.ui.components.GlassPanel
 import org.foxgirls.audioranobe.ui.components.IconBtn
 import org.foxgirls.audioranobe.ui.components.NarratorPersonCard
+import org.foxgirls.audioranobe.ui.components.AvatarRowSkeleton
+import org.foxgirls.audioranobe.ui.components.LocalScreenRefresh
 import org.foxgirls.audioranobe.ui.components.RefreshEffect
 import org.foxgirls.audioranobe.ui.components.SectionTitle
+import org.foxgirls.audioranobe.ui.components.Skeleton
+import org.foxgirls.audioranobe.ui.components.skeletonFade
+import org.foxgirls.audioranobe.ui.components.titleCardSkeletons
 import org.foxgirls.audioranobe.ui.components.SelectMenu
 import org.foxgirls.audioranobe.ui.components.SelectOption
-import org.foxgirls.audioranobe.ui.components.Spinner
 import org.foxgirls.audioranobe.ui.components.TabItem
 import org.foxgirls.audioranobe.ui.components.TabsVariant
 import org.foxgirls.audioranobe.ui.components.TitleCardC
@@ -181,6 +184,7 @@ fun CatalogScreen(args: Bundle?) {
     var nonce by remember { mutableIntStateOf(0) }
     var debouncedQ by rememberSaveable { mutableStateOf(q) }
     val gridState = rememberLazyGridState()
+    val refresh = LocalScreenRefresh.current
 
     LaunchedEffect(Unit) { if (genres.isEmpty()) genres = runCatching { Api.get<Paginated<Genre>>("/genres", mapOf("per_page" to 500)).items }.getOrDefault(emptyList()) }
     LaunchedEffect(user?.id) { if (user != null) userHideNsfw = runCatching { Api.get<Me>("/me").content_prefs?.hide_nsfw ?: true }.getOrDefault(true) else userHideNsfw = true }
@@ -188,6 +192,8 @@ fun CatalogScreen(args: Bundle?) {
     val show18 = nsfw ?: !userHideNsfw
 
     RefreshEffect(tab, debouncedQ, genreSlugs, author, yearFrom, yearTo, status, country, showAi, nsfw, sort, order, finished, page, nonce) {
+        // A filter, sort or page change replaces the results, so drop them and show skeletons; a pull keeps them while it refetches.
+        if (refresh?.active != true) { data = null; narrators = null; users = null }
         loading = true; error = null
         try {
             when (tab) {
@@ -204,6 +210,9 @@ fun CatalogScreen(args: Bundle?) {
 
     val activeFilters = listOf(genreSlugs.isNotEmpty(), author.isNotBlank(), yearFrom.isNotBlank(), yearTo.isNotBlank(), status.isNotBlank(), country.isNotBlank(), !showAi, nsfw != null, finished).count { it }
     val cols = gridColumns(LocalConfiguration.current.screenWidthDp)
+    // Enough placeholder rows to run past the bottom of the screen; the lazy grid only composes what is visible.
+    val screenHeight = LocalConfiguration.current.screenHeightDp
+    val skeletonCount = (screenHeight / 160 + 1) * cols
 
     LazyVerticalGrid(
         columns = GridCells.Fixed(cols), state = gridState, modifier = Modifier.fillMaxSize().dockScrollAware().swipeTabs(listOfNotNull("titles", "narrators", if (user != null) "users" else null), tab) { tab = it; page = 1 },
@@ -221,7 +230,6 @@ fun CatalogScreen(args: Bundle?) {
                 Spacer(Modifier.height(16.dp))
                 if (tab == "titles") Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
                     Text(data?.let { "Тайтлов: ${Fmt.count(it.total)}" } ?: "", color = Ar.textMuted, fontSize = 12.sp, modifier = Modifier.weight(1f))
-                    if (loading && data != null) Spinner(Modifier.padding(end = 8.dp), 14.dp)
                     Row(Modifier.height(IntrinsicSize.Min), verticalAlignment = Alignment.CenterVertically) {
                         SquareBtn(Lucide.SlidersHorizontal, "Фильтры", activeFilters > 0, { sheet = true }) {
                             if (activeFilters > 0) CountBubble(activeFilters, Modifier.align(Alignment.TopEnd).offset(6.dp, (-6).dp))
@@ -233,12 +241,16 @@ fun CatalogScreen(args: Bundle?) {
                     }
                 } else Row(verticalAlignment = Alignment.CenterVertically) {
                     Text(when (tab) { "narrators" -> narrators?.let { "Чтецов: ${Fmt.count(it.total)}" } ?: ""; else -> users?.let { "Найдено: ${Fmt.count(it.size)}" } ?: "" }, color = Ar.textMuted, fontSize = 12.sp)
-                    if (loading && (narrators != null || users != null)) Spinner(Modifier.padding(start = 8.dp), 14.dp)
                 }
             }
         }
-        val firstLoad = loading && data == null && narrators == null && users == null
-        if (firstLoad) item(span = { GridItemSpan(maxLineSpan) }) { CenterSpinner() }
+        // Only the active tab's results decide whether the grid is still loading, so switching tabs never shows "nothing found" mid-fetch.
+        val listLoading = loading && when (tab) { "narrators" -> narrators == null; "users" -> users == null; else -> data == null }
+        if (listLoading) when (tab) {
+            "titles" -> titleCardSkeletons(skeletonCount)
+            "narrators" -> items((0 until skeletonCount).toList(), key = { "narratorSkeleton$it" }) { _ -> PersonCardSkeleton(Modifier.animateItem(fadeInSpec = skeletonFade(), fadeOutSpec = skeletonFade())) }
+            else -> item(span = { GridItemSpan(maxLineSpan) }) { Column { repeat(screenHeight / 72 + 1) { AvatarRowSkeleton() } } }
+        }
         else if (error != null) item(span = { GridItemSpan(maxLineSpan) }) { ErrorState(error!!, { nonce++ }) }
         else when (tab) {
             "titles" -> {
@@ -353,6 +365,20 @@ fun RequestableTitles(items: List<RequestableTitle>) {
                     if (!blocked) ArButton(if (rq.pending == it.ref) "Заказываем…" else "Заказать", { rq.request(it.ref) }, kind = ButtonKind.Primary, small = true, icon = Lucide.BookHeadphones, busy = rq.pending == it.ref, enabled = rq.pending == null)
                 }
             }
+        }
+    }
+}
+
+/** Placeholder with the shape of [NarratorPersonCard]: a glass panel with a centred avatar, name and title count. */
+@Composable
+private fun PersonCardSkeleton(modifier: Modifier = Modifier) {
+    GlassPanel(modifier.fillMaxWidth(), padding = PaddingValues(14.dp)) {
+        Column(Modifier.fillMaxWidth(), horizontalAlignment = Alignment.CenterHorizontally) {
+            Skeleton(Modifier.size(64.dp), CircleShape)
+            Spacer(Modifier.height(10.dp))
+            Skeleton(Modifier.fillMaxWidth(0.6f).height(14.dp))
+            Spacer(Modifier.height(6.dp))
+            Skeleton(Modifier.fillMaxWidth(0.4f).height(11.dp))
         }
     }
 }
