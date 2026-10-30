@@ -3,8 +3,14 @@ package org.foxgirls.audioranobe.ui.screens.editing
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxScope
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ColumnScope
+import androidx.compose.runtime.CompositionLocalProvider
+import org.foxgirls.audioranobe.ui.components.HairlineDivider
+import org.foxgirls.audioranobe.ui.components.LocalFlatUi
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.aspectRatio
@@ -86,7 +92,7 @@ import kotlinx.serialization.json.put
 
 /** Header shared by the edit pages: back button, big heading, subject name. */
 @Composable
-fun EditHeader(heading: String, subject: String, onBack: () -> Unit, avatarUrl: String? = null, avatarIcon: ImageVector? = null) {
+fun EditHeader(heading: String, subject: String?, onBack: () -> Unit, avatarUrl: String? = null, avatarIcon: ImageVector? = null, tags: List<String> = emptyList()) {
     Row(Modifier.fillMaxWidth().padding(bottom = 14.dp), verticalAlignment = Alignment.CenterVertically) {
         IconBtn(Lucide.ArrowLeft, "Назад", onBack, tint = Ar.text)
         if (avatarIcon != null) {
@@ -95,9 +101,55 @@ fun EditHeader(heading: String, subject: String, onBack: () -> Unit, avatarUrl: 
             }
             Spacer(Modifier.width(10.dp))
         }
-        Column {
+        Column(Modifier.weight(1f)) {
             Text(heading, color = Ar.white, fontSize = 20.sp, fontWeight = FontWeight.Medium, lineHeight = 24.sp)
-            Text(subject, color = Ar.textMuted, fontSize = 13.sp)
+            if (subject != null) Text(subject, color = Ar.textMuted, fontSize = 13.sp)
+            if (tags.isNotEmpty()) Text(tags.joinToString("  ·  "), color = Ar.textMuted, fontSize = 12.sp, modifier = Modifier.padding(top = 2.dp))
+        }
+    }
+}
+
+/** Screen frame for the redesigned edit pages: scrolling column, optional bar pinned to the bottom, flat button style. */
+@Composable
+fun EditScaffold(bar: (@Composable BoxScope.() -> Unit)?, content: @Composable ColumnScope.() -> Unit) {
+    CompositionLocalProvider(LocalFlatUi provides true) {
+        Box(Modifier.fillMaxSize()) {
+            Column(
+                Modifier.fillMaxSize().verticalScroll(rememberScrollState()).statusBarsPadding().padding(pagePadding()).padding(bottom = if (bar != null) 84.dp else 0.dp),
+                content = content,
+            )
+            bar?.invoke(this)
+        }
+    }
+}
+
+/** A titled group of fields (the site's page.module.css `.section`), stacked on a phone. */
+@Composable
+fun EditSection(title: String, desc: String? = null, first: Boolean = false, content: @Composable ColumnScope.() -> Unit) {
+    Column(Modifier.fillMaxWidth()) {
+        if (!first) HairlineDivider(Modifier.padding(vertical = 18.dp))
+        Text(title, color = Ar.white, fontSize = 16.sp, fontWeight = FontWeight.Medium)
+        if (desc != null) Text(desc, color = Ar.textMuted, fontSize = 12.5.sp, lineHeight = 17.sp, modifier = Modifier.padding(top = 2.dp))
+        Spacer(Modifier.height(12.dp))
+        content()
+    }
+}
+
+/** Sticky "unsaved changes" bar. */
+@Composable
+fun BoxScope.EditSaveBar(saving: Boolean, note: String?, error: String?, onReset: () -> Unit, onSave: () -> Unit) {
+    Column(
+        Modifier.align(Alignment.BottomCenter).fillMaxWidth().padding(horizontal = 12.dp, vertical = 10.dp)
+            .clip(RoundedCornerShape(14.dp)).background(Ar.surfaceRaised).border(1.dp, Ar.border, RoundedCornerShape(14.dp)).padding(12.dp),
+    ) {
+        if (error != null) Text(error, color = Ar.danger, fontSize = 13.sp, modifier = Modifier.padding(bottom = 8.dp))
+        else Text(
+            "Есть несохранённые изменения" + (note?.let { " · $it" } ?: ""),
+            color = Ar.text, fontSize = 13.sp, modifier = Modifier.padding(bottom = 8.dp),
+        )
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            ArButton("Сбросить", onReset, kind = ButtonKind.Ghost, enabled = !saving)
+            ArButton(if (saving) "Сохраняем…" else "Сохранить изменения", onSave, Modifier.weight(1f), kind = ButtonKind.Primary, busy = saving)
         }
     }
 }
@@ -241,6 +293,36 @@ fun NarratorEditScreen(slug: String) {
     val avatarCropper = rememberImageCropper(1, 1, 1024, 1024, circle = true) { uploadImage("avatar", it) }
     val coverCropper = rememberImageCropper(3, 1, 2048, 2048) { uploadImage("cover", it) }
 
+    fun snap() = listOf(name, slugField, bio, socials.map { it.trim() }.filter { it.isNotEmpty() }, isSelf, isAi, isVerified, adminContact).toString()
+    var baseline by remember(n.id) { mutableStateOf(snap()) }
+    val dirty = snap() != baseline
+
+    fun resetForm() {
+        name = n.name; slugField = n.slug; bio = n.bio; socials = n.socials
+        isSelf = n.is_self; isAi = n.is_ai; isVerified = n.is_verified; adminContact = n.admin_contact ?: ""
+        nameError = null
+    }
+
+    fun save() {
+        if (name.isBlank()) { nameError = "Укажите название"; return }
+        saving = true
+        scope.launch {
+            try {
+                val res = Api.patch<AppliedResult>("/panel/narrators/${n.id}", buildJsonObject {
+                    put("name", name.trim()); put("slug", slugField.trim()); put("bio", bio)
+                    put("socials", buildJsonArray { socials.map { it.trim() }.filter { it.isNotEmpty() }.forEach { add(JsonPrimitive(it)) } })
+                    put("is_self", isSelf)
+                    if (isAi != n.is_ai) put("is_ai", isAi)
+                    if (isMod && isVerified != n.is_verified) put("is_verified", isVerified)
+                    put("admin_contact", if (isSelf) JsonPrimitive(adminContact) else JsonNull)
+                })
+                if (res.applied != false) { toast("Изменения применены"); baseline = snap(); loader.reload() }
+                else { toast("Отправлено на модерацию"); resetForm() }
+            } catch (e: Exception) { toastError(e) }
+            saving = false
+        }
+    }
+
     val tabs = buildList {
         add(TabItem("info", "Инфо")); add(TabItem("images", "Изображения"))
         if (isMod || n.is_verified) add(TabItem("posts", "Записи"))
@@ -248,92 +330,78 @@ fun NarratorEditScreen(slug: String) {
         if (isOwner) add(TabItem("transfer", "Перенос"))
     }
 
-    Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).statusBarsPadding().padding(pagePadding())) {
-        EditHeader("Редактирование чтеца", n.name, { nav.back() }, n.avatar_thumb_url ?: n.avatar_url, Lucide.Mic)
-        ArTabs(tabs, tab, { tab = it }, Modifier.padding(bottom = 14.dp), variant = TabsVariant.Underline)
+    val bar: (@Composable BoxScope.() -> Unit)? = if (tab == "info" && (dirty || saving)) {
+        { EditSaveBar(saving, if (!isMod && n.mod_status == "approved") "Правки проходят модерацию" else null, null, { resetForm() }, { save() }) }
+    } else null
+
+    EditScaffold(bar) {
+        EditHeader(n.name, null, { nav.back() }, n.avatar_thumb_url ?: n.avatar_url, Lucide.Mic, tags = listOfNotNull(if (n.is_verified) "Подтверждён" else null, if (n.is_ai) "ИИ-голос" else null))
+        ArTabs(tabs, tab, { tab = it }, Modifier.padding(bottom = 16.dp), variant = TabsVariant.Underline)
         when (tab) {
             "info" -> {
-                GlassPanel(Modifier.fillMaxWidth()) {
+                EditSection("Основное", "Название, адрес страницы и пометки", first = true) {
                     ArTextField(name, { name = it; nameError = null }, label = "Название", maxLength = Limits.narratorName, error = nameError)
                     Spacer(Modifier.height(10.dp))
-                    ArTextField(slugField, { slugField = it }, label = "Slug", maxLength = 200, placeholder = "narrator-slug")
-                    Spacer(Modifier.height(10.dp))
-                    MarkdownEditor(bio, { bio = it }, label = "О себе", maxLength = Limits.narratorBio, placeholder = "Расскажите слушателям об этом чтеце…", media = "image", slim = true)
-                    Spacer(Modifier.height(10.dp))
-                    SocialsEditor(socials, { socials = it }, label = "Ссылки на соцсети")
-                    Spacer(Modifier.height(10.dp))
-                    ArToggle(isAi, { isAi = it }, "Синтезированный голос", "Отметьте, если это ИИ-озвучка. Рядом с именем появится метка.", enabled = !(n.is_ai && !isMod))
+                    ArTextField(slugField, { slugField = it }, label = "Адрес страницы", maxLength = 200, placeholder = "narrator-slug")
+                    Spacer(Modifier.height(8.dp))
+                    ArToggle(isAi, { isAi = it }, "Синтезированный голос", "Рядом с именем появится метка.", enabled = !(n.is_ai && !isMod))
                     ArToggle(isSelf, { isSelf = it }, "Собственный профиль")
-                    if (isMod) ArToggle(isVerified, { isVerified = it }, "Подтверждённый профиль", "Личность подтверждена: рядом с именем появится галочка.")
-                    if (isSelf) {
-                        Spacer(Modifier.height(10.dp))
-                        ArTextField(adminContact, { adminContact = it }, label = "Контакт администратора", maxLength = 2000, placeholder = "Как связаться с владельцем профиля…", singleLine = false, minLines = 2)
-                    }
-                    Spacer(Modifier.height(12.dp))
-                    FieldLabel("Владелец")
+                    if (isMod) ArToggle(isVerified, { isVerified = it }, "Подтверждённый профиль", "Рядом с именем появится галочка.")
+                }
+                EditSection("О чтеце", "Показывается на странице чтеца") {
+                    MarkdownEditor(bio, { bio = it }, maxLength = Limits.narratorBio, placeholder = "Расскажите слушателям об этом чтеце…", media = "image", slim = true)
+                }
+                EditSection("Ссылки", "Соцсети и сайты") {
+                    SocialsEditor(socials, { socials = it })
+                }
+                if (isSelf) EditSection("Контакт для связи", "Виден только администрации") {
+                    ArTextField(adminContact, { adminContact = it }, maxLength = 2000, placeholder = "Как связаться с владельцем профиля…", singleLine = false, minLines = 2)
+                }
+                EditSection("Владелец", "У чтеца всегда ровно один владелец") {
                     when (val ms = members.state) {
                         is Load.Err -> Text(ms.message, color = Ar.danger, fontSize = 13.sp)
                         is Load.Loading -> Text("Загружаем…", color = Ar.textMuted, fontSize = 13.sp)
                         is Load.Ok -> if (ms.data.isEmpty()) Text("Владелец не назначен.", color = Ar.textMuted, fontSize = 13.sp) else ms.data.forEach { m ->
-                            Row(Modifier.padding(vertical = 3.dp), verticalAlignment = Alignment.CenterVertically) {
-                                UserAvatar(m.user.username, m.user.avatar_url, 22.dp, thumbUrl = m.user.avatar_thumb_url)
-                                Spacer(Modifier.width(8.dp))
-                                Text(m.user.username, color = Ar.text, fontSize = 13.sp)
+                            Row(Modifier.fillMaxWidth().padding(vertical = 3.dp), verticalAlignment = Alignment.CenterVertically) {
+                                UserAvatar(m.user.username, m.user.avatar_url, 26.dp, thumbUrl = m.user.avatar_thumb_url)
+                                Spacer(Modifier.width(10.dp))
+                                Text(m.user.username, color = Ar.text, fontSize = 14.sp, modifier = Modifier.weight(1f))
+                                if (isOwner) Text("Передать права →", color = Ar.accent, fontSize = 13.sp, modifier = Modifier.clickable { tab = "transfer" }.padding(vertical = 6.dp))
                             }
                         }
                     }
-                    Text("У чтеца всегда ровно один владелец. Чтобы передать права, используйте вкладку «Перенос».", color = Ar.textMuted, fontSize = 12.sp, lineHeight = 16.sp, modifier = Modifier.padding(top = 4.dp))
-                    SaveRow(saving, if (!isMod && n.mod_status == "approved") "Правки проходят модерацию" else null, onSave = {
-                        if (name.isBlank()) { nameError = "Укажите название"; return@SaveRow }
-                        saving = true
-                        scope.launch {
-                            try {
-                                val res = Api.patch<AppliedResult>("/panel/narrators/${n.id}", buildJsonObject {
-                                    put("name", name.trim()); put("slug", slugField.trim()); put("bio", bio)
-                                    put("socials", buildJsonArray { socials.map { it.trim() }.filter { it.isNotEmpty() }.forEach { add(JsonPrimitive(it)) } })
-                                    put("is_self", isSelf)
-                                    if (isAi != n.is_ai) put("is_ai", isAi)
-                                    if (isMod && isVerified != n.is_verified) put("is_verified", isVerified)
-                                    put("admin_contact", if (isSelf) JsonPrimitive(adminContact) else JsonNull)
-                                })
-                                if (res.applied != false) { toast("Изменения применены"); loader.reload() } else toast("Отправлено на модерацию")
-                            } catch (e: Exception) { toastError(e) }
-                            saving = false
-                        }
-                    })
                 }
-                Spacer(Modifier.height(16.dp))
-                DangerZone("narrator", n.id, n.name, Routes.catalog(), isDeleted = n.is_deleted, onChanged = { loader.reload(); org.foxgirls.audioranobe.data.Stores.myNarrators.ensureLoaded(force = true) })
+                EditSection("Опасная зона", "Удалить чтеца") {
+                    DangerZone("narrator", n.id, n.name, Routes.catalog(), bare = true, isDeleted = n.is_deleted, onChanged = { loader.reload(); org.foxgirls.audioranobe.data.Stores.myNarrators.ensureLoaded(force = true) })
+                }
             }
             "posts" -> NarratorPosts(n.id, n.can_edit)
-            "images" -> {
-                GlassPanel(Modifier.fillMaxWidth().padding(bottom = 12.dp)) {
-                    Row { FieldLabel("Аватар"); Spacer(Modifier.weight(1f)); Text("1:1", color = Ar.textMuted, fontSize = 12.sp) }
-                    Box(Modifier.size(120.dp).align(Alignment.CenterHorizontally).clip(CircleShape).background(Ar.surfaceRaised), contentAlignment = Alignment.Center) {
-                        if (n.avatar_url != null) ArImage(n.avatar_url, Modifier.fillMaxSize()) else Icon(Lucide.Mic, null, tint = Ar.textMuted, modifier = Modifier.size(30.dp))
-                    }
-                    Spacer(Modifier.height(10.dp))
-                    ArButton(if (n.avatar_url != null) "Сменить аватар" else "Загрузить аватар", { avatarCropper.pick() }, icon = Lucide.ImagePlus, fullWidth = true)
+            "images" -> GlassPanel(Modifier.fillMaxWidth()) {
+                FieldLabel("Аватар")
+                Box(Modifier.size(130.dp).clip(CircleShape).background(Ar.surfaceRaised), contentAlignment = Alignment.Center) {
+                    if (n.avatar_url != null) ArImage(n.avatar_url, Modifier.fillMaxSize()) else Icon(Lucide.Mic, null, tint = Ar.textMuted, modifier = Modifier.size(30.dp))
                 }
-                GlassPanel(Modifier.fillMaxWidth()) {
-                    Row { FieldLabel("Обложка"); Spacer(Modifier.weight(1f)); Text("3:1", color = Ar.textMuted, fontSize = 12.sp) }
-                    Box(Modifier.fillMaxWidth().aspectRatio(3f).clip(RoundedCornerShape(10.dp)).background(Ar.surfaceRaised), contentAlignment = Alignment.Center) {
-                        if (n.cover_url != null) ArImage(n.cover_url, Modifier.fillMaxSize()) else Icon(Lucide.Mic, null, tint = Ar.textMuted, modifier = Modifier.size(30.dp))
-                    }
-                    Spacer(Modifier.height(10.dp))
-                    ArButton(if (n.cover_url != null) "Сменить обложку" else "Загрузить обложку", { coverCropper.pick() }, icon = Lucide.ImagePlus, fullWidth = true)
+                Spacer(Modifier.height(10.dp))
+                ArButton(if (n.avatar_url != null) "Заменить" else "Загрузить аватар", { avatarCropper.pick() }, small = true)
+                Spacer(Modifier.height(20.dp))
+                FieldLabel("Обложка")
+                Box(Modifier.fillMaxWidth().aspectRatio(3f).clip(RoundedCornerShape(10.dp)).background(Ar.surfaceRaised), contentAlignment = Alignment.Center) {
+                    if (n.cover_url != null) ArImage(n.cover_url, Modifier.fillMaxSize()) else Icon(Lucide.Mic, null, tint = Ar.textMuted, modifier = Modifier.size(30.dp))
                 }
+                Spacer(Modifier.height(10.dp))
+                ArButton(if (n.cover_url != null) "Заменить" else "Загрузить обложку", { coverCropper.pick() }, small = true)
             }
             "stats" -> NarratorStatsDashboard(n.id)
-            "transfer" -> GlassPanel(Modifier.fillMaxWidth()) {
-                Text(
-                    "Найдите пользователя, которому хотите передать права владельца чтеца. " + if (transferIsInstant) "Передача произойдёт сразу, без модерации." else "Запрос уйдёт на модерацию; до одобрения чтец остаётся за вами.",
-                    color = Ar.textSecondary, fontSize = 13.sp, lineHeight = 18.sp,
-                )
-                Spacer(Modifier.height(10.dp))
-                UserPicker(transferTo, { transferTo = it }, excludeIds = listOfNotNull(user?.id) + (members.data?.map { it.user.id } ?: emptyList()), enabled = !transferring)
-                Spacer(Modifier.height(10.dp))
-                ArButton(if (transferring) "Передаём…" else "Передать права", { confirmTransfer = true }, kind = ButtonKind.Primary, enabled = transferTo != null, busy = transferring)
+            "transfer" -> {
+                EditSection("Передать права", "Новый владелец получит полный доступ к чтецу", first = true) {
+                    FieldLabel("Пользователь")
+                    UserPicker(transferTo, { transferTo = it }, excludeIds = listOfNotNull(user?.id) + (members.data?.map { it.user.id } ?: emptyList()), enabled = !transferring)
+                    Text(
+                        if (transferIsInstant) "Передача произойдёт сразу, без модерации." else "Запрос уйдёт на модерацию; до одобрения чтец остаётся за вами.",
+                        color = Ar.textMuted, fontSize = 12.sp, lineHeight = 16.sp, modifier = Modifier.padding(top = 6.dp, bottom = 12.dp),
+                    )
+                    ArButton(if (transferring) "Передаём…" else "Передать права", { confirmTransfer = true }, kind = ButtonKind.Primary, enabled = transferTo != null, busy = transferring)
+                }
                 ConfirmDialog(
                     confirmTransfer, { confirmTransfer = false },
                     onConfirm = {

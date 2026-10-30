@@ -1,6 +1,8 @@
 package org.foxgirls.audioranobe.ui.screens.editing
 
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
@@ -52,7 +54,7 @@ private val LABELS = mapOf("title" to "тайтл", "narrator" to "чтеца", 
 /** components/DangerZone: delete / hide / restore / purge / wipe-audio actions. */
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
-fun DangerZone(kind: String, id: Int, name: String, redirectTo: String, modifier: Modifier = Modifier, isDeleted: Boolean = false, isHidden: Boolean = false, onChanged: suspend () -> Unit = {}) {
+fun DangerZone(kind: String, id: Int, name: String, redirectTo: String, modifier: Modifier = Modifier, isDeleted: Boolean = false, isHidden: Boolean = false, bare: Boolean = false, onChanged: suspend () -> Unit = {}) {
     val auth = LocalAuth.current
     val nav = LocalNav.current
     val isMod = auth.isMod
@@ -71,11 +73,13 @@ fun DangerZone(kind: String, id: Int, name: String, redirectTo: String, modifier
 
     fun run(block: suspend () -> Unit) { busy = true; scope.launch { try { block() } catch (e: Exception) { toastError(e) }; busy = false } }
 
-    GlassPanel(modifier.fillMaxWidth(), borderColor = Ar.danger.copy(alpha = 0.4f)) {
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            Icon(Lucide.TriangleAlert, null, tint = Ar.danger, modifier = Modifier.size(16.dp))
-            Spacer(Modifier.width(8.dp))
-            Text("Опасная зона", color = Ar.danger, fontSize = 14.sp, fontWeight = FontWeight.SemiBold)
+    val panelBody: @Composable ColumnScope.() -> Unit = {
+        if (!bare) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Icon(Lucide.TriangleAlert, null, tint = Ar.danger, modifier = Modifier.size(16.dp))
+                Spacer(Modifier.width(8.dp))
+                Text("Опасная зона", color = Ar.danger, fontSize = 14.sp, fontWeight = FontWeight.SemiBold)
+            }
         }
         Text(
             when {
@@ -83,7 +87,7 @@ fun DangerZone(kind: String, id: Int, name: String, redirectTo: String, modifier
                 isHidden && canHide -> "Этот $label скрыт и никому не виден, кроме модераторов."
                 else -> "Этот $label исчезнет с сайта, из каталога и из списков пользователей. Отменить удаление нельзя."
             },
-            color = Ar.textSecondary, fontSize = 13.sp, lineHeight = 18.sp, modifier = Modifier.padding(top = 6.dp, bottom = 10.dp),
+            color = Ar.textSecondary, fontSize = 13.sp, lineHeight = 18.sp, modifier = Modifier.padding(top = if (bare) 0.dp else 6.dp, bottom = 10.dp),
         )
         FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
             if (isDeleted && canRestore) ArButton("Восстановить", { run { Api.post<Unit>("/mod/trash/$kind/$id/restore"); toast("Восстановлено"); onChanged() } }, icon = Lucide.RotateCcw, small = true, busy = busy)
@@ -92,7 +96,10 @@ fun DangerZone(kind: String, id: Int, name: String, redirectTo: String, modifier
             if (!isDeleted && canDelete) ArButton("Удалить $label", { confirm = "delete" }, kind = ButtonKind.Danger, icon = Lucide.Trash2, small = true, busy = busy)
             if (canPurge) ArButton("Стереть навсегда", { confirm = "purge" }, kind = ButtonKind.Danger, icon = Lucide.Trash2, small = true, busy = busy)
         }
+
     }
+    if (bare) Column(modifier.fillMaxWidth(), content = panelBody)
+    else GlassPanel(modifier.fillMaxWidth(), borderColor = Ar.danger.copy(alpha = 0.4f), content = panelBody)
 
     ConfirmDialog(
         confirm == "delete", { confirm = null },

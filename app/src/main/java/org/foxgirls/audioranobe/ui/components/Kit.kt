@@ -180,6 +180,9 @@ fun HairlineDivider(modifier: Modifier = Modifier) {
 
 enum class ButtonKind { Default, Primary, Ghost, Danger }
 
+/** True inside the edit screens, where buttons and labels use the flat sentence-case style (the site's `body.edit-ui`). */
+val LocalFlatUi = androidx.compose.runtime.compositionLocalOf { false }
+
 @Composable
 fun ArButton(
     text: String,
@@ -192,20 +195,23 @@ fun ArButton(
     fullWidth: Boolean = false,
     small: Boolean = false,
 ) {
+    val flat = LocalFlatUi.current
     val bg = when (kind) {
         ButtonKind.Default -> Ar.fill04
-        ButtonKind.Primary -> Ar.accent.copy(alpha = 0.12f)
+        ButtonKind.Primary -> if (flat) Ar.accent else Ar.accent.copy(alpha = 0.12f)
         ButtonKind.Ghost -> Color.Transparent
-        ButtonKind.Danger -> Ar.danger.copy(alpha = 0.12f)
+        ButtonKind.Danger -> if (flat) Color.Transparent else Ar.danger.copy(alpha = 0.12f)
     }
     val border = when (kind) {
         ButtonKind.Default -> Ar.border
-        ButtonKind.Primary -> Ar.accent.copy(alpha = 0.5f)
+        ButtonKind.Primary -> if (flat) Ar.accent else Ar.accent.copy(alpha = 0.5f)
         ButtonKind.Ghost -> Color.Transparent
         ButtonKind.Danger -> Ar.danger.copy(alpha = 0.55f)
     }
-    val fg = when (kind) {
-        ButtonKind.Ghost -> Ar.textSecondary
+    val fg = when {
+        kind == ButtonKind.Ghost -> Ar.textSecondary
+        flat && kind == ButtonKind.Primary -> Ar.white
+        flat && kind == ButtonKind.Danger -> Ar.danger
         else -> Ar.text
     }
     val shape = RoundedCornerShape(Ar.radiusSm)
@@ -230,7 +236,8 @@ fun ArButton(
             Icon(icon, null, tint = fg, modifier = Modifier.size(15.dp))
             Spacer(Modifier.width(8.dp))
         }
-        Text(text.uppercase(), color = fg, fontSize = 12.sp, fontWeight = FontWeight.SemiBold, letterSpacing = 1.2.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+        if (flat) Text(text, color = fg, fontSize = 14.sp, fontWeight = FontWeight.Medium, maxLines = 1, overflow = TextOverflow.Ellipsis)
+        else Text(text.uppercase(), color = fg, fontSize = 12.sp, fontWeight = FontWeight.SemiBold, letterSpacing = 1.2.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
     }
 }
 
@@ -462,7 +469,8 @@ fun arFieldColors() = OutlinedTextFieldDefaults.colors(
 @Composable
 fun FieldLabel(text: String, optional: Boolean = false, modifier: Modifier = Modifier) {
     Row(modifier.padding(bottom = 6.dp), verticalAlignment = Alignment.CenterVertically) {
-        Text(text.uppercase(), color = Ar.textSecondary, fontSize = 11.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.4.sp)
+        if (LocalFlatUi.current) Text(text, color = Ar.textSecondary, fontSize = 13.sp, fontWeight = FontWeight.Medium)
+        else Text(text.uppercase(), color = Ar.textSecondary, fontSize = 11.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.4.sp)
         if (optional) Text("  необязательно", color = Ar.textMuted, fontSize = 11.sp)
     }
 }
