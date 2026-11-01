@@ -83,10 +83,12 @@ fun FullPlayer() {
     val sleep by PlayerController.sleep.collectAsStateWithLifecycle()
     val sleepRemaining by PlayerController.sleepRemaining.collectAsStateWithLifecycle()
     val loading by PlayerController.loading.collectAsStateWithLifecycle()
+    val reader by PlayerController.reader.collectAsStateWithLifecycle()
     val cur = current ?: return
     var scrub by remember { mutableStateOf<Float?>(null) }
     var menu by remember { mutableStateOf<String?>(null) }
     var viewer by remember { mutableStateOf<Int?>(null) }
+    var ttsSheet by remember { mutableStateOf(false) }
 
     val shown = scrub?.toDouble() ?: position
     val max = if (duration > 0) duration else maxOf(shown, 1.0)
@@ -101,6 +103,7 @@ fun FullPlayer() {
             Row(Modifier.fillMaxWidth().padding(top = 6.dp), verticalAlignment = Alignment.CenterVertically) {
                 IconBtn(Lucide.ChevronDown, "Свернуть плеер", { PlayerController.setFull(false) }, tint = Ar.text)
                 Spacer(Modifier.weight(1f))
+                if (reader != null) IconBtn(Lucide.SlidersHorizontal, "Настройки озвучки", { ttsSheet = true }, tint = Ar.text)
                 IconBtn(Lucide.Share2, "Поделиться с этого места", {
                     val at = shown.toInt()
                     Links.share(nav.context, "${Links.site}/chapter/${cur.id}?t=$at", cur.title.name)
@@ -112,7 +115,10 @@ fun FullPlayer() {
             // Artwork: chapter illustrations if present, else the cover; centered in the free space.
             Column(Modifier.weight(1f).fillMaxWidth(), verticalArrangement = Arrangement.Center, horizontalAlignment = Alignment.CenterHorizontally) {
                 val ills = cur.illustrations
-                if (ills.isNotEmpty()) {
+                val text = reader
+                if (text != null) {
+                    TtsReader(text, shown, Modifier.weight(1f))
+                } else if (ills.isNotEmpty()) {
                     val pager = rememberPagerState(pageCount = { ills.size })
                     LaunchedEffect(cur.id) { pager.scrollToPage(0) }
                     HorizontalPager(pager, Modifier.widthIn(max = 720.dp).fillMaxWidth().weight(1f, fill = false).aspectRatio(1f, matchHeightConstraintsFirst = true).clip(RoundedCornerShape(18.dp))) { i ->
@@ -186,6 +192,7 @@ fun FullPlayer() {
         }
     }
 
+    TtsSettingsSheet(ttsSheet, { ttsSheet = false })
     ArSheet(menu == "rate", { menu = null }, "Скорость") {
         for (r in PlayerController.RATES) MenuRow(null, "${Fmt.trimNum(r.toDouble())}x", { PlayerController.setRate(r); menu = null }, tint = Ar.text) {
             if (r == rate) Icon(Lucide.Check, null, tint = Ar.accent, modifier = Modifier.size(15.dp))

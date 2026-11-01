@@ -11,12 +11,15 @@ object TtsText {
     private val sentenceEnd = Regex("(?<=[.!?…])\\s+(?!—\\s*[а-яё])")
     private val spaces = Regex("\\s+")
 
-    fun sentences(text: String): List<String> =
+    /** The text as paragraphs of sentences. */
+    fun paragraphs(text: String): List<List<String>> =
         text.split(Regex("\n+"))
             .map { it.replace(spaces, " ").trim() }
             .filter { it.isNotEmpty() }
-            .flatMap { p -> p.split(sentenceEnd).flatMap(::breakLong) }
+            .map { p -> p.split(sentenceEnd).flatMap(::breakLong).filter { it.isNotEmpty() } }
             .filter { it.isNotEmpty() }
+
+    fun sentences(text: String): List<String> = paragraphs(text).flatten()
 
     private fun breakLong(sentence: String): List<String> {
         val out = ArrayList<String>()

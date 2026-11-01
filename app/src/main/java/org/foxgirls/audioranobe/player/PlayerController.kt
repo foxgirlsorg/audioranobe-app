@@ -93,6 +93,9 @@ object PlayerController {
     val ttsRequest: StateFlow<TtsRequest?> = _ttsRequest.asStateFlow()
     fun clearTtsRequest() { _ttsRequest.value = null }
     private var listened = 0.0
+    private val _reader = MutableStateFlow<List<List<String>>?>(null)
+    /** The current read-aloud chapter as paragraphs of sentences; null for audio chapters. */
+    val reader: StateFlow<List<List<String>>?> = _reader.asStateFlow()
 
     private var loadSeq = 0
     private var pendingStart: Double? = null
@@ -335,6 +338,7 @@ object PlayerController {
         if (seq != loadSeq) return
         if (ch.isTts) { startTts(ch, art, startAt, autoplay); return }
         PlaybackService.instance?.leaveTts()
+        _reader.value = null
 
         val start = adopt(ch, startAt)
         c.setMediaItem(mediaItem(ch, art), (start * 1000).toLong())
@@ -356,7 +360,8 @@ object PlayerController {
         val text = Api.get<ChapterText>("/chapters/${ch.id}/text")
         val prefs = Stores.prefs
         val announce = prefs.ttsAnnounce ?: text.defaults?.announce ?: true
-        val sentences = (if (announce) listOf(TtsText.announcement(ch)) else emptyList()) + TtsText.sentences(text.text)
+        val paragraphs = TtsText.paragraphs(text.text)
+        val sentences = (if (announce) listOf(TtsText.announcement(ch)) else emptyList()) + paragraphs.flatten()
         val pause = prefs.ttsPause.takeIf { it >= 0 }?.toDouble() ?: text.defaults?.pause ?: 0.35
         val start = adopt(ch, startAt)
         val skipped = if (announce) 1 else 0
@@ -365,10 +370,22 @@ object PlayerController {
             else SileroSpeaker(appContext, sentences, skipped, prefs.ttsVoice ?: text.speaker, pause, events)
         }
         _duration.value = svc.ttsSeconds()
+        _reader.value = paragraphs
         listened = 0.0
         switching = false
         _loading.value = false
     }
+
+    /** Starts the current read-aloud chapter over from where it is, after the voice, pause or announcement changed. */
+    fun reloadTts() {
+        val ch = _current.value?.takeIf { it.isTts } ?: return
+        val at = _position.value
+        val resume = _playing.value
+        scope.launch { runCatching { startTts(ch, carArt(ch.coverUrl, square = false), at, resume) }.onFailure { toastError(it) } }
+    }
+
+    /** Jumps to a point of the read-aloud text, stored-length seconds. */
+    fun seekText(seconds: Double) = seek(seconds)
 
     /** Makes [ch] the current chapter (saving the one it replaces) and returns where to start it. */
     private fun adopt(ch: ChapterPlay, startAt: Double?): Double {
@@ -484,6 +501,7 @@ object PlayerController {
             c.clearMediaItems()
             PlaybackService.instance?.leaveTts()
         }
+        _reader.value = null
         Stores.prefs.openChapter = null
         _current.value = null
         _playing.value = false
