@@ -251,7 +251,8 @@ data class ChapterRow(
     val position: Int? = null,
 ) {
     val playable get() = audio_status == "ready"
-    val readable get() = has_text
+    /** Can be saved for offline: as audio, or as text for reading aloud. */
+    val downloadable get() = playable || has_text
 }
 
 @Serializable

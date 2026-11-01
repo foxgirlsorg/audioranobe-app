@@ -193,7 +193,7 @@ fun ChapterDownloadButton(title: TitleFull, ch: ChapterRow, state: DlState?, dow
 /** The title header's download sheet: whole book, per volume, or remove everything. */
 @Composable
 fun DownloadSheet(open: Boolean, onClose: () -> Unit, title: TitleFull, manifest: OfflineManifest?, states: Map<Int, DlState>) {
-    val all = title.volumes.flatMap { it.liveChapters }.filter { it.audio_status == "ready" }
+    val all = title.volumes.flatMap { it.liveChapters }.filter { it.downloadable }
     val done = all.count { manifest?.chapters?.containsKey(it.id) == true }
     val runtime = all.sumOf { it.duration_seconds }
     var ask by remember { mutableStateOf<DownloadAsk?>(null) }
@@ -208,7 +208,7 @@ fun DownloadSheet(open: Boolean, onClose: () -> Unit, title: TitleFull, manifest
         }
         HairlineDivider(Modifier.padding(vertical = 6.dp))
         title.volumes.forEach { v ->
-            val ready = v.liveChapters.filter { it.audio_status == "ready" }
+            val ready = v.liveChapters.filter { it.downloadable }
             if (ready.isEmpty()) return@forEach
             val vDone = ready.count { manifest?.chapters?.containsKey(it.id) == true }
             val vQueued = ready.count { states[it.id] != null }
@@ -245,7 +245,7 @@ fun DownloadConfirm(ask: DownloadAsk?, onClose: () -> Unit) {
         ask != null, onClose,
         onConfirm = { ask?.let { OfflineStore.download(it.title, it.chapterIds); toast(it.done) } },
         title = "Скачать ${ask?.what ?: ""}?",
-        body = "${chapters.size} ${Fmt.plural(chapters.size, "глава", "главы", "глав")} · ${Fmt.duration(seconds)} · примерно ${Fmt.bytes(OfflineStore.estimateBytes(seconds))}",
+        body = "${chapters.size} ${Fmt.plural(chapters.size, "глава", "главы", "глав")} · ${Fmt.duration(seconds)} · примерно ${Fmt.bytes(ask?.let { OfflineStore.estimateBytes(it.title, chapters) } ?: 0L)}",
         confirmLabel = "Скачать",
     )
 }
@@ -258,7 +258,7 @@ fun DownloadPicker(open: TitleFull?, onClose: () -> Unit) {
     val title = last
     val queue by OfflineStore.queue.collectAsStateWithLifecycle()
     val volumes = title?.let { t ->
-        val missing = OfflineStore.missing(t, t.volumes.flatMap { v -> v.liveChapters.filter { it.playable }.map { it.id } }).toSet() - queue.map { it.chapterId }.toSet()
+        val missing = OfflineStore.missing(t, t.volumes.flatMap { v -> v.liveChapters.filter { it.downloadable }.map { it.id } }).toSet() - queue.map { it.chapterId }.toSet()
         t.volumes.map { v -> v to v.liveChapters.filter { it.id in missing } }.filter { it.second.isNotEmpty() }
     } ?: emptyList()
     var selected by remember(title) { mutableStateOf(volumes.flatMap { (_, cs) -> cs.map { it.id } }.toSet()) }
@@ -292,7 +292,7 @@ fun DownloadPicker(open: TitleFull?, onClose: () -> Unit) {
         HairlineDivider(Modifier.padding(vertical = 8.dp))
         Row(verticalAlignment = Alignment.CenterVertically) {
             Text(
-                if (chosen.isEmpty()) "Ничего не выбрано" else "${chosen.size} ${Fmt.plural(chosen.size, "глава", "главы", "глав")} · примерно ${Fmt.bytes(OfflineStore.estimateBytes(seconds))}",
+                if (chosen.isEmpty()) "Ничего не выбрано" else "${chosen.size} ${Fmt.plural(chosen.size, "глава", "главы", "глав")} · примерно ${Fmt.bytes(OfflineStore.estimateBytes(title!!, chosen))}",
                 color = Ar.textMuted, fontSize = 12.sp, modifier = Modifier.weight(1f),
             )
             ArButton("Скачать", { OfflineStore.download(title!!, chosen.map { it.id }); toast("Главы добавлены в загрузки"); onClose() }, kind = ButtonKind.Primary, icon = Lucide.Download, small = true, enabled = chosen.isNotEmpty())

@@ -199,7 +199,7 @@ fun TitleScreen(slug: String, initialTab: String?) {
             }
         }
     }
-    val playable = title.volumes.flatMap { it.liveChapters }.filter { it.audio_status == "ready" && it.mod_status == "approved" }
+    val playable = title.volumes.flatMap { it.liveChapters }.filter { it.downloadable && it.mod_status == "approved" }
     val listenable = title.volumes.flatMap { it.liveChapters }.filter { (it.audio_status == "ready" || it.has_text) && it.mod_status == "approved" }
     val resume = remember(listenable) {
         if (listenable.isEmpty()) null else {
@@ -410,7 +410,7 @@ fun TitleScreen(slug: String, initialTab: String?) {
                                             if (total > 0) { Spacer(Modifier.width(10.dp)); Icon(Lucide.Clock, null, tint = Ar.textMuted, modifier = Modifier.size(12.dp)); Text(" ${Fmt.duration(total)}", color = Ar.textMuted, fontSize = 12.sp) }
                                         }
                                     }
-                                    val volReady = v.liveChapters.filter { it.audio_status == "ready" }
+                                    val volReady = v.liveChapters.filter { it.downloadable }
                                     val volManifest = offlineTitles.firstOrNull { it.titleId == title.id }
                                     val volDone = volReady.isNotEmpty() && volReady.all { volManifest?.chapters?.containsKey(it.id) == true }
                                     val volMarkable = markable(chapters.map { it.first })
@@ -451,7 +451,7 @@ fun TitleScreen(slug: String, initialTab: String?) {
                                                         reNarrating = ch.id
                                                         scope.launch { try { Api.post<Unit>("/mod/chapters/${ch.id}/re-narrate"); toast("Глава ${Fmt.trimNum(ch.number)} отправлена на переозвучку") } catch (e: Exception) { toastError(e) } finally { reNarrating = null } }
                                                     }, size = 30.dp, iconSize = 12.dp)
-                                                    if (chAudio) ChapterDownloadButton(title, ch, dlStates[ch.id], offlineTitles.any { it.chapters.containsKey(ch.id) })
+                                                    if (chPlayable) ChapterDownloadButton(title, ch, dlStates[ch.id], offlineTitles.any { it.chapters.containsKey(ch.id) })
                                                 }
                                                 val pct = if (isCurrent) { val d = if (liveDuration > 0) liveDuration else ch.duration_seconds; if (d > 0) (position / d).toFloat() else 0f } else staticPct
                                                 if (pct > 0f) ProgressTrack(pct, Modifier.padding(horizontal = 10.dp).padding(bottom = 6.dp), height = 2.dp)

@@ -357,7 +357,7 @@ object PlayerController {
             return
         }
         val svc = PlaybackService.instance ?: throw IllegalStateException("Плеер ещё не готов")
-        val text = Api.get<ChapterText>("/chapters/${ch.id}/text")
+        val text = OfflineStore.chapterText(ch.id) ?: Api.get<ChapterText>("/chapters/${ch.id}/text")
         val prefs = Stores.prefs
         val announce = prefs.ttsAnnounce ?: text.defaults?.announce ?: true
         val paragraphs = TtsText.paragraphs(text.text)
