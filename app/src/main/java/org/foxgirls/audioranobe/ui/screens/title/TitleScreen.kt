@@ -176,6 +176,8 @@ fun TitleScreen(slug: String, initialTab: String?) {
 
     // A version's standalone volumes list its own chapters; a volume with no main
     // chapters is filled in from a standalone version (selected one first).
+    val aiOn = title.versions.firstOrNull { it.id == selectedVersion }?.isAi == true
+    val hasAudio = title.volumes.any { v -> v.chapters.any { it.audio_status == "ready" } }
     val displayVolumes = remember(title, selectedVersion) {
         val alt = title.alt_chapters[selectedVersion.toString()] ?: emptyList()
         val byKey = alt.associateBy { "${it.volume_id}:${it.number}" }
@@ -187,6 +189,7 @@ fun TitleScreen(slug: String, initialTab: String?) {
         title.volumes.map { v ->
             val own = takeover(v.id, v.chapters.isNotEmpty())
             when {
+                aiOn -> v to v.chapters.map { c -> if (c.has_text) c to null else c to "из основной" }
                 own != 0 -> {
                     val from = if (own == selectedVersion) null else title.versions.firstOrNull { it.id == own }?.let { "из «${it.name}»" }
                     v to (title.alt_chapters[own.toString()] ?: emptyList()).filter { it.volume_id == v.id }.sortedBy { it.number }.map { it to from }
@@ -197,14 +200,15 @@ fun TitleScreen(slug: String, initialTab: String?) {
         }
     }
     val playable = title.volumes.flatMap { it.liveChapters }.filter { it.audio_status == "ready" && it.mod_status == "approved" }
-    val resume = remember(playable) {
-        if (playable.isEmpty()) null else {
+    val listenable = title.volumes.flatMap { it.liveChapters }.filter { (it.audio_status == "ready" || it.has_text) && it.mod_status == "approved" }
+    val resume = remember(listenable) {
+        if (listenable.isEmpty()) null else {
             var idx = -1
-            playable.forEachIndexed { i, c -> if ((c.my_position ?: 0.0) > 0) idx = i }
-            if (idx == -1) playable[0] to false else {
-                val c = playable[idx]
+            listenable.forEachIndexed { i, c -> if ((c.my_position ?: 0.0) > 0) idx = i }
+            if (idx == -1) listenable[0] to false else {
+                val c = listenable[idx]
                 val finished = c.duration_seconds > 0 && (c.my_position ?: 0.0) >= c.duration_seconds - 5
-                if (finished && idx + 1 < playable.size) playable[idx + 1] to true else c to true
+                if (finished && idx + 1 < listenable.size) listenable[idx + 1] to true else c to true
             }
         }
     }
@@ -380,7 +384,7 @@ fun TitleScreen(slug: String, initialTab: String?) {
             "chapters" -> {
                 if (chaptersTotal == 0) item { EmptyState("Глав пока нет", "У этой аудиокниги пока нет глав — загляните позже.", Lucide.ListMusic) }
                 else {
-                    if (title.versions.isNotEmpty()) item {
+                    if (title.versions.isNotEmpty() && (hasAudio || title.versions.any { !it.isAi })) item {
                         Row(rememberScrollState().let { Modifier.edgeFade(it).horizontalScroll(it) }.padding(horizontal = 16.dp, vertical = 4.dp), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                             Pill(title.version_name, active = selectedVersion == 0, onClick = { selectedVersion = 0; if (user != null) scope.launch { runCatching { Api.put<Unit>("/titles/${title.id}/version", buildJsonObject { put("version_id", 0) }) } } })
                             for (ver in title.versions) Pill(ver.name, active = selectedVersion == ver.id, onClick = { selectedVersion = ver.id; if (user != null) scope.launch { runCatching { Api.put<Unit>("/titles/${title.id}/version", buildJsonObject { put("version_id", ver.id) }) } } })
@@ -419,7 +423,8 @@ fun TitleScreen(slug: String, initialTab: String?) {
                                         if (chapters.isEmpty()) Text("В этом томе пока нет глав.", color = Ar.textMuted, fontSize = 13.sp, modifier = Modifier.padding(12.dp))
                                         for ((ch, sourceLabel) in chapters) {
                                             val isCurrent = current?.id == ch.id
-                                            val chPlayable = ch.audio_status == "ready"
+                                            val chAudio = ch.audio_status == "ready"
+                                            val chPlayable = chAudio || ch.has_text
                                             val staticPct = if (ch.duration_seconds > 0) ((ch.my_position ?: 0.0) / ch.duration_seconds).toFloat() else 0f
                                             Column(Modifier.fillMaxWidth().background(if (isCurrent) Ar.accentSoft.copy(alpha = 0.5f) else androidx.compose.ui.graphics.Color.Transparent)) {
                                                 Row(Modifier.fillMaxWidth().clickable { if (chPlayable) playChapter(ch) }.padding(horizontal = 10.dp, vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
@@ -436,17 +441,17 @@ fun TitleScreen(slug: String, initialTab: String?) {
                                                         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                                                             if (ch.narrators.isNotEmpty()) Text(ch.narrators.joinToString(", ") { it.name }, color = Ar.textMuted, fontSize = 10.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
                                                             if (ch.mod_status != "approved") StatusBadge(ch.mod_status)
-                                                            if (ch.audio_status != "ready" && (title.can_edit || ch.audio_status != "none")) StatusBadge(ch.audio_status)
+                                                            if (!chPlayable && (title.can_edit || ch.audio_status != "none")) StatusBadge(ch.audio_status)
                                                         }
                                                     }
                                                     if (ch.duration_seconds > 0) Text(Fmt.duration(ch.duration_seconds), color = Ar.textMuted, fontSize = 11.sp)
-                                                    if (user != null && chPlayable && ch.duration_seconds > 0) IconBtn(Lucide.Check, if (isListened(ch)) "Снять отметку «прослушано»" else "Отметить прослушанной", { toggleListened(listOf(ch), "главы ${Fmt.chapterNumber(ch.number, ch.number_end)}") }, size = 30.dp, iconSize = 14.dp, tint = if (isListened(ch)) Ar.accent else Ar.textSecondary)
+                                                    if (user != null && chAudio && ch.duration_seconds > 0) IconBtn(Lucide.Check, if (isListened(ch)) "Снять отметку «прослушано»" else "Отметить прослушанной", { toggleListened(listOf(ch), "главы ${Fmt.chapterNumber(ch.number, ch.number_end)}") }, size = 30.dp, iconSize = 14.dp, tint = if (isListened(ch)) Ar.accent else Ar.textSecondary)
                                                     if (isMod && title.is_imported && title.is_ai) IconBtn(Lucide.RefreshCw, "Переозвучить главу", {
                                                         if (reNarrating != null) return@IconBtn
                                                         reNarrating = ch.id
                                                         scope.launch { try { Api.post<Unit>("/mod/chapters/${ch.id}/re-narrate"); toast("Глава ${Fmt.trimNum(ch.number)} отправлена на переозвучку") } catch (e: Exception) { toastError(e) } finally { reNarrating = null } }
                                                     }, size = 30.dp, iconSize = 12.dp)
-                                                    if (chPlayable) ChapterDownloadButton(title, ch, dlStates[ch.id], offlineTitles.any { it.chapters.containsKey(ch.id) })
+                                                    if (chAudio) ChapterDownloadButton(title, ch, dlStates[ch.id], offlineTitles.any { it.chapters.containsKey(ch.id) })
                                                 }
                                                 val pct = if (isCurrent) { val d = if (liveDuration > 0) liveDuration else ch.duration_seconds; if (d > 0) (position / d).toFloat() else 0f } else staticPct
                                                 if (pct > 0f) ProgressTrack(pct, Modifier.padding(horizontal = 10.dp).padding(bottom = 6.dp), height = 2.dp)
