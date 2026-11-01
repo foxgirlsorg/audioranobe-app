@@ -24,6 +24,13 @@ import org.foxgirls.audioranobe.ui.toast.ToastKind
 import org.foxgirls.audioranobe.ui.toast.toast
 import org.foxgirls.audioranobe.ui.toast.toastError
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
+import org.foxgirls.audioranobe.core.Fmt
+import org.foxgirls.audioranobe.tts.TtsModels
+import org.foxgirls.audioranobe.ui.components.ConfirmDialog
+import org.foxgirls.audioranobe.ui.components.TtsDownloadDialog
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import org.foxgirls.audioranobe.core.Support
 import org.foxgirls.audioranobe.ui.components.Eyebrow
@@ -70,6 +77,7 @@ fun OtherScreen() {
             Eyebrow("Отладка", Modifier.padding(start = 12.dp, top = 8.dp, bottom = 4.dp))
             MenuRow(Lucide.Download, "Показать тестовое обновление", { Updater.simulate() })
         }
+        TtsModelsPanel()
         if (Updater.enabled) {
             val checking by Updater.checking.collectAsStateWithLifecycle()
             GlassPanel(Modifier.fillMaxWidth().padding(bottom = 12.dp), padding = PaddingValues(4.dp)) {
@@ -89,4 +97,30 @@ fun OtherScreen() {
         Text("AudioRanobe для Android · ${AppVersion.VERSION} «${AppVersion.NAME}»", color = Ar.textMuted, fontSize = 12.sp)
         Text("© 2026 foxgirls.org", color = Ar.textMuted, fontSize = 12.sp)
     }
+}
+
+/** The on-device narrator's files: size, download and delete. They are fetched on the first read-aloud, or here. */
+@Composable
+private fun TtsModelsPanel() {
+    val installed by TtsModels.installed.collectAsStateWithLifecycle()
+    val bytes by TtsModels.bytes.collectAsStateWithLifecycle()
+    var confirm by remember { mutableStateOf(false) }
+    var download by remember { mutableStateOf(false) }
+    GlassPanel(Modifier.fillMaxWidth().padding(bottom = 12.dp), padding = PaddingValues(4.dp)) {
+        Eyebrow("Озвучка на устройстве", Modifier.padding(start = 12.dp, top = 8.dp, bottom = 4.dp))
+        Text(
+            if (installed) "Модель Silero на устройстве (${Fmt.bytes(bytes)}). Книги с текстом читаются вслух без интернета."
+            else "Модель не скачана. Она загрузится сама, когда вы запустите книгу с озвучкой ИИ.",
+            color = Ar.textMuted, fontSize = 12.sp, modifier = Modifier.padding(horizontal = 12.dp, vertical = 4.dp),
+        )
+        if (installed) MenuRow(Lucide.Trash2, "Удалить модели озвучки", { confirm = true }, tint = Ar.danger)
+        else MenuRow(Lucide.Download, "Скачать модели озвучки", { download = true })
+    }
+    ConfirmDialog(
+        confirm, { confirm = false }, { TtsModels.remove(); toast("Модели озвучки удалены") },
+        "Удалить модели озвучки?",
+        "Освободится ${Fmt.bytes(bytes)}. Тексты скачанных книг останутся, но чтобы читать их вслух, модели придётся скачать снова — приложение сделает это само при запуске такой книги.",
+        danger = true, confirmLabel = "Удалить",
+    )
+    TtsDownloadDialog(download, { download = false }, { toast("Модели озвучки скачаны") })
 }
