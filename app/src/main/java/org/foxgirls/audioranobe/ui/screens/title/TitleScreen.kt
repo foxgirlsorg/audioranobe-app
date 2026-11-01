@@ -41,6 +41,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import org.foxgirls.audioranobe.data.Stores
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
@@ -316,9 +317,9 @@ fun TitleScreen(slug: String, initialTab: String?) {
         item {
             Column(Modifier.padding(horizontal = 16.dp).padding(top = 18.dp)) {
                 val banner = title.info_banner
-                if (banner != null && banner.enabled && (banner.title.isNotBlank() || banner.text.isNotBlank() || banner.url.isNotBlank())) Banner(Lucide.Info, banner.title, banner.text, banner.url.takeIf { it.isNotBlank() }?.let { "Открыть" to it })
-                if (title.narration_pending) Banner(Lucide.Headphones, "Идёт ИИ-озвучка", "Главы появляются по мере готовности — уже озвученные можно слушать, остальные в работе.", null)
-                if (title.is_ai) Banner(Lucide.Mic, "Озвучиваете эту книгу?", "Этот тайтл озвучен синтезированным голосом. Если вы чтец и озвучили эту книгу сами — напишите в поддержку, и мы передадим тайтл вам.", "Связаться с поддержкой" to Support.URL)
+                if (banner != null && banner.enabled && (banner.title.isNotBlank() || banner.text.isNotBlank() || banner.url.isNotBlank())) Banner("${title.id}:info", Lucide.Info, banner.title, banner.text, banner.url.takeIf { it.isNotBlank() }?.let { "Открыть" to it })
+                if (title.narration_pending) Banner("${title.id}:narration", Lucide.Headphones, "Идёт ИИ-озвучка", "Главы появляются по мере готовности — уже озвученные можно слушать, остальные в работе.", null)
+                if (title.is_ai) Banner("${title.id}:claim", Lucide.Mic, "Озвучиваете эту книгу?", "Этот тайтл озвучен синтезированным голосом. Если вы чтец и озвучили эту книгу сами — напишите в поддержку, и мы передадим тайтл вам.", "Связаться с поддержкой" to Support.URL)
                 Spacer(Modifier.height(6.dp))
                 ArTabs(tabs, tab, { tab = it }, variant = TabsVariant.Underline)
                 Spacer(Modifier.height(14.dp))
@@ -482,8 +483,10 @@ fun TitleScreen(slug: String, initialTab: String?) {
 }
 
 @Composable
-private fun Banner(icon: androidx.compose.ui.graphics.vector.ImageVector, title: String, text: String, action: Pair<String, String>?) {
+private fun Banner(key: String, icon: androidx.compose.ui.graphics.vector.ImageVector, title: String, text: String, action: Pair<String, String>?) {
     val nav = LocalNav.current
+    var hidden by remember(key) { mutableStateOf(Stores.prefs.getString("banner:$key") == "1") }
+    if (hidden) return
     GlassPanel(Modifier.padding(bottom = 10.dp), padding = PaddingValues(12.dp)) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             Icon(icon, null, tint = Ar.accent, modifier = Modifier.size(17.dp))
@@ -493,6 +496,7 @@ private fun Banner(icon: androidx.compose.ui.graphics.vector.ImageVector, title:
                 if (text.isNotBlank()) Text(text, color = Ar.textSecondary, fontSize = 12.sp, lineHeight = 17.sp)
                 if (action != null) ArButton(action.first, { Links.open(nav, action.second) }, small = true, modifier = Modifier.padding(top = 8.dp))
             }
+            IconBtn(Lucide.X, "Закрыть", { hidden = true; Stores.prefs.putString("banner:$key", "1") }, size = 28.dp, iconSize = 14.dp, tint = Ar.textMuted)
         }
     }
 }
