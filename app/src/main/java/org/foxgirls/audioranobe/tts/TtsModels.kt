@@ -5,10 +5,10 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
-import kotlinx.coroutines.launch
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import kotlinx.serialization.Serializable
 import okhttp3.Request
@@ -22,8 +22,8 @@ private data class TtsManifest(val version: String, val total: Long = 0, val fil
 private data class TtsFile(val name: String, val size: Long = 0)
 
 /**
- * The on-device narrator's files: the Silero model set (from the API) and the web runtime that executes it
- * (onnxruntime + Pyodide, from the site). Downloaded once, on the first read-aloud, then used without a network.
+ * The Silero model set (ONNX nets, data files and the Python text front end), from the API.
+ * Downloaded once, on the first read-aloud with this voice, then used without a network.
  */
 object TtsModels {
     private lateinit var root: File
@@ -35,24 +35,19 @@ object TtsModels {
     val progress: StateFlow<Float?> = _progress.asStateFlow()
     private val _bytes = MutableStateFlow(0L)
     val bytes: StateFlow<Long> = _bytes.asStateFlow()
-
-    private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
-    private var job: Job? = null
     private val _error = MutableStateFlow<String?>(null)
     val error: StateFlow<String?> = _error.asStateFlow()
 
-    private val runtime = listOf(
-        "ort/ort.wasm.min.js", "ort/ort-wasm-simd-threaded.wasm", "ort/ort-wasm-simd-threaded.mjs",
-        "pyodide/pyodide.js", "pyodide/pyodide.asm.js", "pyodide/pyodide.asm.wasm", "pyodide/python_stdlib.zip", "pyodide/pyodide-lock.json",
-    )
+    private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
+    private var job: Job? = null
 
     fun init(context: Context) {
         root = File(context.applicationContext.filesDir, "tts")
         refresh()
     }
 
-    /** Where the engine page reads its files from (see [TtsWebHost]). */
-    fun file(path: String): File = File(root, path)
+    /** The directory the engine reads the model files from. */
+    val dir: File get() = root
 
     private fun refresh() {
         _installed.value = File(root, DONE).exists()
@@ -76,15 +71,12 @@ object TtsModels {
         try {
             _progress.value = 0f
             val manifest = Api.get<TtsManifest>("/tts/manifest")
-            val site = Api.siteUrl
-            val jobs = runtime.map { "$site/tts/vendor/$it" to File(part, "vendor/$it") } +
-                manifest.files.map { "${Api.baseUrl}/tts/model/${it.name}?v=${manifest.version}" to File(part, "models/${it.name}") }
-            val total = (manifest.total + RUNTIME_ESTIMATE).toFloat()
+            val total = manifest.total.coerceAtLeast(1).toFloat()
             var done = 0L
-            for ((url, dst) in jobs) {
-                dst.parentFile?.mkdirs()
-                Api.client.newCall(Request.Builder().url(url).header("User-Agent", "AudioRanobe-Android").build()).execute().use { r ->
-                    if (!r.isSuccessful) error("${dst.name}: ${r.code}")
+            for (f in manifest.files) {
+                val dst = File(part, f.name)
+                Api.client.newCall(Request.Builder().url("${Api.baseUrl}/tts/model/${f.name}?v=${manifest.version}").header("User-Agent", "AudioRanobe-Android").build()).execute().use { r ->
+                    if (!r.isSuccessful) error("${f.name}: ${r.code}")
                     r.body!!.byteStream().use { input ->
                         dst.outputStream().use { out ->
                             val buf = ByteArray(64 * 1024)
@@ -112,13 +104,12 @@ object TtsModels {
         }
     }
 
-    /** Deletes the model set and the runtime. */
+    /** Deletes the model set. */
     fun remove() {
+        TtsEngine.shutdown()
         root.deleteRecursively()
         refresh()
     }
 
     private const val DONE = ".done"
-    /** The runtime is ~25 MB; only used to scale the progress bar. */
-    private const val RUNTIME_ESTIMATE = 25_000_000L
 }

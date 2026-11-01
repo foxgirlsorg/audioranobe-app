@@ -5,6 +5,7 @@ plugins {
     alias(libs.plugins.kotlin.android)
     alias(libs.plugins.kotlin.compose)
     alias(libs.plugins.kotlin.serialization)
+    alias(libs.plugins.chaquopy)
 }
 
 android {
@@ -14,6 +15,8 @@ android {
     defaultConfig {
         applicationId = "org.foxgirls.audioranobe"
         minSdk = 26
+        // Chaquopy (Python for the narrator's text front end) and ONNX Runtime ship native code per ABI.
+        ndk { abiFilters += listOf("arm64-v8a", "armeabi-v7a", "x86_64") }
         targetSdk = 36
         // Bump both before tagging a release; F-Droid reads them from here, the release workflow checks the tag against versionName.
         versionCode = 11
@@ -103,6 +106,14 @@ android {
     }
 }
 
+// Runs the narrator's Python text front end (frontend.py, downloaded with the models) on the device.
+chaquopy {
+    defaultConfig {
+        version = "3.12"
+        pyc { src = false }
+    }
+}
+
 kotlin {
     compilerOptions {
         jvmTarget.set(JvmTarget.JVM_17)
@@ -142,6 +153,8 @@ dependencies {
     implementation(libs.zoomable)
     implementation(libs.image.cropper)
     implementation(libs.zxing.core)
+    implementation(libs.onnxruntime.android)
+    implementation(libs.jtransforms)
     "fullImplementation"("com.google.firebase:firebase-messaging:25.1.3")
     implementation(libs.unifiedpush.connector)
     debugImplementation(libs.androidx.compose.ui.tooling)

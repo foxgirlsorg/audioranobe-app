@@ -26,6 +26,7 @@ class App : Application(), ImageLoaderFactory {
         Stores.init(Prefs(this))
         OfflineStore.init(this)
         org.foxgirls.audioranobe.tts.TtsModels.init(this)
+        org.foxgirls.audioranobe.tts.TtsEngine.init(this)
         Updater.init(this)
         PlayerController.init(this)
         Push.init(this)

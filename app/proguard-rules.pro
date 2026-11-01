@@ -22,3 +22,7 @@
 # Markdown parser (intellij-markdown) and charts are pure Kotlin; nothing reflective.
 -dontwarn org.intellij.**
 -dontwarn org.jetbrains.**
+
+# Called from Python (Chaquopy) and from native code by name
+-keep class org.foxgirls.audioranobe.tts.NeuralCallback { *; }
+-keep class ai.onnxruntime.** { *; }
