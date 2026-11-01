@@ -17,6 +17,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import org.foxgirls.audioranobe.data.Stores
+import org.foxgirls.audioranobe.player.PlayerController
 import org.foxgirls.audioranobe.tts.TtsModels
 import org.foxgirls.audioranobe.ui.icons.Lucide
 import org.foxgirls.audioranobe.ui.theme.Ar
@@ -26,7 +28,7 @@ import org.foxgirls.audioranobe.ui.theme.Ar
  * [onReady] runs once the models are on the device, so the caller can carry on with what the user asked for.
  */
 @Composable
-fun TtsDownloadDialog(open: Boolean, onClose: () -> Unit, onReady: () -> Unit) {
+fun TtsDownloadDialog(open: Boolean, onClose: () -> Unit, onReady: () -> Unit, onSystem: (() -> Unit)? = null) {
     val installed by TtsModels.installed.collectAsStateWithLifecycle()
     val progress by TtsModels.progress.collectAsStateWithLifecycle()
     val error by TtsModels.error.collectAsStateWithLifecycle()
@@ -34,7 +36,7 @@ fun TtsDownloadDialog(open: Boolean, onClose: () -> Unit, onReady: () -> Unit) {
     val busy = progress != null
     ArModal(open && !installed, { if (!busy) onClose() }, "Озвучка на устройстве") {
         Text(
-            "Эта книга читается голосом ИИ прямо на телефоне. Для этого нужно один раз скачать модель озвучки (около 160 МБ) — после этого она работает без интернета.",
+            "Эта книга читается голосом ИИ прямо на телефоне. Для этого нужно один раз скачать модель озвучки (около 140 МБ) — после этого она работает без интернета. Можно вместо неё взять голос самого Android — он ничего не скачивает, но звучит проще.",
             color = Ar.textSecondary, fontSize = 14.sp, lineHeight = 20.sp,
         )
         error?.let { Text(it, color = Ar.danger, fontSize = 13.sp, modifier = Modifier.padding(top = 8.dp)) }
@@ -46,9 +48,22 @@ fun TtsDownloadDialog(open: Boolean, onClose: () -> Unit, onReady: () -> Unit) {
         } else {
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
                 ArButton("Не сейчас", onClose, kind = ButtonKind.Ghost)
+                if (onSystem != null) { Spacer(Modifier.width(8.dp)); ArButton("Голос Android", onSystem, kind = ButtonKind.Ghost) }
                 Spacer(Modifier.width(8.dp))
                 ArButton("Скачать", { TtsModels.download() }, kind = ButtonKind.Primary, icon = Lucide.Download)
             }
         }
     }
+}
+
+/** Offered when the user starts a read-aloud chapter before the narration models are on the device; continues with that chapter afterwards. */
+@Composable
+fun TtsRequestDialog() {
+    val req by PlayerController.ttsRequest.collectAsStateWithLifecycle()
+    val r = req ?: return
+    TtsDownloadDialog(true, { PlayerController.clearTtsRequest() }, { PlayerController.play(r.chapterId, r.startAt) }, onSystem = {
+        Stores.prefs.ttsEngine = "system"
+        PlayerController.clearTtsRequest()
+        PlayerController.play(r.chapterId, r.startAt)
+    })
 }

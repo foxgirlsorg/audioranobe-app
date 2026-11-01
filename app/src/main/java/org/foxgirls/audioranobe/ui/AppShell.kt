@@ -54,6 +54,7 @@ import org.foxgirls.audioranobe.data.LocalAuth
 import org.foxgirls.audioranobe.data.Stores
 import org.foxgirls.audioranobe.player.PlayerController
 import org.foxgirls.audioranobe.ui.components.HomeSkeleton
+import org.foxgirls.audioranobe.ui.components.TtsRequestDialog
 import org.foxgirls.audioranobe.ui.components.UpdateDialog
 import org.foxgirls.audioranobe.ui.nav.AppNav
 import org.foxgirls.audioranobe.ui.nav.LocalNav
@@ -151,6 +152,7 @@ private fun MainShell(pendingRoute: String?, pendingSeq: Int, onRouteConsumed: (
 
     CompositionLocalProvider(LocalNav provides nav, LocalAuth provides Stores.auth, LocalShell provides shell, LocalBottomInset provides miniH) {
         UpdateDialog()
+        TtsRequestDialog()
         Box(Modifier.fillMaxSize().background(Ar.bg)) {
             Column(Modifier.fillMaxSize()) {
                 BannedBanner()

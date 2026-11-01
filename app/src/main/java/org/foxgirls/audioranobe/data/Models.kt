@@ -445,7 +445,18 @@ data class ChapterPlay(
 }
 
 @Serializable
-data class ChapterText(val chapter_id: Int, val text: String, val edited: Boolean = false, val speaker: String = "baya", val sample_rate: Int = 48000)
+data class ChapterText(
+    val chapter_id: Int,
+    val text: String,
+    val edited: Boolean = false,
+    val speaker: String = "baya",
+    val sample_rate: Int = 48000,
+    val defaults: TextDefaults? = null,
+)
+
+/** Narration settings the moderators picked for everyone; a listener's own choices win. */
+@Serializable
+data class TextDefaults(val pause: Double = 0.35, val announce: Boolean = true)
 
 @Serializable
 data class Comment(
