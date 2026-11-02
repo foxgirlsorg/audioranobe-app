@@ -194,7 +194,7 @@ class SileroSpeaker(
             for (i in index.coerceAtMost(sentences.size - 1) until sentences.size) { if (startFrame[i] <= head) now = i else break }
             var changed = false
             if (now >= 0 && now != index) { index = now; changed = true }
-            val starved = queued.get() - head < TtsEngine.SAMPLE_RATE / 8 && !(produced && head >= queued.get())
+            val starved = !produced && queued.get() - head < TtsEngine.SAMPLE_RATE / 8
             if (starved != busy) { busy = starved; changed = true }
             if (produced && head >= queued.get()) {
                 finished = true

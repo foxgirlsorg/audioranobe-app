@@ -142,10 +142,9 @@ class PlaybackService : MediaLibraryService() {
         instance = null
         scope.cancel()
         ttsPlayer.release()
-        session?.run {
-            player.release()
-            release()
-        }
+        audioPlayer?.release()
+        audioPlayer = null
+        session?.release()
         session = null
         super.onDestroy()
     }
@@ -308,7 +307,7 @@ class PlaybackService : MediaLibraryService() {
         }
         val found = runCatching { Api.get<SearchSuggest>("/search/suggest", mapOf("q" to words.joinToString(" "))) }.getOrNull()?.titles?.firstOrNull() ?: return null
         val t = Api.get<TitleFull>("/titles/${found.id}")
-        val chapters = t.volumes.sortedBy { it.number }.flatMap { v -> v.liveChapters.sortedBy { it.number } }.filter { it.playable }
+        val chapters = t.volumes.sortedBy { it.number }.flatMap { v -> v.liveChapters.sortedBy { it.number } }.filter { it.downloadable }
         return (chapters.firstOrNull { (it.my_position ?: 0.0) > 0 && it.my_position!! < it.duration_seconds - 5 } ?: chapters.firstOrNull())?.id
     }
 

@@ -27,7 +27,11 @@ class TtsPlayer(looper: Looper) : SimpleBasePlayer(looper) {
     private var error: PlaybackException? = null
 
     private val events = object : SentenceSpeaker.Listener {
-        override fun onChange() { invalidateState() }
+        override fun onChange() {
+            // The speaker paused itself (audio focus lost, headphones unplugged): reflect it in the session.
+            speaker?.let { if (started && playWhenReady && !it.playing && !it.finished) playWhenReady = false }
+            invalidateState()
+        }
         override fun onEnd() { invalidateState() }
         override fun onError(message: String) {
             error = PlaybackException(message, null, PlaybackException.ERROR_CODE_UNSPECIFIED)
@@ -88,7 +92,7 @@ class TtsPlayer(looper: Looper) : SimpleBasePlayer(looper) {
         return b.setPlaybackState(state)
             .setPlaylist(listOf(MediaItemData.Builder("tts").setMediaItem(mi).setDurationUs((s.totalSeconds * 1_000_000).toLong()).setIsSeekable(true).build()))
             .setCurrentMediaItemIndex(0)
-            .setContentPositionMs(PositionSupplier { if (started || s.finished) (s.progressSeconds() * 1000).toLong() else (cueSeconds * 1000).toLong() })
+            .setContentPositionMs(PositionSupplier { ((if (s.finished) s.totalSeconds else if (started) s.progressSeconds() else cueSeconds) * 1000).toLong() })
             .build()
     }
 

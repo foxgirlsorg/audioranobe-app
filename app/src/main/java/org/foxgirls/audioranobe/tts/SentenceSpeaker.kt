@@ -30,6 +30,7 @@ abstract class SentenceSpeaker(
     var busy = false; protected set
     var playing = false; protected set
     var finished = false; protected set
+    @set:JvmName("storeRate")
     var rate = 1f; protected set
 
     /** Position in the chapter, stored-length seconds; [within] is how far into the current sentence (0..1). */

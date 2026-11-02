@@ -161,7 +161,7 @@ object PlayerController {
                     if (c.duration > 0) _duration.value = c.duration / 1000.0
                     pendingStart?.let { s -> pendingStart = null; c.seekTo((s * 1000).toLong()) }
                 }
-                Player.STATE_ENDED -> onEnded()
+                Player.STATE_ENDED -> { _loading.value = false; onEnded() }
                 Player.STATE_BUFFERING -> _loading.value = true
                 else -> {}
             }
@@ -202,7 +202,7 @@ object PlayerController {
         _position.value = max(0.0, c.currentPosition / 1000.0)
         _buffered.value = max(0.0, c.bufferedPosition / 1000.0)
         if (c.duration > 0) _duration.value = c.duration / 1000.0
-        if (_playing.value && _current.value?.isTts == true) listened += 0.25 * _rate.value
+        if (_playing.value) listened += 0.25 * _rate.value
         if (_sleep.value is Sleep.Chapter && _duration.value > 0) {
             _sleepRemaining.value = max(0.0, _duration.value - _position.value).toInt()
         }
@@ -225,15 +225,16 @@ object PlayerController {
         val pos = positionOverride ?: _position.value
         if (pos.isNaN()) return
         val offline = OfflineStore.isDownloaded(cur.id)
-        val heard = if (cur.isTts) listened.also { listened = 0.0 } else null
+        val heard = listened.also { listened = 0.0 }
         scope.launch(Dispatchers.IO) {
+            // Read-aloud chapters are credited by listening time; audio ones by how far the position moved.
             val ok = runCatching {
-                Api.put<Unit>("/me/progress/${cur.id}", buildJsonObject { put("position", max(0.0, pos)); if (heard != null) put("listened", heard) })
+                Api.put<Unit>("/me/progress/${cur.id}", buildJsonObject { put("position", max(0.0, pos)); if (cur.isTts) put("listened", heard) })
             }.isSuccess
             // Keep the progress on the device when the server is unreachable (and for downloaded
             // chapters, so the offline title page shows it); it syncs when a connection is back.
             if (ok) OfflineStore.markSynced(cur.id)
-            if (!ok || offline) OfflineStore.recordProgress(cur, max(0.0, pos))
+            if (!ok || offline) OfflineStore.recordProgress(cur, max(0.0, pos), if (ok) 0.0 else heard)
         }
     }
 
