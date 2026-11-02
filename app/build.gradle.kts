@@ -109,7 +109,8 @@ android {
 // Runs the narrator's Python text front end (frontend.py, downloaded with the models) on the device.
 chaquopy {
     defaultConfig {
-        version = "3.12"
+        // 3.12+ has no armeabi-v7a build; 3.11 keeps 32-bit ARM phones working.
+        version = "3.11"
         pyc { src = false }
     }
 }
