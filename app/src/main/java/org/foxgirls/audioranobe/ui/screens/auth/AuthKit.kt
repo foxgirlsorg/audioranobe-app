@@ -129,14 +129,16 @@ fun CaptchaWidget(nonce: Int, onToken: (String) -> Unit) {
     val c = config?.captcha ?: return
     if (!c.enabled || c.site_key.isBlank() || c.script_url.isBlank() || c.widget_var.isBlank()) return
     val html = remember(c, nonce) {
-        """<!doctype html><html><head><meta name="viewport" content="width=device-width, initial-scale=        <style>html,body{margin:0;background:#161616;color:#a6acb2;font:13px sans-serif}body{display:flex;flex-direction:column;align-items:center}#w{padding:6px 0}</style>
+        """<!doctype html><html><head><meta name="viewport" content="width=device-width, initial-scale=1">
+        <style>html,body{margin:0;height:100%;background:#161616}body{display:flex;flex-direction:column;align-items:center;justify-content:center}#w{padding:6px 0}
+        #l{width:22px;height:22px;border:2px solid rgba(222,97,97,.25);border-top-color:#de6161;border-radius:50%;animation:s .8s linear infinite}@keyframes s{to{transform:rotate(360deg)}}</style>
         <script src="${c.script_url}" async defer onload="init()"></script>
         <script>
         function init(){var api=window["${c.widget_var}"];if(!api||typeof api.render!=='function'){setTimeout(init,300);return;}
           api.render(document.getElementById('w'),{sitekey:"${c.site_key}",theme:'dark',
             callback:function(t){Android.onToken(t)},'expired-callback':function(){Android.onToken('')},'error-callback':function(){Android.onToken('')}});
           document.getElementById('l').style.display='none';}
-        </script></head><body><span id="l">Загружаем проверку…</span><div id="w"></div></body></html>"""
+        </script></head><body><div id="l" role="progressbar" aria-label="Загружаем проверку"></div><div id="w"></div></body></html>"""
     }
     AndroidView(
         modifier = Modifier.fillMaxWidth().height(90.dp).padding(bottom = 8.dp),
