@@ -24,6 +24,7 @@ class SystemSpeaker(
     private val main = Handler(Looper.getMainLooper())
     private var tts: TextToSpeech? = null
     private var ready = false
+    private var released = false
     private var generation = 0
     private var next = 0
 
@@ -36,7 +37,7 @@ class SystemSpeaker(
         playing = play
         busy = play
         listener.onChange()
-        if (play) whenReady { queueFrom(index) }
+        if (play) speakFromIndex()
     }
 
     override fun pause() {
@@ -53,30 +54,38 @@ class SystemSpeaker(
         busy = true
         generation++
         listener.onChange()
-        whenReady { queueFrom(index) }
+        speakFromIndex()
     }
 
     override fun setRate(r: Float) {
         super.setRate(r)
         tts?.setSpeechRate(r)
-        if (playing) { generation++; tts?.stop(); whenReady { queueFrom(index) } }
+        if (playing) { generation++; tts?.stop(); speakFromIndex() }
     }
 
     override fun release() {
+        released = true
         generation++
         tts?.stop()
         tts?.shutdown()
         tts = null
     }
 
+    /** Queues from the current sentence once the synthesizer is up, unless something newer happened meanwhile. */
+    private fun speakFromIndex() {
+        val g = generation
+        whenReady { if (g == generation && playing) queueFrom(index) }
+    }
+
     private fun whenReady(run: () -> Unit) {
         if (ready) return run()
+        if (released) return
         if (tts != null) { main.postDelayed({ whenReady(run) }, 100); return }
         tts = TextToSpeech(app) { status ->
             main.post {
-                if (status != TextToSpeech.SUCCESS) return@post fail("Системный синтезатор речи недоступен")
                 val t = tts ?: return@post
-                if (t.setLanguage(Locale("ru", "RU")) < TextToSpeech.LANG_AVAILABLE) return@post fail("На устройстве нет русского голоса. Установите его: Настройки Android → Синтез речи.")
+                if (status != TextToSpeech.SUCCESS) return@post initFailed(t, "Системный синтезатор речи недоступен")
+                if (t.setLanguage(Locale("ru", "RU")) < TextToSpeech.LANG_AVAILABLE) return@post initFailed(t, "На устройстве нет русского голоса. Установите его: Настройки Android → Синтез речи.")
                 voiceName?.let { n -> t.voices?.firstOrNull { it.name == n }?.let { t.voice = it } }
                 t.setAudioAttributes(AudioAttributes.Builder().setUsage(AudioAttributes.USAGE_MEDIA).setContentType(AudioAttributes.CONTENT_TYPE_SPEECH).build())
                 t.setSpeechRate(rate)
@@ -90,6 +99,12 @@ class SystemSpeaker(
                 run()
             }
         }
+    }
+
+    private fun initFailed(t: TextToSpeech, message: String) {
+        t.shutdown()
+        tts = null
+        fail(message)
     }
 
     private fun queueFrom(from: Int) {
@@ -136,13 +151,23 @@ class SystemSpeaker(
     companion object {
         private const val LOOKAHEAD = 6
 
-        /** Names of the Russian voices installed on the device (for the voice picker). */
+        private var cachedVoices: List<String>? = null
+
+        /** Names of the Russian voices installed on the device (for the voice picker). A cold engine reports none for a moment after init, so it asks again for a few seconds. */
         fun russianVoices(context: Context, onResult: (List<String>) -> Unit) {
+            cachedVoices?.let { onResult(it); return }
+            val handler = Handler(Looper.getMainLooper())
             var tts: TextToSpeech? = null
-            tts = TextToSpeech(context.applicationContext) { status ->
-                val names = if (status == TextToSpeech.SUCCESS) tts?.voices?.filter { it.locale.language == "ru" }?.map { it.name }?.sorted().orEmpty() else emptyList()
+            var tries = 0
+            fun read() {
+                val names = runCatching { tts?.voices?.filter { it.locale.language == "ru" }?.map { it.name }?.sorted() }.getOrNull().orEmpty()
+                if (names.isEmpty() && tries++ < 15) { handler.postDelayed(::read, 300); return }
                 tts?.shutdown()
+                if (names.isNotEmpty()) cachedVoices = names
                 onResult(names)
+            }
+            tts = TextToSpeech(context.applicationContext) { status ->
+                if (status == TextToSpeech.SUCCESS) handler.post(::read) else { tts?.shutdown(); onResult(emptyList()) }
             }
         }
     }

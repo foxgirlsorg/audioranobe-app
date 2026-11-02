@@ -8,6 +8,7 @@ import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import kotlinx.serialization.Serializable
@@ -37,6 +38,12 @@ object TtsModels {
     val bytes: StateFlow<Long> = _bytes.asStateFlow()
     private val _error = MutableStateFlow<String?>(null)
     val error: StateFlow<String?> = _error.asStateFlow()
+
+    private val _asked = MutableStateFlow(false)
+    /** Text chapters were saved for offline while the models are missing: the UI offers the download. */
+    val asked: StateFlow<Boolean> = _asked.asStateFlow()
+    fun ask() { _asked.value = true }
+    fun dismissAsk() { _asked.value = false }
 
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
     private var job: Job? = null

@@ -52,6 +52,11 @@ class Prefs(context: Context) {
         get() = p.getFloat("tts_pause", -1f)
         set(v) = p.edit().putFloat("tts_pause", v).apply()
 
+    /** Read-aloud text shown as "Суфлёр" (one centered sentence per line) instead of "Фокус" (paragraphs). */
+    var ttsPrompter: Boolean
+        get() = p.getBoolean("tts_prompter", false)
+        set(v) = p.edit().putBoolean("tts_prompter", v).apply()
+
     /** Announce volume and chapter before reading; null = the server default. */
     var ttsAnnounce: Boolean?
         get() = p.getString("tts_announce", null)?.toBooleanStrictOrNull()

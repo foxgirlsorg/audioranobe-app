@@ -599,8 +599,8 @@ fun ArTabs(
 // ---------- states ----------
 
 @Composable
-fun Spinner(modifier: Modifier = Modifier, size: Dp = 26.dp) {
-    CircularProgressIndicator(modifier.size(size), color = Ar.accent, trackColor = Color.White.copy(alpha = 0.12f), strokeWidth = 2.dp)
+fun Spinner(modifier: Modifier = Modifier, size: Dp = 26.dp, color: Color = Ar.accent, track: Color = Color.White.copy(alpha = 0.12f)) {
+    CircularProgressIndicator(modifier.size(size), color = color, trackColor = track, strokeWidth = 2.dp)
 }
 
 /** components/EmptyState */
