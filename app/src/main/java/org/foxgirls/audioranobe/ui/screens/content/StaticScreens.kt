@@ -1,5 +1,7 @@
 package org.foxgirls.audioranobe.ui.screens.content
 
+import org.foxgirls.audioranobe.ui.components.StickyBarHeight
+import org.foxgirls.audioranobe.ui.components.StickyBackBar
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -113,109 +115,113 @@ fun DonateScreen() {
     val loader = rememberLoader("config") { Api.get<DonateConfig>("/donations/config") }
     val recent = rememberLoader("recent") { try { Api.get<RecentDonations>("/donations/recent").items } catch (_: Exception) { emptyList() } }
 
-    Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).statusBarsPadding().padding(pagePadding())) {
-        Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(bottom = 8.dp)) { IconBtn(Lucide.ArrowLeft, "Назад", { nav.back() }, tint = Ar.text) }
-        PageHeader("Поддержка", "Поддержать", "проект")
-        Text("AudioRanobe живёт на пожертвования. Любая сумма помогает оплачивать серверы и хранилище.", color = Ar.textSecondary, fontSize = 14.sp, lineHeight = 20.sp)
-        Spacer(Modifier.height(16.dp))
-        when (val s = loader.state) {
-            is Load.Loading -> Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                // Goal panel: title and period, progress bar, figures.
-                GlassPanel(Modifier.fillMaxWidth()) {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Skeleton(Modifier.fillMaxWidth(0.5f).height(14.dp))
-                        Spacer(Modifier.weight(1f))
-                        Skeleton(Modifier.width(60.dp).height(12.dp))
-                    }
-                    Skeleton(Modifier.padding(top = 10.dp).fillMaxWidth().height(6.dp), RoundedCornerShape(3.dp))
-                    Row(Modifier.padding(top = 10.dp), verticalAlignment = Alignment.CenterVertically) {
-                        Skeleton(Modifier.width(70.dp).height(13.dp))
-                        Spacer(Modifier.weight(1f))
-                        Skeleton(Modifier.width(36.dp).height(12.dp))
-                    }
-                }
-                // Notice about the nickname in the payment comment.
-                GlassPanel(Modifier.fillMaxWidth()) {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Skeleton(Modifier.size(18.dp), CircleShape)
-                        Spacer(Modifier.width(10.dp))
-                        TextSkeleton(lines = 2)
-                    }
-                }
-                // Ko-fi and Boosty service cards.
-                Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                    repeat(2) {
-                        GlassPanel(Modifier.weight(1f)) {
-                            Skeleton(Modifier.width(70.dp).height(16.dp))
-                            Skeleton(Modifier.padding(top = 8.dp).fillMaxWidth(0.6f).height(12.dp))
-                            Skeleton(Modifier.padding(top = 6.dp).fillMaxWidth().height(12.dp))
-                        }
-                    }
-                }
-                // Tier-badge line, then the recent donations heading and list.
-                Skeleton(Modifier.padding(top = 14.dp).fillMaxWidth(0.8f).height(13.dp))
-                Skeleton(Modifier.padding(top = 14.dp).width(200.dp).height(18.dp))
-                GlassPanel(Modifier.fillMaxWidth()) {
-                    repeat(3) { i ->
-                        if (i > 0) Spacer(Modifier.height(16.dp))
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            Skeleton(Modifier.fillMaxWidth(0.45f).height(14.dp))
-                            Spacer(Modifier.weight(1f))
-                            Skeleton(Modifier.width(44.dp).height(12.dp))
-                        }
-                    }
-                }
-            }
-            is Load.Err -> ErrorState(s.message, { loader.reload() })
-            is Load.Ok -> {
-                val cfg = s.data
-                if (cfg.goal.enabled) GlassPanel(Modifier.fillMaxWidth().padding(bottom = 12.dp)) { DonateGoalBar(cfg.goal) }
-                GlassPanel(Modifier.fillMaxWidth().padding(bottom = 12.dp), borderColor = Ar.accent.copy(alpha = 0.35f)) {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Icon(Lucide.AtSign, null, tint = Ar.accent, modifier = Modifier.size(18.dp))
-                        Spacer(Modifier.width(10.dp))
-                        Text("Укажите свой ник на сайте в комментарии к платежу — так пожертвование привяжется к вашему аккаунту.", color = Ar.text, fontSize = 13.sp, lineHeight = 19.sp)
-                    }
-                }
-                val available = SERVICES.filter { (if (it.key == "kofi") cfg.kofi else cfg.boosty).isNotBlank() }
-                if (available.isEmpty()) EmptyState("Пока нет способов", "Способы пожертвования ещё не настроены.")
-                else FlowRow(horizontalArrangement = Arrangement.spacedBy(12.dp), verticalArrangement = Arrangement.spacedBy(12.dp), maxItemsInEachRow = 2) {
-                    available.forEach { sv ->
-                        val url = if (sv.key == "kofi") cfg.kofi else cfg.boosty
-                        GlassPanel(Modifier.weight(1f), onClick = { Links.external(context, url) }) {
-                            Row(verticalAlignment = Alignment.CenterVertically) {
-                                Icon(Lucide.Heart, null, tint = Ar.accent, modifier = Modifier.size(18.dp))
-                                Spacer(Modifier.width(8.dp))
-                                Text(sv.name, color = Ar.white, fontSize = 16.sp, fontWeight = FontWeight.SemiBold, modifier = Modifier.weight(1f))
-                                Icon(Lucide.ExternalLink, null, tint = Ar.textMuted, modifier = Modifier.size(14.dp))
-                            }
-                            Text(sv.region, color = Ar.textSecondary, fontSize = 12.sp, modifier = Modifier.padding(top = 6.dp))
-                            Text(sv.hint, color = Ar.textMuted, fontSize = 12.sp, lineHeight = 16.sp, modifier = Modifier.padding(top = 2.dp))
-                        }
-                    }
-                }
-                Row(Modifier.padding(top = 14.dp), verticalAlignment = Alignment.CenterVertically) {
-                    Icon(Lucide.Award, null, tint = Ar.amber, modifier = Modifier.size(15.dp))
-                    Spacer(Modifier.width(8.dp))
-                    Text("Пожертвование от $${cfg.badge_min} даёт бейдж «Донатер» на вашем профиле.", color = Ar.textSecondary, fontSize = 13.sp, lineHeight = 18.sp)
-                }
-                val items = recent.data.orEmpty()
-                if (items.isNotEmpty()) {
-                    Text("Последние пожертвования", color = Ar.white, fontSize = 18.sp, fontWeight = FontWeight.Medium, modifier = Modifier.padding(top = 24.dp, bottom = 10.dp))
+    val pageScroll = rememberScrollState()
+    Box(Modifier.fillMaxSize()) {
+        Column(Modifier.fillMaxSize().verticalScroll(pageScroll).statusBarsPadding().padding(pagePadding())) {
+            Spacer(Modifier.height(StickyBarHeight - 4.dp))
+            PageHeader("Поддержка", "Поддержать", "проект")
+            Text("AudioRanobe живёт на пожертвования. Любая сумма помогает оплачивать серверы и хранилище.", color = Ar.textSecondary, fontSize = 14.sp, lineHeight = 20.sp)
+            Spacer(Modifier.height(16.dp))
+            when (val s = loader.state) {
+                is Load.Loading -> Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                    // Goal panel: title and period, progress bar, figures.
                     GlassPanel(Modifier.fillMaxWidth()) {
-                        items.forEachIndexed { i, r ->
-                            if (i > 0) HairlineDivider(Modifier.padding(vertical = 8.dp))
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Skeleton(Modifier.fillMaxWidth(0.5f).height(14.dp))
+                            Spacer(Modifier.weight(1f))
+                            Skeleton(Modifier.width(60.dp).height(12.dp))
+                        }
+                        Skeleton(Modifier.padding(top = 10.dp).fillMaxWidth().height(6.dp), RoundedCornerShape(3.dp))
+                        Row(Modifier.padding(top = 10.dp), verticalAlignment = Alignment.CenterVertically) {
+                            Skeleton(Modifier.width(70.dp).height(13.dp))
+                            Spacer(Modifier.weight(1f))
+                            Skeleton(Modifier.width(36.dp).height(12.dp))
+                        }
+                    }
+                    // Notice about the nickname in the payment comment.
+                    GlassPanel(Modifier.fillMaxWidth()) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Skeleton(Modifier.size(18.dp), CircleShape)
+                            Spacer(Modifier.width(10.dp))
+                            TextSkeleton(lines = 2)
+                        }
+                    }
+                    // Ko-fi and Boosty service cards.
+                    Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                        repeat(2) {
+                            GlassPanel(Modifier.weight(1f)) {
+                                Skeleton(Modifier.width(70.dp).height(16.dp))
+                                Skeleton(Modifier.padding(top = 8.dp).fillMaxWidth(0.6f).height(12.dp))
+                                Skeleton(Modifier.padding(top = 6.dp).fillMaxWidth().height(12.dp))
+                            }
+                        }
+                    }
+                    // Tier-badge line, then the recent donations heading and list.
+                    Skeleton(Modifier.padding(top = 14.dp).fillMaxWidth(0.8f).height(13.dp))
+                    Skeleton(Modifier.padding(top = 14.dp).width(200.dp).height(18.dp))
+                    GlassPanel(Modifier.fillMaxWidth()) {
+                        repeat(3) { i ->
+                            if (i > 0) Spacer(Modifier.height(16.dp))
                             Row(verticalAlignment = Alignment.CenterVertically) {
-                                Text(r.name, color = Ar.text, fontSize = 14.sp, fontWeight = FontWeight.Medium, modifier = Modifier.weight(1f))
-                                Text(SERVICE_LABEL[r.service] ?: r.service, color = Ar.textMuted, fontSize = 12.sp)
-                                Spacer(Modifier.width(12.dp))
-                                Text("${Fmt.trimNum(r.amount)} ${r.currency}", color = Ar.accent, fontSize = 14.sp, fontWeight = FontWeight.SemiBold)
+                                Skeleton(Modifier.fillMaxWidth(0.45f).height(14.dp))
+                                Spacer(Modifier.weight(1f))
+                                Skeleton(Modifier.width(44.dp).height(12.dp))
+                            }
+                        }
+                    }
+                }
+                is Load.Err -> ErrorState(s.message, { loader.reload() })
+                is Load.Ok -> {
+                    val cfg = s.data
+                    if (cfg.goal.enabled) GlassPanel(Modifier.fillMaxWidth().padding(bottom = 12.dp)) { DonateGoalBar(cfg.goal) }
+                    GlassPanel(Modifier.fillMaxWidth().padding(bottom = 12.dp), borderColor = Ar.accent.copy(alpha = 0.35f)) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Icon(Lucide.AtSign, null, tint = Ar.accent, modifier = Modifier.size(18.dp))
+                            Spacer(Modifier.width(10.dp))
+                            Text("Укажите свой ник на сайте в комментарии к платежу — так пожертвование привяжется к вашему аккаунту.", color = Ar.text, fontSize = 13.sp, lineHeight = 19.sp)
+                        }
+                    }
+                    val available = SERVICES.filter { (if (it.key == "kofi") cfg.kofi else cfg.boosty).isNotBlank() }
+                    if (available.isEmpty()) EmptyState("Пока нет способов", "Способы пожертвования ещё не настроены.")
+                    else FlowRow(horizontalArrangement = Arrangement.spacedBy(12.dp), verticalArrangement = Arrangement.spacedBy(12.dp), maxItemsInEachRow = 2) {
+                        available.forEach { sv ->
+                            val url = if (sv.key == "kofi") cfg.kofi else cfg.boosty
+                            GlassPanel(Modifier.weight(1f), onClick = { Links.external(context, url) }) {
+                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                    Icon(Lucide.Heart, null, tint = Ar.accent, modifier = Modifier.size(18.dp))
+                                    Spacer(Modifier.width(8.dp))
+                                    Text(sv.name, color = Ar.white, fontSize = 16.sp, fontWeight = FontWeight.SemiBold, modifier = Modifier.weight(1f))
+                                    Icon(Lucide.ExternalLink, null, tint = Ar.textMuted, modifier = Modifier.size(14.dp))
+                                }
+                                Text(sv.region, color = Ar.textSecondary, fontSize = 12.sp, modifier = Modifier.padding(top = 6.dp))
+                                Text(sv.hint, color = Ar.textMuted, fontSize = 12.sp, lineHeight = 16.sp, modifier = Modifier.padding(top = 2.dp))
+                            }
+                        }
+                    }
+                    Row(Modifier.padding(top = 14.dp), verticalAlignment = Alignment.CenterVertically) {
+                        Icon(Lucide.Award, null, tint = Ar.amber, modifier = Modifier.size(15.dp))
+                        Spacer(Modifier.width(8.dp))
+                        Text("Пожертвование от $${cfg.badge_min} даёт бейдж «Донатер» на вашем профиле.", color = Ar.textSecondary, fontSize = 13.sp, lineHeight = 18.sp)
+                    }
+                    val items = recent.data.orEmpty()
+                    if (items.isNotEmpty()) {
+                        Text("Последние пожертвования", color = Ar.white, fontSize = 18.sp, fontWeight = FontWeight.Medium, modifier = Modifier.padding(top = 24.dp, bottom = 10.dp))
+                        GlassPanel(Modifier.fillMaxWidth()) {
+                            items.forEachIndexed { i, r ->
+                                if (i > 0) HairlineDivider(Modifier.padding(vertical = 8.dp))
+                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                    Text(r.name, color = Ar.text, fontSize = 14.sp, fontWeight = FontWeight.Medium, modifier = Modifier.weight(1f))
+                                    Text(SERVICE_LABEL[r.service] ?: r.service, color = Ar.textMuted, fontSize = 12.sp)
+                                    Spacer(Modifier.width(12.dp))
+                                    Text("${Fmt.trimNum(r.amount)} ${r.currency}", color = Ar.accent, fontSize = 14.sp, fontWeight = FontWeight.SemiBold)
+                                }
                             }
                         }
                     }
                 }
             }
         }
+        StickyBackBar({ pageScroll.value > 0 }, { nav.back() })
     }
 }
 
@@ -277,37 +283,41 @@ fun DmcaScreen() {
         if (error != null) Text(error, color = Ar.danger, fontSize = 12.sp, modifier = Modifier.padding(top = 4.dp))
     }
 
-    Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).statusBarsPadding().padding(pagePadding())) {
-        Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(bottom = 8.dp)) { IconBtn(Lucide.ArrowLeft, "Назад", { nav.back() }, tint = Ar.text) }
-        PageHeader("Правообладателям", "Политика", "DMCA")
-        GlassPanel(Modifier.fillMaxWidth().padding(bottom = 14.dp)) {
-            Text("Защита авторских прав", color = Ar.white, fontSize = 17.sp, fontWeight = FontWeight.SemiBold)
-            Text(
-                "AudioRanobe уважает права интеллектуальной собственности и ожидает того же от пользователей. Если вы являетесь правообладателем или его представителем и считаете, что материалы на платформе нарушают ваши авторские права, вы можете подать жалобу через форму ниже.",
-                color = Ar.textSecondary, fontSize = 14.sp, lineHeight = 20.sp, modifier = Modifier.padding(top = 8.dp),
-            )
+    val pageScroll = rememberScrollState()
+    Box(Modifier.fillMaxSize()) {
+        Column(Modifier.fillMaxSize().verticalScroll(pageScroll).statusBarsPadding().padding(pagePadding())) {
+            Spacer(Modifier.height(StickyBarHeight - 4.dp))
+            PageHeader("Правообладателям", "Политика", "DMCA")
+            GlassPanel(Modifier.fillMaxWidth().padding(bottom = 14.dp)) {
+                Text("Защита авторских прав", color = Ar.white, fontSize = 17.sp, fontWeight = FontWeight.SemiBold)
+                Text(
+                    "AudioRanobe уважает права интеллектуальной собственности и ожидает того же от пользователей. Если вы являетесь правообладателем или его представителем и считаете, что материалы на платформе нарушают ваши авторские права, вы можете подать жалобу через форму ниже.",
+                    color = Ar.textSecondary, fontSize = 14.sp, lineHeight = 20.sp, modifier = Modifier.padding(top = 8.dp),
+                )
+            }
+            if (success) GlassPanel(Modifier.fillMaxWidth(), borderColor = Ar.ok.copy(alpha = 0.5f)) {
+                Text("Ваша жалоба DMCA успешно отправлена и будет рассмотрена в ближайшее время.", color = Ar.ok, fontSize = 14.sp, lineHeight = 20.sp)
+            } else GlassPanel(Modifier.fillMaxWidth()) {
+                Text("Подать жалобу DMCA", color = Ar.white, fontSize = 17.sp, fontWeight = FontWeight.SemiBold, modifier = Modifier.padding(bottom = 12.dp))
+                if (formError.isNotEmpty()) Text(formError, color = Ar.danger, fontSize = 13.sp, modifier = Modifier.padding(bottom = 10.dp))
+                ArTextField(name, { name = it }, label = "Ваше имя", placeholder = "Иван Иванов", maxLength = Limits.dmcaName, error = errors["name"])
+                Spacer(Modifier.height(10.dp))
+                ArTextField(email, { email = it }, label = "Email для связи", placeholder = "you@example.com", maxLength = Limits.dmcaEmail, error = errors["email"], keyboardType = KeyboardType.Email)
+                Spacer(Modifier.height(10.dp))
+                ArTextField(country, { country = it }, label = "Страна", placeholder = "Россия", maxLength = Limits.dmcaCountry, error = errors["country"])
+                Spacer(Modifier.height(10.dp))
+                UrlList("Ссылки на материалы, которые нужно удалить", contentUrls, { contentUrls = it }, "https://audioranobe.com/title/example", errors["content_url"])
+                Spacer(Modifier.height(10.dp))
+                UrlList("Ссылки на оригинальное размещение этих материалов", originalUrls, { originalUrls = it }, "https://…", errors["original_url"])
+                Spacer(Modifier.height(10.dp))
+                ArTextField(proofUrl, { proofUrl = it }, label = "Подтверждение того, что вы автор", placeholder = "Ссылка на страницу автора, договор, скан документа или иное подтверждение…", maxLength = Limits.dmcaUrl, error = errors["proof_url"], singleLine = false, minLines = 2)
+                Spacer(Modifier.height(10.dp))
+                ArTextField(description, { description = it }, label = "Описание проблемы", placeholder = "Опишите, каким образом нарушены ваши авторские права…", maxLength = Limits.dmcaDescription, error = errors["description"], singleLine = false, minLines = 4)
+                Spacer(Modifier.height(14.dp))
+                ArButton(if (submitting) "Отправляем…" else "Отправить жалобу", { submit() }, kind = ButtonKind.Primary, icon = Lucide.Send, busy = submitting, fullWidth = true)
+            }
         }
-        if (success) GlassPanel(Modifier.fillMaxWidth(), borderColor = Ar.ok.copy(alpha = 0.5f)) {
-            Text("Ваша жалоба DMCA успешно отправлена и будет рассмотрена в ближайшее время.", color = Ar.ok, fontSize = 14.sp, lineHeight = 20.sp)
-        } else GlassPanel(Modifier.fillMaxWidth()) {
-            Text("Подать жалобу DMCA", color = Ar.white, fontSize = 17.sp, fontWeight = FontWeight.SemiBold, modifier = Modifier.padding(bottom = 12.dp))
-            if (formError.isNotEmpty()) Text(formError, color = Ar.danger, fontSize = 13.sp, modifier = Modifier.padding(bottom = 10.dp))
-            ArTextField(name, { name = it }, label = "Ваше имя", placeholder = "Иван Иванов", maxLength = Limits.dmcaName, error = errors["name"])
-            Spacer(Modifier.height(10.dp))
-            ArTextField(email, { email = it }, label = "Email для связи", placeholder = "you@example.com", maxLength = Limits.dmcaEmail, error = errors["email"], keyboardType = KeyboardType.Email)
-            Spacer(Modifier.height(10.dp))
-            ArTextField(country, { country = it }, label = "Страна", placeholder = "Россия", maxLength = Limits.dmcaCountry, error = errors["country"])
-            Spacer(Modifier.height(10.dp))
-            UrlList("Ссылки на материалы, которые нужно удалить", contentUrls, { contentUrls = it }, "https://audioranobe.com/title/example", errors["content_url"])
-            Spacer(Modifier.height(10.dp))
-            UrlList("Ссылки на оригинальное размещение этих материалов", originalUrls, { originalUrls = it }, "https://…", errors["original_url"])
-            Spacer(Modifier.height(10.dp))
-            ArTextField(proofUrl, { proofUrl = it }, label = "Подтверждение того, что вы автор", placeholder = "Ссылка на страницу автора, договор, скан документа или иное подтверждение…", maxLength = Limits.dmcaUrl, error = errors["proof_url"], singleLine = false, minLines = 2)
-            Spacer(Modifier.height(10.dp))
-            ArTextField(description, { description = it }, label = "Описание проблемы", placeholder = "Опишите, каким образом нарушены ваши авторские права…", maxLength = Limits.dmcaDescription, error = errors["description"], singleLine = false, minLines = 4)
-            Spacer(Modifier.height(14.dp))
-            ArButton(if (submitting) "Отправляем…" else "Отправить жалобу", { submit() }, kind = ButtonKind.Primary, icon = Lucide.Send, busy = submitting, fullWidth = true)
-        }
+        StickyBackBar({ pageScroll.value > 0 }, { nav.back() })
     }
 }
 
@@ -327,28 +337,32 @@ fun LegalScreen(doc: String) {
     val meta = LEGAL_META[doc] ?: run { NotFoundScreen(); return }
     val nav = LocalNav.current
     val loader = rememberLoader(doc) { Api.get<LegalDoc>("/legal/$doc") }
-    Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).statusBarsPadding().padding(pagePadding())) {
-        Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(bottom = 8.dp)) { IconBtn(Lucide.ArrowLeft, "Назад", { nav.back() }, tint = Ar.text) }
-        PageHeader("Документы", meta.title, meta.accent)
-        if (meta.subtitle != null) Text(meta.subtitle, color = Ar.textSecondary, fontSize = 14.sp, modifier = Modifier.padding(bottom = 12.dp))
-        when (val s = loader.state) {
-            is Load.Loading -> Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                if (doc == "rules") Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) { repeat(3) { Skeleton(Modifier.width(96.dp).height(26.dp), RoundedCornerShape(13.dp)) } }
-                // Document body: section headings, each followed by paragraph lines.
-                repeat(3) { i ->
-                    Skeleton(Modifier.padding(top = if (i == 0) 8.dp else 10.dp).fillMaxWidth(if (i == 1) 0.4f else 0.55f).height(18.dp))
-                    TextSkeleton(lines = if (i == 0) 6 else 5)
+    val pageScroll = rememberScrollState()
+    Box(Modifier.fillMaxSize()) {
+        Column(Modifier.fillMaxSize().verticalScroll(pageScroll).statusBarsPadding().padding(pagePadding())) {
+            Spacer(Modifier.height(StickyBarHeight - 4.dp))
+            PageHeader("Документы", meta.title, meta.accent)
+            if (meta.subtitle != null) Text(meta.subtitle, color = Ar.textSecondary, fontSize = 14.sp, modifier = Modifier.padding(bottom = 12.dp))
+            when (val s = loader.state) {
+                is Load.Loading -> Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                    if (doc == "rules") Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) { repeat(3) { Skeleton(Modifier.width(96.dp).height(26.dp), RoundedCornerShape(13.dp)) } }
+                    // Document body: section headings, each followed by paragraph lines.
+                    repeat(3) { i ->
+                        Skeleton(Modifier.padding(top = if (i == 0) 8.dp else 10.dp).fillMaxWidth(if (i == 1) 0.4f else 0.55f).height(18.dp))
+                        TextSkeleton(lines = if (i == 0) 6 else 5)
+                    }
                 }
-            }
-            is Load.Err -> ErrorState(s.message, { loader.reload() }, title = meta.errorTitle)
-            is Load.Ok -> {
-                val body = s.data.body
-                val sections = remember(body) { body.lines().filter { it.startsWith("## ") }.map { it.substring(3).trim() } }
-                if (doc == "rules" && sections.isNotEmpty()) FlowRow(Modifier.padding(bottom = 14.dp), horizontalArrangement = Arrangement.spacedBy(6.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                    sections.forEach { OutlineChip(it) }
+                is Load.Err -> ErrorState(s.message, { loader.reload() }, title = meta.errorTitle)
+                is Load.Ok -> {
+                    val body = s.data.body
+                    val sections = remember(body) { body.lines().filter { it.startsWith("## ") }.map { it.substring(3).trim() } }
+                    if (doc == "rules" && sections.isNotEmpty()) FlowRow(Modifier.padding(bottom = 14.dp), horizontalArrangement = Arrangement.spacedBy(6.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                        sections.forEach { OutlineChip(it) }
+                    }
+                    Box(Modifier.fillMaxWidth()) { ArMarkdown(body) }
                 }
-                Box(Modifier.fillMaxWidth()) { ArMarkdown(body) }
             }
         }
+        StickyBackBar({ pageScroll.value > 0 }, { nav.back() })
     }
 }

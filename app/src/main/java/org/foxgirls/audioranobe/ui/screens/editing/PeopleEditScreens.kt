@@ -1,5 +1,11 @@
 package org.foxgirls.audioranobe.ui.screens.editing
 
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.draw.drawBehind
+import androidx.compose.ui.graphics.Color
+import androidx.compose.animation.animateColorAsState
+import androidx.compose.runtime.derivedStateOf
+import androidx.compose.foundation.ScrollState
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -116,16 +122,21 @@ fun EditHeader(heading: String, subject: String?, onBack: () -> Unit, avatarUrl:
     }
 }
 
-/** Screen frame for the redesigned edit pages: scrolling column, optional bar pinned to the bottom, flat button style. */
+/** Screen frame for the redesigned edit pages: [header] pinned at the top, scrolling column, optional bar pinned to the bottom, flat button style. */
 @Composable
-fun EditScaffold(showBar: Boolean, bar: @Composable () -> Unit = {}, content: @Composable ColumnScope.() -> Unit) {
+fun EditScaffold(showBar: Boolean, bar: @Composable () -> Unit = {}, header: (@Composable ColumnScope.() -> Unit)? = null, content: @Composable ColumnScope.() -> Unit) {
     val barSpace by animateDpAsState(if (showBar) 84.dp else 0.dp, tween(220), label = "barSpace")
+    val scroll = rememberScrollState()
     CompositionLocalProvider(LocalFlatUi provides true) {
         Box(Modifier.fillMaxSize()) {
-            Column(
-                Modifier.fillMaxSize().verticalScroll(rememberScrollState()).statusBarsPadding().padding(pagePadding()).padding(bottom = barSpace),
-                content = content,
-            )
+            Column(Modifier.fillMaxSize()) {
+                if (header != null) PinnedHeader(scroll, header)
+                Column(
+                    Modifier.fillMaxWidth().weight(1f).verticalScroll(scroll).then(if (header == null) Modifier.statusBarsPadding() else Modifier)
+                        .padding(pagePadding(top = if (header == null) 12 else 0)).padding(bottom = barSpace),
+                    content = content,
+                )
+            }
             AnimatedVisibility(
                 showBar, Modifier.align(Alignment.BottomCenter).padding(bottom = LocalBottomInset.current),
                 enter = slideInVertically(tween(260)) { it } + fadeIn(tween(260)),
@@ -133,6 +144,18 @@ fun EditScaffold(showBar: Boolean, bar: @Composable () -> Unit = {}, content: @C
             ) { bar() }
         }
     }
+}
+
+/** Header kept above a scrolling page; a hairline appears under it once the page moves. */
+@Composable
+fun PinnedHeader(scroll: ScrollState, content: @Composable ColumnScope.() -> Unit) {
+    val scrolled by remember { derivedStateOf { scroll.value > 0 } }
+    val line by animateColorAsState(if (scrolled) Ar.border else Color.Transparent, tween(180), label = "pinnedHeaderLine")
+    Column(
+        Modifier.fillMaxWidth().background(Ar.bg).drawBehind { drawLine(line, Offset(0f, size.height), Offset(size.width, size.height), 1.dp.toPx()) }
+            .statusBarsPadding().padding(start = 16.dp, end = 16.dp, top = 12.dp),
+        content = content,
+    )
 }
 
 /** A titled group of fields (the site's page.module.css `.section`), stacked on a phone. */
@@ -233,32 +256,35 @@ fun AuthorEditScreen(id: Int) {
     var saving by remember { mutableStateOf(false) }
     val scope = rememberCoroutineScope()
 
-    Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).statusBarsPadding().padding(pagePadding())) {
-        EditHeader("Редактирование автора", a.name, { nav.back() })
-        GlassPanel(Modifier.fillMaxWidth()) {
-            ArTextField(name, { name = it; nameError = null }, label = "Название", maxLength = Limits.authorName, error = nameError)
-            Spacer(Modifier.height(10.dp))
-            MarkdownEditor(bio, { bio = it }, label = "О себе", maxLength = Limits.authorBio, placeholder = "Расскажите об этом авторе…", slim = true)
-            Spacer(Modifier.height(10.dp))
-            SocialsEditor(links, { links = it }, label = "Ссылки")
-            SaveRow(saving, if (!auth.isMod) "Правки проходят модерацию" else null, onSave = {
-                if (name.isBlank()) { nameError = "Укажите название"; return@SaveRow }
-                saving = true
-                scope.launch {
-                    try {
-                        val res = Api.patch<AppliedResult>("/authors/${a.id}", buildJsonObject {
-                            put("name", name.trim()); put("bio", bio)
-                            put("links", buildJsonArray { links.map { it.trim() }.filter { it.isNotEmpty() }.forEach { add(JsonPrimitive(it)) } })
-                        })
-                        toast(if (res.applied != false) "Изменения применены" else "Отправлено на модерацию")
-                        nav.replace(Routes.author(a.id))
-                    } catch (e: Exception) { toastError(e) }
-                    saving = false
-                }
-            })
+    val scroll = rememberScrollState()
+    Column(Modifier.fillMaxSize()) {
+        PinnedHeader(scroll) { EditHeader("Редактирование автора", a.name, { nav.back() }) }
+        Column(Modifier.fillMaxWidth().weight(1f).verticalScroll(scroll).padding(pagePadding(top = 0))) {
+            GlassPanel(Modifier.fillMaxWidth()) {
+                ArTextField(name, { name = it; nameError = null }, label = "Название", maxLength = Limits.authorName, error = nameError)
+                Spacer(Modifier.height(10.dp))
+                MarkdownEditor(bio, { bio = it }, label = "О себе", maxLength = Limits.authorBio, placeholder = "Расскажите об этом авторе…", slim = true)
+                Spacer(Modifier.height(10.dp))
+                SocialsEditor(links, { links = it }, label = "Ссылки")
+                SaveRow(saving, if (!auth.isMod) "Правки проходят модерацию" else null, onSave = {
+                    if (name.isBlank()) { nameError = "Укажите название"; return@SaveRow }
+                    saving = true
+                    scope.launch {
+                        try {
+                            val res = Api.patch<AppliedResult>("/authors/${a.id}", buildJsonObject {
+                                put("name", name.trim()); put("bio", bio)
+                                put("links", buildJsonArray { links.map { it.trim() }.filter { it.isNotEmpty() }.forEach { add(JsonPrimitive(it)) } })
+                            })
+                            toast(if (res.applied != false) "Изменения применены" else "Отправлено на модерацию")
+                            nav.replace(Routes.author(a.id))
+                        } catch (e: Exception) { toastError(e) }
+                        saving = false
+                    }
+                })
+            }
+            Spacer(Modifier.height(16.dp))
+            DangerZone("author", a.id, a.name, Routes.catalog(), onChanged = { loader.reload() })
         }
-        Spacer(Modifier.height(16.dp))
-        DangerZone("author", a.id, a.name, Routes.catalog(), onChanged = { loader.reload() })
     }
 }
 
@@ -342,9 +368,10 @@ fun NarratorEditScreen(slug: String) {
         if (isOwner) add(TabItem("transfer", "Перенос"))
     }
 
-    EditScaffold(tab == "info" && (dirty || saving), { EditSaveBar(saving, if (!isMod && n.mod_status == "approved") "Правки проходят модерацию" else null, null, { resetForm() }, { save() }) }) {
+    EditScaffold(tab == "info" && (dirty || saving), { EditSaveBar(saving, if (!isMod && n.mod_status == "approved") "Правки проходят модерацию" else null, null, { resetForm() }, { save() }) }, header = {
         EditHeader(n.name, null, { nav.back() }, n.avatar_thumb_url ?: n.avatar_url, Lucide.Mic, tags = listOfNotNull(if (n.is_verified) "Подтверждён" else null, if (n.is_ai) "ИИ-голос" else null))
         ArTabs(tabs, tab, { tab = it }, Modifier.padding(bottom = 16.dp), variant = TabsVariant.Underline)
+    }) {
         when (tab) {
             "info" -> {
                 EditSection("Основное", "Название, адрес страницы и пометки", first = true) {

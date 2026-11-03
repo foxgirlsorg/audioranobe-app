@@ -1,5 +1,6 @@
 package org.foxgirls.audioranobe.ui.components
 
+import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.collectAsState
@@ -29,6 +30,7 @@ import com.eygraber.compose.placeholder.placeholder
 import androidx.compose.foundation.ScrollState
 import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.ui.draw.drawWithContent
+import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.BlendMode
@@ -54,6 +56,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.defaultMinSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -644,6 +647,33 @@ fun ErrorState(message: String, onRetry: (() -> Unit)?, title: String = "Не у
     }
     EmptyState(title, message, Lucide.TriangleAlert, modifier) {
         if (onRetry != null) ArButton("Попробовать ещё раз", onRetry, icon = Lucide.RefreshCw)
+    }
+}
+
+/** Height of [StickyBackBar] below the status bar; pages leave this much room above their content. */
+val StickyBarHeight = 48.dp
+
+/** Back-button header pinned over a scrolling page: see-through at the top, a solid backdrop once [scrolled] says the page moved. */
+@Composable
+fun StickyBackBar(
+    scrolled: () -> Boolean,
+    onBack: () -> Unit,
+    modifier: Modifier = Modifier,
+    horizontalPadding: Dp = 16.dp,
+    chip: Boolean = false,
+    trailing: @Composable RowScope.() -> Unit = {},
+) {
+    val isScrolled by remember { derivedStateOf(scrolled) }
+    val bg by animateColorAsState(if (isScrolled) Ar.bg else Ar.bg.copy(alpha = 0f), tween(180), label = "stickyBarBg")
+    val line by animateColorAsState(if (isScrolled) Ar.border else Color.Transparent, tween(180), label = "stickyBarLine")
+    Row(
+        modifier.fillMaxWidth().background(bg).drawBehind { drawLine(line, Offset(0f, size.height), Offset(size.width, size.height), 1.dp.toPx()) }
+            .statusBarsPadding().height(StickyBarHeight).padding(horizontal = horizontalPadding),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        IconBtn(Lucide.ArrowLeft, "Назад", onBack, tint = Ar.text, background = if (chip && !isScrolled) Ar.bg.copy(alpha = 0.5f) else Color.Transparent)
+        Spacer(Modifier.weight(1f))
+        trailing()
     }
 }
 

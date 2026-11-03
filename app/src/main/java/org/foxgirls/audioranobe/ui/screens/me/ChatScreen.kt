@@ -142,7 +142,7 @@ private fun ConversationList() {
         }
     }
     LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(bottom = bottom + 16.dp)) {
-        item { MeHeader("Личные", "Сообщения", "") }
+        meHeader("Личные", "Сообщения", "")
         val c = convos
         when {
             c == null -> item { Box(Modifier.fillParentMaxHeight().padding(horizontal = 16.dp)) { FillRowsSkeleton(64.dp, 0.dp) { ConvRowSkeleton() } } }

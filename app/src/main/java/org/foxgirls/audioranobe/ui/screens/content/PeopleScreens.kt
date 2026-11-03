@@ -1,5 +1,7 @@
 package org.foxgirls.audioranobe.ui.screens.content
 
+import org.foxgirls.audioranobe.ui.components.StickyBarHeight
+import org.foxgirls.audioranobe.ui.components.StickyBackBar
 import org.foxgirls.audioranobe.ui.components.ditheredBackground
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -111,82 +113,83 @@ fun NarratorScreen(slug: String, initialTab: String?) {
     val n = loader.data ?: return
     val canEdit = n.can_edit
 
-    Column(Modifier.fillMaxSize().swipeTabs(listOf("info", "titles", "comments"), tab) { tab = it }.verticalScroll(rememberScrollState()).padding(bottom = pagePadding().calculateBottomPadding())) {
-        Box(Modifier.fillMaxWidth()) {
-            Box(Modifier.fillMaxWidth().height(170.dp).clickable(enabled = n.cover_url != null) { viewer = n.cover_url }) {
-                if (n.cover_url != null) ArImage(n.cover_thumb_url ?: n.cover_url, Modifier.fillMaxSize())
-                else Box(Modifier.fillMaxSize().ditheredBackground(Brush.linearGradient(listOf(Ar.accent.copy(alpha = 0.25f), Ar.surfaceSolid))))
-                Box(Modifier.fillMaxSize().ditheredBackground(Brush.verticalGradient(listOf(Color.Transparent, Ar.bg.copy(alpha = 0.85f)))))
-            }
-            Row(Modifier.statusBarsPadding().padding(8.dp)) {
-                IconBtn(Lucide.ArrowLeft, "Назад", { nav.back() }, tint = Ar.text, background = Ar.bg.copy(alpha = 0.5f))
-            }
-            Column(Modifier.fillMaxWidth().padding(top = 120.dp).padding(horizontal = 16.dp)) {
-                Box(Modifier.size(96.dp).clip(CircleShape).border(3.dp, Ar.bg, CircleShape).background(Ar.surfaceRaised).clickable(enabled = n.avatar_url != null) { viewer = n.avatar_url }, contentAlignment = Alignment.Center) {
-                    if (n.avatar_url != null) ArImage(n.avatar_thumb_url ?: n.avatar_url, Modifier.fillMaxSize(), shape = CircleShape)
-                    else Icon(Lucide.Mic2, null, tint = Ar.textMuted, modifier = Modifier.size(40.dp))
+    val pageScroll = rememberScrollState()
+    Box(Modifier.fillMaxSize()) {
+        Column(Modifier.fillMaxSize().swipeTabs(listOf("info", "titles", "comments"), tab) { tab = it }.verticalScroll(pageScroll).padding(bottom = pagePadding().calculateBottomPadding())) {
+            Box(Modifier.fillMaxWidth()) {
+                Box(Modifier.fillMaxWidth().height(170.dp).clickable(enabled = n.cover_url != null) { viewer = n.cover_url }) {
+                    if (n.cover_url != null) ArImage(n.cover_thumb_url ?: n.cover_url, Modifier.fillMaxSize())
+                    else Box(Modifier.fillMaxSize().ditheredBackground(Brush.linearGradient(listOf(Ar.accent.copy(alpha = 0.25f), Ar.surfaceSolid))))
+                    Box(Modifier.fillMaxSize().ditheredBackground(Brush.verticalGradient(listOf(Color.Transparent, Ar.bg.copy(alpha = 0.85f)))))
                 }
-                Spacer(Modifier.height(8.dp))
+                Column(Modifier.fillMaxWidth().padding(top = 120.dp).padding(horizontal = 16.dp)) {
+                    Box(Modifier.size(96.dp).clip(CircleShape).border(3.dp, Ar.bg, CircleShape).background(Ar.surfaceRaised).clickable(enabled = n.avatar_url != null) { viewer = n.avatar_url }, contentAlignment = Alignment.Center) {
+                        if (n.avatar_url != null) ArImage(n.avatar_thumb_url ?: n.avatar_url, Modifier.fillMaxSize(), shape = CircleShape)
+                        else Icon(Lucide.Mic2, null, tint = Ar.textMuted, modifier = Modifier.size(40.dp))
+                    }
+                    Spacer(Modifier.height(8.dp))
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Text(n.name, color = Ar.white, fontSize = 22.sp, fontWeight = FontWeight.Medium, maxLines = 2, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f, fill = false))
+                        Spacer(Modifier.width(6.dp))
+                        if (n.is_verified) VerifiedBadge(Modifier.padding(end = 4.dp))
+                        if (n.is_ai) AiBadge(Modifier.padding(end = 4.dp))
+                        if (n.mod_status != "approved") StatusBadge(n.mod_status)
+                        if (canEdit) IconBtn(Lucide.Pencil, "Редактировать", { nav.go(Routes.narratorEdit(n.slug)) }, size = 32.dp, iconSize = 15.dp)
+                    }
+                    Text("Чтец · на сайте с ${Fmt.date(n.created_at)}", color = Ar.textMuted, fontSize = 12.sp, lineHeight = 16.sp)
+                    Row(Modifier.padding(top = 10.dp), horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
+                        SubscribeButton(n.id, n.my_subscription, n.subscribers_count)
+                        ReportButton("narrator", n.id, compact = true)
+                    }
+                }
+            }
+
+            if (!n.is_self && !n.is_ai && !canEdit) GlassPanel(Modifier.padding(horizontal = 16.dp, vertical = 12.dp), borderColor = Ar.accent.copy(alpha = 0.35f)) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
-                    Text(n.name, color = Ar.white, fontSize = 22.sp, fontWeight = FontWeight.Medium, maxLines = 2, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f, fill = false))
-                    Spacer(Modifier.width(6.dp))
-                    if (n.is_verified) VerifiedBadge(Modifier.padding(end = 4.dp))
-                    if (n.is_ai) AiBadge(Modifier.padding(end = 4.dp))
-                    if (n.mod_status != "approved") StatusBadge(n.mod_status)
-                    if (canEdit) IconBtn(Lucide.Pencil, "Редактировать", { nav.go(Routes.narratorEdit(n.slug)) }, size = 32.dp, iconSize = 15.dp)
+                    Icon(Lucide.Mic2, null, tint = Ar.accent, modifier = Modifier.size(17.dp))
+                    Spacer(Modifier.width(10.dp))
+                    Column(Modifier.weight(1f)) {
+                        Text("Это ваша страница чтеца?", color = Ar.text, fontSize = 14.sp, fontWeight = FontWeight.SemiBold)
+                        Text(
+                            "Эта страница создана без участия чтеца. Если вы озвучиваете под этим именем — напишите в поддержку, и мы передадим страницу вам.",
+                            color = Ar.textSecondary, fontSize = 13.sp, lineHeight = 18.sp, modifier = Modifier.padding(top = 2.dp),
+                        )
+                        ArButton("Связаться с поддержкой", { Links.external(context, Support.URL) }, kind = ButtonKind.Primary, small = true, modifier = Modifier.padding(top = 8.dp))
+                    }
                 }
-                Text("Чтец · на сайте с ${Fmt.date(n.created_at)}", color = Ar.textMuted, fontSize = 12.sp, lineHeight = 16.sp)
-                Row(Modifier.padding(top = 10.dp), horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
-                    SubscribeButton(n.id, n.my_subscription, n.subscribers_count)
-                    ReportButton("narrator", n.id, compact = true)
+            }
+
+            ArTabs(
+                listOf(TabItem("info", "Информация"), TabItem("titles", "Тайтлы", n.titles_count), TabItem("comments", "Комментарии")),
+                tab, { tab = it }, Modifier.padding(horizontal = 16.dp, vertical = 8.dp), variant = TabsVariant.Underline,
+            )
+
+            Column(Modifier.padding(horizontal = 16.dp)) {
+                when (tab) {
+                    "info" -> {
+                        if (n.bio.isNotBlank() || n.socials.isNotEmpty()) GlassPanel(Modifier.fillMaxWidth().padding(bottom = 12.dp)) {
+                            Eyebrow(if (n.bio.isNotBlank()) "О себе" else "Ссылки")
+                            if (n.bio.isNotBlank()) Box(Modifier.padding(top = 8.dp)) { ArMarkdown(n.bio, media = "image") }
+                            if (n.socials.isNotEmpty()) SocialLinks(n.socials, Modifier.padding(top = 10.dp))
+                        }
+                        GlassPanel(Modifier.fillMaxWidth().padding(bottom = 12.dp)) {
+                            ProfileStat(Lucide.Library, Fmt.count(n.titles_count), Fmt.plural(n.titles_count, "тайтл", "тайтла", "тайтлов"))
+                            ProfileStat(Lucide.Headphones, Fmt.trimNum(n.seconds_narrated / 3600.0), "часов озвучено", Modifier.padding(top = 10.dp))
+                            ProfileStat(Lucide.Users, Fmt.count(n.subscribers_count), Fmt.plural(n.subscribers_count, "подписчик", "подписчика", "подписчиков"), Modifier.padding(top = 10.dp))
+                        }
+                        if (auth.isMod && !n.admin_contact.isNullOrBlank()) GlassPanel(Modifier.fillMaxWidth().padding(bottom = 12.dp)) {
+                            Eyebrow("Контакт для администрации")
+                            Text(n.admin_contact, color = Ar.text, fontSize = 14.sp, modifier = Modifier.padding(top = 6.dp))
+                            Text("Виден только модераторам и администраторам.", color = Ar.textMuted, fontSize = 12.sp, modifier = Modifier.padding(top = 4.dp))
+                        }
+                        NarratorPosts(n.id, canEdit, Modifier.padding(top = 8.dp))
+                    }
+                    "titles" -> if (n.titles.isNotEmpty()) CardGrid(n.titles) else EmptyState("Пока нет тайтлов", "Этот чтец пока не опубликовал ни одной аудиокниги.", Lucide.BookOpen)
+                    else -> CommentSection("narrator", n.id, n.comments)
                 }
             }
         }
-
-        if (!n.is_self && !n.is_ai && !canEdit) GlassPanel(Modifier.padding(horizontal = 16.dp, vertical = 12.dp), borderColor = Ar.accent.copy(alpha = 0.35f)) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Icon(Lucide.Mic2, null, tint = Ar.accent, modifier = Modifier.size(17.dp))
-                Spacer(Modifier.width(10.dp))
-                Column(Modifier.weight(1f)) {
-                    Text("Это ваша страница чтеца?", color = Ar.text, fontSize = 14.sp, fontWeight = FontWeight.SemiBold)
-                    Text(
-                        "Эта страница создана без участия чтеца. Если вы озвучиваете под этим именем — напишите в поддержку, и мы передадим страницу вам.",
-                        color = Ar.textSecondary, fontSize = 13.sp, lineHeight = 18.sp, modifier = Modifier.padding(top = 2.dp),
-                    )
-                    ArButton("Связаться с поддержкой", { Links.external(context, Support.URL) }, kind = ButtonKind.Primary, small = true, modifier = Modifier.padding(top = 8.dp))
-                }
-            }
-        }
-
-        ArTabs(
-            listOf(TabItem("info", "Информация"), TabItem("titles", "Тайтлы", n.titles_count), TabItem("comments", "Комментарии")),
-            tab, { tab = it }, Modifier.padding(horizontal = 16.dp, vertical = 8.dp), variant = TabsVariant.Underline,
-        )
-
-        Column(Modifier.padding(horizontal = 16.dp)) {
-            when (tab) {
-                "info" -> {
-                    if (n.bio.isNotBlank() || n.socials.isNotEmpty()) GlassPanel(Modifier.fillMaxWidth().padding(bottom = 12.dp)) {
-                        Eyebrow(if (n.bio.isNotBlank()) "О себе" else "Ссылки")
-                        if (n.bio.isNotBlank()) Box(Modifier.padding(top = 8.dp)) { ArMarkdown(n.bio, media = "image") }
-                        if (n.socials.isNotEmpty()) SocialLinks(n.socials, Modifier.padding(top = 10.dp))
-                    }
-                    GlassPanel(Modifier.fillMaxWidth().padding(bottom = 12.dp)) {
-                        ProfileStat(Lucide.Library, Fmt.count(n.titles_count), Fmt.plural(n.titles_count, "тайтл", "тайтла", "тайтлов"))
-                        ProfileStat(Lucide.Headphones, Fmt.trimNum(n.seconds_narrated / 3600.0), "часов озвучено", Modifier.padding(top = 10.dp))
-                        ProfileStat(Lucide.Users, Fmt.count(n.subscribers_count), Fmt.plural(n.subscribers_count, "подписчик", "подписчика", "подписчиков"), Modifier.padding(top = 10.dp))
-                    }
-                    if (auth.isMod && !n.admin_contact.isNullOrBlank()) GlassPanel(Modifier.fillMaxWidth().padding(bottom = 12.dp)) {
-                        Eyebrow("Контакт для администрации")
-                        Text(n.admin_contact, color = Ar.text, fontSize = 14.sp, modifier = Modifier.padding(top = 6.dp))
-                        Text("Виден только модераторам и администраторам.", color = Ar.textMuted, fontSize = 12.sp, modifier = Modifier.padding(top = 4.dp))
-                    }
-                    NarratorPosts(n.id, canEdit, Modifier.padding(top = 8.dp))
-                }
-                "titles" -> if (n.titles.isNotEmpty()) CardGrid(n.titles) else EmptyState("Пока нет тайтлов", "Этот чтец пока не опубликовал ни одной аудиокниги.", Lucide.BookOpen)
-                else -> CommentSection("narrator", n.id, n.comments)
-            }
-        }
+        StickyBackBar({ pageScroll.value > 0 }, { nav.back() }, horizontalPadding = 8.dp, chip = true)
     }
     ImageViewer(viewer != null, listOfNotNull(viewer), onClose = { viewer = null })
 }
@@ -274,25 +277,27 @@ fun AuthorScreen(ref: String) {
         else Column(Modifier.fillMaxSize().statusBarsPadding().padding(pagePadding())) { ErrorState(s.message, { loader.reload() }, title = "Автор не найден") }
         is Load.Ok -> {
             val a = s.data
-            Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).statusBarsPadding().padding(pagePadding())) {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    IconBtn(Lucide.ArrowLeft, "Назад", { nav.back() }, tint = Ar.text)
-                    Spacer(Modifier.weight(1f))
+            val pageScroll = rememberScrollState()
+            Box(Modifier.fillMaxSize()) {
+                Column(Modifier.fillMaxSize().verticalScroll(pageScroll).statusBarsPadding().padding(pagePadding())) {
+                    Spacer(Modifier.height(StickyBarHeight - 4.dp))
+                    Spacer(Modifier.height(6.dp))
+                    Eyebrow("Автор")
+                    Text(a.name, color = Ar.white, fontSize = 26.sp, fontWeight = FontWeight.Medium, lineHeight = 32.sp, modifier = Modifier.padding(top = 4.dp))
+                    Text("Тайтлов: ${a.titles_count}", color = Ar.textMuted, fontSize = 13.sp, modifier = Modifier.padding(top = 4.dp))
+                    if (a.links.isNotEmpty()) SocialLinks(a.links, Modifier.padding(top = 8.dp))
+                    if (a.bio.isNotBlank()) GlassPanel(Modifier.fillMaxWidth().padding(top = 16.dp)) {
+                        Eyebrow("Об авторе")
+                        Box(Modifier.padding(top = 8.dp)) { ArMarkdown(a.bio) }
+                    }
+                    Spacer(Modifier.height(24.dp))
+                    Section("Произведения", "автора", eyebrow = "Каталог") {
+                        if (a.titles.isNotEmpty()) CardGrid(a.titles)
+                        else EmptyState("Пока нет тайтлов", "К этому автору пока не привязано ни одной аудиокниги.", Lucide.BookOpen)
+                    }
+                }
+                StickyBackBar({ pageScroll.value > 0 }, { nav.back() }) {
                     if (a.can_edit) IconBtn(Lucide.Pencil, "Редактировать", { nav.go(Routes.authorEdit(a.id)) }, size = 36.dp, iconSize = 16.dp)
-                }
-                Spacer(Modifier.height(6.dp))
-                Eyebrow("Автор")
-                Text(a.name, color = Ar.white, fontSize = 26.sp, fontWeight = FontWeight.Medium, lineHeight = 32.sp, modifier = Modifier.padding(top = 4.dp))
-                Text("Тайтлов: ${a.titles_count}", color = Ar.textMuted, fontSize = 13.sp, modifier = Modifier.padding(top = 4.dp))
-                if (a.links.isNotEmpty()) SocialLinks(a.links, Modifier.padding(top = 8.dp))
-                if (a.bio.isNotBlank()) GlassPanel(Modifier.fillMaxWidth().padding(top = 16.dp)) {
-                    Eyebrow("Об авторе")
-                    Box(Modifier.padding(top = 8.dp)) { ArMarkdown(a.bio) }
-                }
-                Spacer(Modifier.height(24.dp))
-                Section("Произведения", "автора", eyebrow = "Каталог") {
-                    if (a.titles.isNotEmpty()) CardGrid(a.titles)
-                    else EmptyState("Пока нет тайтлов", "К этому автору пока не привязано ни одной аудиокниги.", Lucide.BookOpen)
                 }
             }
         }

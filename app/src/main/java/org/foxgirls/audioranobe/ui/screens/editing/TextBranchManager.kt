@@ -126,8 +126,8 @@ fun TextBranchManager(title: TitleFull, reload: suspend () -> Unit, header: @Com
     var actions by remember { mutableStateOf(false) }
 
     val data = when (val s = loader.state) {
-        is Load.Err -> { EditScaffold(false) { header(); Text(s.message, color = Ar.danger, fontSize = 13.sp) }; return }
-        is Load.Loading -> { EditScaffold(false) { header(); Spinner(Modifier.align(Alignment.CenterHorizontally).padding(24.dp)) }; return }
+        is Load.Err -> { EditScaffold(false, header = header) { Text(s.message, color = Ar.danger, fontSize = 13.sp) }; return }
+        is Load.Loading -> { EditScaffold(false, header = header) { Spinner(Modifier.align(Alignment.CenterHorizontally).padding(24.dp)) }; return }
         is Load.Ok -> s.data
     }
     val refresh: suspend () -> Unit = { loader.reload(); reload() }
@@ -160,8 +160,7 @@ fun TextBranchManager(title: TitleFull, reload: suspend () -> Unit, header: @Com
     val allOn = allIds.isNotEmpty() && allIds.all { it in selected }
     fun flip(ids: List<Int>, on: Boolean) { selected = if (on) selected + ids else selected - ids.toSet() }
 
-    EditScaffold(selected.isNotEmpty(), { SelectionBar(selected.size, { selected = emptySet() }, { actions = true }) }) {
-    header()
+    EditScaffold(selected.isNotEmpty(), { SelectionBar(selected.size, { selected = emptySet() }, { actions = true }) }, header) {
     GlassPanel(Modifier.fillMaxWidth().padding(bottom = 12.dp)) {
         ArToggle(data.enabled, { next ->
             busy = true

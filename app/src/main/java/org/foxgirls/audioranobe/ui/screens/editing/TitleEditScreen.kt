@@ -113,8 +113,7 @@ fun TitleEditScreen(slug: String, initialTab: String?) {
 
     if (tab == "info") { TitleInfoForm(title, slug, loader.nonce, reload, header); return }
     if (tab == "text") { TextBranchManager(title, reload, header); return }
-    EditScaffold(false) {
-        header()
+    EditScaffold(false, header = header) {
         when (tab) {
             "artwork" -> TitleArtwork(title, reload)
             "illustrations" -> IllustrationManager(title)
@@ -222,8 +221,7 @@ private fun TitleInfoForm(title: TitleFull, routeSlug: String, nonce: Int, reloa
         }
     }
 
-    EditScaffold(dirty || saving || formError.isNotEmpty(), { EditSaveBar(saving, if (!isMod && title.mod_status == "approved") "Правки проходят модерацию" else null, formError.ifEmpty { null }, { resetForm() }, { save() }) }) {
-        header()
+    EditScaffold(dirty || saving || formError.isNotEmpty(), { EditSaveBar(saving, if (!isMod && title.mod_status == "approved") "Правки проходят модерацию" else null, formError.ifEmpty { null }, { resetForm() }, { save() }) }, header) {
         EditSection("Основное", "Название и адрес страницы", first = true) {
             ArTextField(name, { name = it }, label = "Название", maxLength = 300)
             Spacer(Modifier.height(10.dp))

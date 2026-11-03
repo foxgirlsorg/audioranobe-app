@@ -1,5 +1,7 @@
 package org.foxgirls.audioranobe.ui.screens
 
+import org.foxgirls.audioranobe.ui.components.StickyBarHeight
+import org.foxgirls.audioranobe.ui.components.StickyBackBar
 import org.foxgirls.audioranobe.ui.components.ditheredBackground
 import org.foxgirls.audioranobe.ui.components.PlayPauseIcon
 import androidx.compose.foundation.background
@@ -94,12 +96,9 @@ fun ChapterScreen(id: Int, startAt: Double?) {
     Box(Modifier.fillMaxSize()) {
         ArImage(ch.title.cover_url, Modifier.fillMaxWidth().height(320.dp), contentScale = ContentScale.Crop, backdrop = true)
         Box(Modifier.fillMaxWidth().height(320.dp).ditheredBackground(Brush.verticalGradient(listOf(Ar.bg.copy(alpha = 0.4f), Ar.bg))))
-        Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).statusBarsPadding().padding(horizontal = 16.dp).padding(bottom = bottom + 24.dp)) {
-            Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                IconBtn(Lucide.ArrowLeft, "Назад", { nav.back() }, tint = Ar.text)
-                Spacer(Modifier.weight(1f))
-                IconBtn(Lucide.Share2, "Поделиться", { Links.share(nav.context, "${Links.site}/chapter/${ch.id}", ch.title.name) }, tint = Ar.text)
-            }
+        val pageScroll = rememberScrollState()
+        Column(Modifier.fillMaxSize().verticalScroll(pageScroll).statusBarsPadding().padding(horizontal = 16.dp).padding(bottom = bottom + 24.dp)) {
+            Spacer(Modifier.height(StickyBarHeight))
             Row(Modifier.padding(vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
                 Text(ch.title.name, color = Ar.accent, fontSize = 12.sp, fontWeight = FontWeight.SemiBold, modifier = Modifier.clickable { nav.go(Routes.title(ch.title.slug)) })
                 Text(" / $volumeLabel", color = Ar.textMuted, fontSize = 12.sp)
@@ -134,6 +133,9 @@ fun ChapterScreen(id: Int, startAt: Double?) {
                 }
             }
             Spacer(Modifier.height(8.dp))
+        }
+        StickyBackBar({ pageScroll.value > 0 }, { nav.back() }) {
+            IconBtn(Lucide.Share2, "Поделиться", { Links.share(nav.context, "${Links.site}/chapter/${ch.id}", ch.title.name) }, tint = Ar.text)
         }
     }
 }

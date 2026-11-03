@@ -1,5 +1,7 @@
 package org.foxgirls.audioranobe.ui.screens.me
 
+import org.foxgirls.audioranobe.ui.components.StickyBarHeight
+import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -104,14 +106,32 @@ fun RequireAuth(): Boolean {
 /** Page header used by the /me pages: back link, eyebrow, big title with accent word. */
 @Composable
 fun MeHeader(eyebrow: String, title: String, accent: String, trailing: (@Composable () -> Unit)? = null) {
+    Column(Modifier.fillMaxWidth()) {
+        MeBackRow(trailing)
+        MeTitle(eyebrow, title, accent)
+    }
+}
+
+/** [MeHeader] for a lazy list: the back row stays pinned while the title scrolls away. */
+@OptIn(ExperimentalFoundationApi::class)
+fun LazyListScope.meHeader(eyebrow: String, title: String, accent: String, trailing: (@Composable () -> Unit)? = null) {
+    stickyHeader(key = "me-back") { MeBackRow(trailing) }
+    item(key = "me-title") { MeTitle(eyebrow, title, accent) }
+}
+
+@Composable
+private fun MeBackRow(trailing: (@Composable () -> Unit)?) {
     val nav = LocalNav.current
-    Column(Modifier.fillMaxWidth().statusBarsPadding().padding(horizontal = 16.dp, vertical = 8.dp)) {
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            IconBtn(Lucide.ArrowLeft, "Назад", { nav.back() }, tint = Ar.text)
-            Spacer(Modifier.weight(1f))
-            trailing?.invoke()
-        }
-        Spacer(Modifier.height(6.dp))
+    Row(Modifier.fillMaxWidth().background(Ar.bg).statusBarsPadding().height(StickyBarHeight).padding(horizontal = 16.dp), verticalAlignment = Alignment.CenterVertically) {
+        IconBtn(Lucide.ArrowLeft, "Назад", { nav.back() }, tint = Ar.text)
+        Spacer(Modifier.weight(1f))
+        trailing?.invoke()
+    }
+}
+
+@Composable
+private fun MeTitle(eyebrow: String, title: String, accent: String) {
+    Column(Modifier.fillMaxWidth().padding(horizontal = 16.dp).padding(top = 6.dp)) {
         Eyebrow(eyebrow)
         SectionTitle(title, accent, Modifier.padding(top = 4.dp, bottom = 12.dp), size = 24)
     }
@@ -213,7 +233,7 @@ fun FriendsScreen() {
         }
     }
     LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(bottom = bottom + 24.dp)) {
-        item { MeHeader("Люди", "Друзья", "") }
+        meHeader("Люди", "Друзья", "")
         when (val s = loader.state) {
             is Load.Loading -> fillRows(72.dp) { PersonRowSkeleton() }
             is Load.Err -> item { ErrorState(s.message, { loader.reload() }, "Не удалось загрузить друзей") }
@@ -252,7 +272,7 @@ fun HistoryScreen() {
     val loader = rememberLoader(page) { Api.get<Paginated<HistoryItem>>("/me/history", mapOf("page" to page)) }
     val bottom = LocalBottomInset.current
     LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(bottom = bottom + 24.dp)) {
-        item { MeHeader("Где вы остановились", "История", "прослушивания") }
+        meHeader("Где вы остановились", "История", "прослушивания")
         when (val s = loader.state) {
             is Load.Loading -> fillRows(100.dp) { HistoryRowSkeleton() }
             is Load.Err -> item { ErrorState(s.message, { loader.reload() }) }
@@ -319,14 +339,12 @@ fun NotificationsScreen() {
         scope.launch { runCatching { Api.post<Unit>("/me/notifications/read", buildJsonObject { put("ids", JsonArray(listOf(JsonPrimitive(n.id)))) }) } }
     }
     LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(bottom = bottom + 24.dp)) {
-        item {
-            MeHeader("Входящие", "Мои", "уведомления") {
-                ArButton(if (markingAll) "Отмечаем…" else "Прочитать все", {
-                    if (markingAll) return@ArButton
-                    markingAll = true
-                    scope.launch { try { Api.post<Unit>("/me/notifications/read"); loader.update { d -> d.copy(items = d.items.map { it.copy(is_read = true) }) }; Stores.badges.patch { it.copy(notifications = 0) }; toast("Все уведомления отмечены прочитанными") } catch (e: Exception) { toastError(e) } finally { markingAll = false } }
-                }, kind = ButtonKind.Ghost, icon = Lucide.CheckCheck, small = true, enabled = badges.notifications > 0)
-            }
+        meHeader("Входящие", "Мои", "уведомления") {
+            ArButton(if (markingAll) "Отмечаем…" else "Прочитать все", {
+                if (markingAll) return@ArButton
+                markingAll = true
+                scope.launch { try { Api.post<Unit>("/me/notifications/read"); loader.update { d -> d.copy(items = d.items.map { it.copy(is_read = true) }) }; Stores.badges.patch { it.copy(notifications = 0) }; toast("Все уведомления отмечены прочитанными") } catch (e: Exception) { toastError(e) } finally { markingAll = false } }
+            }, kind = ButtonKind.Ghost, icon = Lucide.CheckCheck, small = true, enabled = badges.notifications > 0)
         }
         when (val s = loader.state) {
             is Load.Loading -> fillRows(96.dp) { NotificationRowSkeleton() }
@@ -405,7 +423,7 @@ fun RequestsScreen() {
     val scope = rememberCoroutineScope()
     val bottom = LocalBottomInset.current
     LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(bottom = bottom + 24.dp)) {
-        item { MeHeader("История модерации", "Мои", "заявки") }
+        meHeader("История модерации", "Мои", "заявки")
         when (val s = loader.state) {
             is Load.Loading -> fillRows(150.dp) { RequestCardSkeleton() }
             is Load.Err -> item { ErrorState(s.message, { loader.reload() }, "Не удалось загрузить заявки") }
