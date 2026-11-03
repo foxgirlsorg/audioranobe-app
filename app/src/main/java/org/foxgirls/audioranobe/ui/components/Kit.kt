@@ -1,5 +1,12 @@
 package org.foxgirls.audioranobe.ui.components
 
+import org.foxgirls.audioranobe.ui.nav.LocalNav
+import org.foxgirls.audioranobe.ui.LocalShell
+import androidx.compose.animation.core.Spring
+import androidx.compose.animation.core.spring
+import androidx.compose.foundation.layout.statusBars
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.windowInsetsTopHeight
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
@@ -649,6 +656,35 @@ fun ErrorState(message: String, onRetry: (() -> Unit)?, title: String = "Не у
         if (onRetry != null) ArButton("Попробовать ещё раз", onRetry, icon = Lucide.RefreshCw)
     }
 }
+
+/**
+ * Top bar of the dock tabs: the logo (when [title] is null) or the tab's title, then [trailing].
+ * It slides away while the page scrolls down and comes back on the first scroll up, with the dock;
+ * a hairline shows under it while [scrolled].
+ */
+@Composable
+fun BoxScope.TabHeader(title: String?, accent: String? = null, scrolled: () -> Boolean = { false }, trailing: @Composable RowScope.() -> Unit = {}) {
+    val nav = LocalNav.current
+    val shift by animateDpAsState(if (LocalShell.current.dockCompact) -StickyBarHeight else 0.dp, spring(stiffness = Spring.StiffnessMediumLow), label = "tabHeader")
+    val isScrolled by remember { derivedStateOf(scrolled) }
+    val line by animateColorAsState(if (isScrolled) Ar.border else Color.Transparent, tween(180), label = "tabHeaderLine")
+    Box(Modifier.align(Alignment.TopCenter).fillMaxWidth()) {
+        Row(Modifier.statusBarsPadding().offset { IntOffset(0, shift.roundToPx()) }.fillMaxWidth().height(StickyBarHeight).background(Ar.bg)
+            .drawBehind { drawLine(line, Offset(0f, size.height), Offset(size.width, size.height), 1.dp.toPx()) }.padding(horizontal = 16.dp), verticalAlignment = Alignment.CenterVertically) {
+            if (title == null) Row(Modifier.clickable { nav.tab(org.foxgirls.audioranobe.ui.nav.Routes.HOME) }) {
+                Text("AUDIO", color = Ar.white, fontSize = 18.sp, fontWeight = FontWeight.Bold, letterSpacing = 2.sp)
+                Text("RANOBE", color = Ar.accent, fontSize = 18.sp, fontWeight = FontWeight.Bold, letterSpacing = 2.sp)
+            } else SectionTitle(title, accent, size = 18)
+            Spacer(Modifier.weight(1f))
+            trailing()
+        }
+        Box(Modifier.fillMaxWidth().windowInsetsTopHeight(WindowInsets.statusBars).background(Ar.bg))
+    }
+}
+
+/** Room a page leaves above its content for [TabHeader]. */
+@Composable
+fun TabHeaderSpace() = Spacer(Modifier.statusBarsPadding().height(StickyBarHeight))
 
 /** Height of [StickyBackBar] below the status bar; pages leave this much room above their content. */
 val StickyBarHeight = 48.dp
