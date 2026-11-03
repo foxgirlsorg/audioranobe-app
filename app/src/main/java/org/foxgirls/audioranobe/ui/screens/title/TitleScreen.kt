@@ -5,6 +5,8 @@ import org.foxgirls.audioranobe.ui.components.PlayPauseIcon
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.animateContentSize
 import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.animation.core.MutableTransitionState
+import androidx.compose.animation.fadeOut
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.expandVertically
 import androidx.compose.animation.shrinkVertically
@@ -93,7 +95,7 @@ import org.foxgirls.audioranobe.ui.components.Eyebrow
 import org.foxgirls.audioranobe.ui.components.GlassPanel
 import org.foxgirls.audioranobe.ui.components.IconBtn
 import org.foxgirls.audioranobe.ui.components.ImageViewer
-import org.foxgirls.audioranobe.ui.components.KeyValueRow
+import org.foxgirls.audioranobe.ui.components.ArSheet
 import org.foxgirls.audioranobe.ui.components.Load
 import org.foxgirls.audioranobe.ui.components.NarratorAvatar
 import org.foxgirls.audioranobe.ui.components.NsfwBadge
@@ -158,6 +160,7 @@ fun TitleScreen(slug: String, initialTab: String?) {
     var openVols by remember { mutableStateOf(setOf<Int>()) }
     var descOpen by remember { mutableStateOf(false) }
     var ratingOpen by remember { mutableStateOf(false) }
+    var detailsOpen by remember { mutableStateOf(false) }
     var selectedVersion by remember { mutableStateOf(0) }
     var coverViewer by remember { mutableStateOf(false) }
     var reNarrating by remember { mutableStateOf<Int?>(null) }
@@ -201,15 +204,14 @@ fun TitleScreen(slug: String, initialTab: String?) {
         }
     }
     val playable = title.volumes.flatMap { it.liveChapters }.filter { it.downloadable && it.mod_status == "approved" }
-    val listenable = title.volumes.flatMap { it.liveChapters }.filter { (it.audio_status == "ready" || it.has_text) && it.mod_status == "approved" }
-    val resume = remember(listenable) {
-        if (listenable.isEmpty()) null else {
+    val resume = remember(playable) {
+        if (playable.isEmpty()) null else {
             var idx = -1
-            listenable.forEachIndexed { i, c -> if ((c.my_position ?: 0.0) > 0) idx = i }
-            if (idx == -1) listenable[0] to false else {
-                val c = listenable[idx]
+            playable.forEachIndexed { i, c -> if ((c.my_position ?: 0.0) > 0) idx = i }
+            if (idx == -1) playable[0] to false else {
+                val c = playable[idx]
                 val finished = c.duration_seconds > 0 && (c.my_position ?: 0.0) >= c.duration_seconds - 5
-                if (finished && idx + 1 < listenable.size) listenable[idx + 1] to true else c to true
+                if (finished && idx + 1 < playable.size) playable[idx + 1] to true else c to true
             }
         }
     }
@@ -294,7 +296,7 @@ fun TitleScreen(slug: String, initialTab: String?) {
                             StatusBadge(title.mod_status)
                         }
                     }
-                    Box(Modifier.align(Alignment.CenterHorizontally).width(170.dp).aspectRatio(2f / 3f)) {
+                    Box(Modifier.align(Alignment.CenterHorizontally).padding(top = 12.dp).width(170.dp).aspectRatio(2f / 3f)) {
                         ArImage(title.cover_url, Modifier.fillMaxSize().clickable(enabled = !restricted && title.cover_url != null) { coverViewer = true }, fallbackIcon = Lucide.Headphones, blurred = restricted, shape = RoundedCornerShape(12.dp))
                         Row(Modifier.align(Alignment.TopEnd).padding(7.dp), horizontalArrangement = Arrangement.spacedBy(4.dp)) { if (title.is_ai) AiBadge(); if (title.is_nsfw) NsfwBadge() }
                     }
@@ -317,7 +319,7 @@ fun TitleScreen(slug: String, initialTab: String?) {
         item {
             Column(Modifier.padding(horizontal = 16.dp).padding(top = 18.dp)) {
                 val banner = title.info_banner
-                if (banner != null && banner.enabled && (banner.title.isNotBlank() || banner.text.isNotBlank() || banner.url.isNotBlank())) Banner("${title.id}:info", Lucide.Info, banner.title, banner.text, banner.url.takeIf { it.isNotBlank() }?.let { "Открыть" to it })
+                if (banner != null && banner.enabled && (banner.title.isNotBlank() || banner.text.isNotBlank() || banner.url.isNotBlank())) Banner("${title.id}:info:${(banner.title + banner.text + banner.url).hashCode()}",Lucide.Info, banner.title, banner.text, banner.url.takeIf { it.isNotBlank() }?.let { "Открыть" to it })
                 if (title.narration_pending) Banner("${title.id}:narration", Lucide.Headphones, "Идёт ИИ-озвучка", "Главы появляются по мере готовности — уже озвученные можно слушать, остальные в работе.", null)
                 if (title.is_ai) Banner("${title.id}:claim", Lucide.Mic, "Озвучиваете эту книгу?", "Этот тайтл озвучен синтезированным голосом. Если вы чтец и озвучили эту книгу сами — напишите в поддержку, и мы передадим тайтл вам.", "Связаться с поддержкой" to Support.URL)
                 Spacer(Modifier.height(6.dp))
@@ -342,16 +344,31 @@ fun TitleScreen(slug: String, initialTab: String?) {
                         Spacer(Modifier.height(8.dp))
                         TagsFlow(title.genres.map { it.name to it.slug }) { nav.go(Routes.catalog(genre = it)) }
                     }
-                    GlassPanel {
-                        KeyValueRow("Автор", title.author?.name ?: "не указан", onClick = title.author?.let { a -> { nav.go(Routes.author(a.id)) } })
-                        if (runtime > 0) KeyValueRow("Длительность", Fmt.duration(runtime))
-                        Fmt.date(title.updated_at).takeIf { it.isNotEmpty() }?.let { KeyValueRow("Обновлён", it) }
-                        KeyValueRow("Страна", Labels.country[title.country] ?: title.country)
-                        KeyValueRow("Тайтл", Labels.releaseStatus[title.release_status] ?: title.release_status)
-                        if (title.narrators.isNotEmpty()) KeyValueRow("Озвучка", Labels.narrationStatus[narrationStatus] ?: narrationStatus)
-                        KeyValueRow("Просмотров", Fmt.count(title.views_count))
-                        if (chaptersTotal > 0) KeyValueRow("Глав", chaptersTotal.toString())
-                        if (title.translator.isNotBlank()) KeyValueRow("Переводчик", title.translator)
+                    val facts = buildList<Triple<String, String, (() -> Unit)?>> {
+                        add(Triple("Автор", title.author?.name ?: "не указан", title.author?.let { a -> { nav.go(Routes.author(a.id)) } }))
+                        if (runtime > 0) add(Triple("Длительность", Fmt.duration(runtime), null))
+                        Fmt.date(title.updated_at).takeIf { it.isNotEmpty() }?.let { add(Triple("Обновлён", it, null)) }
+                        add(Triple("Страна", Labels.country[title.country] ?: title.country, null))
+                        add(Triple("Тайтл", Labels.releaseStatus[title.release_status] ?: title.release_status, null))
+                        if (title.narrators.isNotEmpty()) add(Triple("Озвучка", Labels.narrationStatus[narrationStatus] ?: narrationStatus, null))
+                        add(Triple("Просмотров", Fmt.count(title.views_count), null))
+                        if (chaptersTotal > 0) add(Triple("Глав", chaptersTotal.toString(), null))
+                        if (title.translator.isNotBlank()) add(Triple("Переводчик", title.translator, null))
+                    }
+                    GlassPanel(Modifier.fillMaxWidth(), padding = PaddingValues(horizontal = 16.dp, vertical = 14.dp)) {
+                        Eyebrow("Детали", icon = Lucide.Info)
+                        Column(Modifier.padding(top = 10.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                            for ((k, v, click) in facts.take(FACTS_SHOWN)) FactRow(k, v, click)
+                        }
+                        if (facts.size > FACTS_SHOWN) Row(Modifier.padding(top = 10.dp).clip(RoundedCornerShape(6.dp)).clickable { detailsOpen = true }.padding(vertical = 2.dp), verticalAlignment = Alignment.CenterVertically) {
+                            Text("ВСЕ ДЕТАЛИ", color = Ar.textMuted, fontSize = 10.5.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.sp)
+                            Icon(Lucide.ChevronRight, null, tint = Ar.textMuted, modifier = Modifier.size(12.dp))
+                        }
+                    }
+                    ArSheet(detailsOpen, { detailsOpen = false }, "Детали") {
+                        Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                            for ((k, v, click) in facts) FactRow(k, v, click?.let { c -> { detailsOpen = false; c() } })
+                        }
                     }
                     if (title.narrators.isNotEmpty()) Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
                         for (n in title.narrators) Row(Modifier.fillMaxWidth().clip(RoundedCornerShape(10.dp)).background(Ar.fill04).clickable { nav.go(Routes.narrator(n.slug)) }.padding(10.dp), verticalAlignment = Alignment.CenterVertically) {
@@ -367,7 +384,7 @@ fun TitleScreen(slug: String, initialTab: String?) {
                             n.narration_status?.let { StatusBadge(it) }
                         }
                     }
-                    GlassPanel {
+                    GlassPanel(Modifier.fillMaxWidth()) {
                         Eyebrow("Рейтинг", icon = Lucide.Star)
                         Spacer(Modifier.height(8.dp))
                         RatingStars(title.avg_rating, title.rating_count, title.my_rating, if (user != null) ({ rate(it) }) else null)
@@ -486,18 +503,32 @@ fun TitleScreen(slug: String, initialTab: String?) {
 private fun Banner(key: String, icon: androidx.compose.ui.graphics.vector.ImageVector, title: String, text: String, action: Pair<String, String>?) {
     val nav = LocalNav.current
     var hidden by remember(key) { mutableStateOf(Stores.prefs.getString("banner:$key") == "1") }
-    if (hidden) return
+    val visible = remember(key) { MutableTransitionState(!hidden) }
+    visible.targetState = !hidden
+    AnimatedVisibility(visible, enter = expandVertically(tween(220)), exit = shrinkVertically(tween(220)) + fadeOut(tween(160))) {
     GlassPanel(Modifier.padding(bottom = 10.dp), padding = PaddingValues(12.dp)) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             Icon(icon, null, tint = Ar.accent, modifier = Modifier.size(17.dp))
             Spacer(Modifier.width(10.dp))
-            Column(Modifier.weight(1f)) {
-                if (title.isNotBlank()) Text(title, color = Ar.white, fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
-                if (text.isNotBlank()) Text(text, color = Ar.textSecondary, fontSize = 12.sp, lineHeight = 17.sp)
-                if (action != null) ArButton(action.first, { Links.open(nav, action.second) }, small = true, modifier = Modifier.padding(top = 8.dp))
-            }
+            Text(title, color = Ar.white, fontSize = 13.sp, fontWeight = FontWeight.SemiBold, modifier = Modifier.weight(1f))
             IconBtn(Lucide.X, "Закрыть", { hidden = true; Stores.prefs.putString("banner:$key", "1") }, size = 28.dp, iconSize = 14.dp, tint = Ar.textMuted)
         }
+        Column(Modifier.padding(start = 27.dp)) {
+            if (text.isNotBlank()) Text(text, color = Ar.textSecondary, fontSize = 12.sp, lineHeight = 17.sp)
+            if (action != null) ArButton(action.first, { Links.open(nav, action.second) }, small = true, modifier = Modifier.padding(top = 8.dp))
+        }
+    }
+    }
+}
+
+private const val FACTS_SHOWN = 6
+
+@Composable
+private fun FactRow(key: String, value: String, onClick: (() -> Unit)? = null) {
+    Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.Top) {
+        Text(key, color = Ar.textMuted, fontSize = 13.sp, fontWeight = FontWeight.SemiBold, maxLines = 1)
+        Spacer(Modifier.width(12.dp))
+        Text(value, color = if (onClick != null) Ar.accentHover else Ar.text, fontSize = 13.sp, textAlign = TextAlign.End, modifier = Modifier.weight(1f).then(if (onClick != null) Modifier.clickable(onClick = onClick) else Modifier))
     }
 }
 
