@@ -95,10 +95,10 @@ fun Modifier.dockScrollAware(): Modifier {
     val shell = LocalShell.current
     val connection = remember(shell) {
         object : NestedScrollConnection {
-            override fun onPreScroll(available: Offset, source: NestedScrollSource): Offset {
+            override fun onPostScroll(consumed: Offset, available: Offset, source: NestedScrollSource): Offset {
                 if (source == NestedScrollSource.UserInput) {
-                    if (available.y < -6f && !shell.dockCompact) shell.dockCompact = true
-                    if (available.y > 6f && shell.dockCompact) shell.dockCompact = false
+                    if (consumed.y < -2f && !shell.dockCompact) shell.dockCompact = true
+                    if (consumed.y > 2f && shell.dockCompact) shell.dockCompact = false
                 }
                 return Offset.Zero
             }
