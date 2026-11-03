@@ -107,10 +107,9 @@ private fun TtsModelsPanel() {
     var confirm by remember { mutableStateOf(false) }
     var download by remember { mutableStateOf(false) }
     GlassPanel(Modifier.fillMaxWidth().padding(bottom = 12.dp), padding = PaddingValues(4.dp)) {
-        Eyebrow("Озвучка на устройстве", Modifier.padding(start = 12.dp, top = 8.dp, bottom = 4.dp))
-        Text(
-            if (installed) "Модель Silero на устройстве (${Fmt.bytes(bytes)}). Книги с текстом читаются вслух без интернета."
-            else "Модель не скачана. Она загрузится сама, когда вы запустите книгу с озвучкой ИИ.",
+        Eyebrow("ИИ Озвучка", Modifier.padding(start = 12.dp, top = 8.dp, bottom = 4.dp))
+        if (installed) Text(
+            "Модель Silero на устройстве (${Fmt.bytes(bytes)}).",
             color = Ar.textMuted, fontSize = 12.sp, modifier = Modifier.padding(horizontal = 12.dp, vertical = 4.dp),
         )
         if (installed) MenuRow(Lucide.Trash2, "Удалить модели озвучки", { confirm = true }, tint = Ar.danger)

@@ -146,7 +146,7 @@ fun OfflineScreen() {
             }
         } else items(titles, key = { it.titleId }) { m ->
             val done = m.chapters.size
-            val all = m.title.volumes.flatMap { it.liveChapters }.filter { it.audio_status == "ready" }
+            val all = m.title.volumes.flatMap { it.liveChapters }.filter { it.downloadable }
             val queued = queue.count { it.titleId == m.titleId }
             val t = OfflineStore.offlineTitle(m)
             val listened = all.count { c -> (c.my_position ?: 0.0) > 0 }

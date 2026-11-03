@@ -111,7 +111,7 @@ fun ChapterScreen(id: Int, startAt: Double?) {
                     Eyebrow("$volumeLabel · Глава ${Fmt.trimNum(ch.number)}")
                     Text(chapterLabel, color = Ar.white, fontSize = 20.sp, fontWeight = FontWeight.Medium, textAlign = TextAlign.Center, modifier = Modifier.padding(top = 6.dp))
                     Spacer(Modifier.height(18.dp))
-                    Box(Modifier.size(76.dp).clip(CircleShape).background(if (isPlaying) Ar.accent else Ar.accentSoft).clickable { if (isCurrent) PlayerController.toggle() else PlayerController.play(ch.id) }, contentAlignment = Alignment.Center) {
+                    Box(Modifier.size(76.dp).clip(CircleShape).background(if (isPlaying) Ar.accent else Ar.accentSoft).clickable { if (isCurrent) PlayerController.toggle() else { PlayerController.play(ch.id); if (ch.isTts) PlayerController.setFull(true) } }, contentAlignment = Alignment.Center) {
                         PlayPauseIcon(isPlaying, if (isPlaying) Ar.accentOn else Ar.accent, 32.dp, 3.dp)
                     }
                     Text(if (isPlaying) "Играет" else if (isCurrent) "На паузе" else "Слушать главу", color = Ar.textMuted, fontSize = 11.sp, modifier = Modifier.padding(top = 8.dp))
@@ -124,7 +124,7 @@ fun ChapterScreen(id: Int, startAt: Double?) {
                     Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                         OutlineChip("⏱ ${Fmt.duration(ch.duration_seconds)}")
                         if (!isCurrent && (ch.my_position ?: 0.0) > 0) OutlineChip("Остановились на ${Fmt.duration(ch.my_position)}")
-                        OutlineChip("Скачать", onClick = { Links.external(nav.context, ch.audio_url) }, color = Ar.accent)
+                        if (!ch.isTts) OutlineChip("Скачать", onClick = { Links.external(nav.context, ch.audio_url) }, color = Ar.accent)
                     }
                     Spacer(Modifier.height(18.dp))
                     Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
