@@ -5,8 +5,15 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.BoxScope
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.core.animateDpAsState
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.slideInVertically
+import androidx.compose.animation.slideOutVertically
 import androidx.compose.foundation.layout.Column
+import org.foxgirls.audioranobe.ui.LocalBottomInset
 import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.runtime.CompositionLocalProvider
 import org.foxgirls.audioranobe.ui.components.HairlineDivider
@@ -102,23 +109,28 @@ fun EditHeader(heading: String, subject: String?, onBack: () -> Unit, avatarUrl:
             Spacer(Modifier.width(10.dp))
         }
         Column(Modifier.weight(1f)) {
-            Text(heading, color = Ar.white, fontSize = 20.sp, fontWeight = FontWeight.Medium, lineHeight = 24.sp)
-            if (subject != null) Text(subject, color = Ar.textMuted, fontSize = 13.sp)
-            if (tags.isNotEmpty()) Text(tags.joinToString("  ·  "), color = Ar.textMuted, fontSize = 12.sp, modifier = Modifier.padding(top = 2.dp))
+            Text(heading, color = Ar.white, fontSize = 20.sp, fontWeight = FontWeight.Medium, lineHeight = 22.sp)
+            if (subject != null) Text(subject, color = Ar.textMuted, fontSize = 13.sp, lineHeight = 16.sp)
+            if (tags.isNotEmpty()) Text(tags.joinToString("  ·  "), color = Ar.textMuted, fontSize = 12.sp, lineHeight = 14.sp)
         }
     }
 }
 
 /** Screen frame for the redesigned edit pages: scrolling column, optional bar pinned to the bottom, flat button style. */
 @Composable
-fun EditScaffold(bar: (@Composable BoxScope.() -> Unit)?, content: @Composable ColumnScope.() -> Unit) {
+fun EditScaffold(showBar: Boolean, bar: @Composable () -> Unit = {}, content: @Composable ColumnScope.() -> Unit) {
+    val barSpace by animateDpAsState(if (showBar) 84.dp else 0.dp, tween(220), label = "barSpace")
     CompositionLocalProvider(LocalFlatUi provides true) {
         Box(Modifier.fillMaxSize()) {
             Column(
-                Modifier.fillMaxSize().verticalScroll(rememberScrollState()).statusBarsPadding().padding(pagePadding()).padding(bottom = if (bar != null) 84.dp else 0.dp),
+                Modifier.fillMaxSize().verticalScroll(rememberScrollState()).statusBarsPadding().padding(pagePadding()).padding(bottom = barSpace),
                 content = content,
             )
-            bar?.invoke(this)
+            AnimatedVisibility(
+                showBar, Modifier.align(Alignment.BottomCenter).padding(bottom = LocalBottomInset.current),
+                enter = slideInVertically(tween(260)) { it } + fadeIn(tween(260)),
+                exit = slideOutVertically(tween(200)) { it } + fadeOut(tween(200)),
+            ) { bar() }
         }
     }
 }
@@ -137,9 +149,9 @@ fun EditSection(title: String, desc: String? = null, first: Boolean = false, con
 
 /** Sticky "unsaved changes" bar. */
 @Composable
-fun BoxScope.EditSaveBar(saving: Boolean, note: String?, error: String?, onReset: () -> Unit, onSave: () -> Unit) {
+fun EditSaveBar(saving: Boolean, note: String?, error: String?, onReset: () -> Unit, onSave: () -> Unit) {
     Column(
-        Modifier.align(Alignment.BottomCenter).fillMaxWidth().padding(horizontal = 12.dp, vertical = 10.dp)
+        Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 10.dp)
             .clip(RoundedCornerShape(14.dp)).background(Ar.surfaceRaised).border(1.dp, Ar.border, RoundedCornerShape(14.dp)).padding(12.dp),
     ) {
         if (error != null) Text(error, color = Ar.danger, fontSize = 13.sp, modifier = Modifier.padding(bottom = 8.dp))
@@ -330,11 +342,7 @@ fun NarratorEditScreen(slug: String) {
         if (isOwner) add(TabItem("transfer", "Перенос"))
     }
 
-    val bar: (@Composable BoxScope.() -> Unit)? = if (tab == "info" && (dirty || saving)) {
-        { EditSaveBar(saving, if (!isMod && n.mod_status == "approved") "Правки проходят модерацию" else null, null, { resetForm() }, { save() }) }
-    } else null
-
-    EditScaffold(bar) {
+    EditScaffold(tab == "info" && (dirty || saving), { EditSaveBar(saving, if (!isMod && n.mod_status == "approved") "Правки проходят модерацию" else null, null, { resetForm() }, { save() }) }) {
         EditHeader(n.name, null, { nav.back() }, n.avatar_thumb_url ?: n.avatar_url, Lucide.Mic, tags = listOfNotNull(if (n.is_verified) "Подтверждён" else null, if (n.is_ai) "ИИ-голос" else null))
         ArTabs(tabs, tab, { tab = it }, Modifier.padding(bottom = 16.dp), variant = TabsVariant.Underline)
         when (tab) {

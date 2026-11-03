@@ -3,7 +3,6 @@ package org.foxgirls.audioranobe.ui.screens.editing
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.BoxScope
 import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
@@ -103,6 +102,7 @@ fun TitleEditScreen(slug: String, initialTab: String?) {
         add(TabItem("info", "Инфо")); add(TabItem("artwork", "Оформление"))
         if (canIllustrations) add(TabItem("illustrations", "Иллюстрации"))
         add(TabItem("content", "Главы"))
+        if (auth.can("narration.books")) add(TabItem("text", "Текст"))
         add(TabItem("stats", "Статистика"))
     }
     val reload: suspend () -> Unit = { loader.reload() }
@@ -112,7 +112,8 @@ fun TitleEditScreen(slug: String, initialTab: String?) {
     }
 
     if (tab == "info") { TitleInfoForm(title, slug, loader.nonce, reload, header); return }
-    EditScaffold(null) {
+    if (tab == "text") { TextBranchManager(title, reload, header); return }
+    EditScaffold(false) {
         header()
         when (tab) {
             "artwork" -> TitleArtwork(title, reload)
@@ -221,11 +222,7 @@ private fun TitleInfoForm(title: TitleFull, routeSlug: String, nonce: Int, reloa
         }
     }
 
-    val bar: (@Composable BoxScope.() -> Unit)? = if (dirty || saving || formError.isNotEmpty()) {
-        { EditSaveBar(saving, if (!isMod && title.mod_status == "approved") "Правки проходят модерацию" else null, formError.ifEmpty { null }, { resetForm() }, { save() }) }
-    } else null
-
-    EditScaffold(bar) {
+    EditScaffold(dirty || saving || formError.isNotEmpty(), { EditSaveBar(saving, if (!isMod && title.mod_status == "approved") "Правки проходят модерацию" else null, formError.ifEmpty { null }, { resetForm() }, { save() }) }) {
         header()
         EditSection("Основное", "Название и адрес страницы", first = true) {
             ArTextField(name, { name = it }, label = "Название", maxLength = 300)

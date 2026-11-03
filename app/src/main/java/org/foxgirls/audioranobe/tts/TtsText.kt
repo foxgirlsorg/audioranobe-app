@@ -35,12 +35,15 @@ object TtsText {
     }
 
     /** "Том 2 глава 5 - Название": the volume only when the title has several, the name only when it says more than the number. */
-    fun announcement(ch: ChapterPlay): String {
+    fun announcement(ch: ChapterPlay): String =
+        announcement(ch.volume.count, ch.title.volume_label, ch.volume.number, ch.number, ch.number_end, ch.name)
+
+    fun announcement(volumeCount: Int, volumeLabel: String, volumeNumber: Double, number: Double, numberEnd: Double?, chapterName: String): String {
         val parts = ArrayList<String>()
-        if (ch.volume.count > 1) parts.add("${ch.title.volume_label} ${Fmt.trimNum(ch.volume.number)}")
-        val range = ch.number_end?.let { "${Fmt.trimNum(ch.number)}–${Fmt.trimNum(it)}" } ?: Fmt.trimNum(ch.number)
+        if (volumeCount > 1) parts.add("$volumeLabel ${Fmt.trimNum(volumeNumber)}")
+        val range = numberEnd?.let { "${Fmt.trimNum(number)}–${Fmt.trimNum(it)}" } ?: Fmt.trimNum(number)
         parts.add("${if (parts.isEmpty()) "Глава" else "глава"} $range")
-        val name = ch.name.trim()
+        val name = chapterName.trim()
         val bare = Regex("^(глава|главы)?\\s*[\\d.,\\s–-]*$", RegexOption.IGNORE_CASE).matches(name)
         return if (name.isNotEmpty() && !bare) "${parts.joinToString(" ")} - $name" else parts.joinToString(" ")
     }
