@@ -84,6 +84,8 @@ import org.foxgirls.audioranobe.ui.nav.LocalNav
 import org.foxgirls.audioranobe.ui.nav.Routes
 import org.foxgirls.audioranobe.ui.pagePadding
 import org.foxgirls.audioranobe.ui.swipeTabs
+import org.foxgirls.audioranobe.ui.rememberTabSlide
+import org.foxgirls.audioranobe.ui.tabSlide
 import org.foxgirls.audioranobe.ui.screens.NotFoundScreen
 import org.foxgirls.audioranobe.ui.theme.Ar
 
@@ -114,6 +116,7 @@ fun NarratorScreen(slug: String, initialTab: String?) {
     val canEdit = n.can_edit
 
     val pageScroll = rememberScrollState()
+    val slide = rememberTabSlide(listOf("info", "titles", "comments"), tab)
     Box(Modifier.fillMaxSize()) {
         Column(Modifier.fillMaxSize().swipeTabs(listOf("info", "titles", "comments"), tab) { tab = it }.verticalScroll(pageScroll).padding(bottom = pagePadding().calculateBottomPadding())) {
             Box(Modifier.fillMaxWidth()) {
@@ -164,7 +167,7 @@ fun NarratorScreen(slug: String, initialTab: String?) {
                 tab, { tab = it }, Modifier.padding(horizontal = 16.dp, vertical = 8.dp), variant = TabsVariant.Underline,
             )
 
-            Column(Modifier.padding(horizontal = 16.dp)) {
+            Column(Modifier.tabSlide(slide).padding(horizontal = 16.dp)) {
                 when (tab) {
                     "info" -> {
                         if (n.bio.isNotBlank() || n.socials.isNotEmpty()) GlassPanel(Modifier.fillMaxWidth().padding(bottom = 12.dp)) {

@@ -70,6 +70,8 @@ import org.foxgirls.audioranobe.data.UserSearchHit
 import org.foxgirls.audioranobe.ui.LocalBottomInset
 import org.foxgirls.audioranobe.ui.dockScrollAware
 import org.foxgirls.audioranobe.ui.swipeTabs
+import org.foxgirls.audioranobe.ui.rememberTabSlide
+import org.foxgirls.audioranobe.ui.tabSlide
 import org.foxgirls.audioranobe.ui.LocalShell
 import org.foxgirls.audioranobe.ui.components.ArButton
 import org.foxgirls.audioranobe.ui.components.ArImage
@@ -215,9 +217,11 @@ fun CatalogScreen(args: Bundle?) {
     val screenHeight = LocalConfiguration.current.screenHeightDp
     val skeletonCount = (screenHeight / 160 + 1) * cols
 
+    val catTabs = listOfNotNull("titles", "narrators", if (user != null) "users" else null)
+    val slide = rememberTabSlide(catTabs, tab)
     Box(Modifier.fillMaxSize()) {
         LazyVerticalGrid(
-            columns = GridCells.Fixed(cols), state = gridState, modifier = Modifier.fillMaxSize().dockScrollAware().swipeTabs(listOfNotNull("titles", "narrators", if (user != null) "users" else null), tab) { tab = it; page = 1 },
+            columns = GridCells.Fixed(cols), state = gridState, modifier = Modifier.fillMaxSize().dockScrollAware().swipeTabs(catTabs, tab) { tab = it; page = 1 },
             contentPadding = PaddingValues(start = 16.dp, end = 16.dp, bottom = bottom + 24.dp),
             horizontalArrangement = Arrangement.spacedBy(14.dp), verticalArrangement = Arrangement.spacedBy(18.dp),
         ) {
@@ -247,35 +251,36 @@ fun CatalogScreen(args: Bundle?) {
             }
             // Only the active tab's results decide whether the grid is still loading, so switching tabs never shows "nothing found" mid-fetch.
             val listLoading = loading && when (tab) { "narrators" -> narrators == null; "users" -> users == null; else -> data == null }
+            val sl = Modifier.tabSlide(slide)
             if (listLoading) when (tab) {
-                "titles" -> titleCardSkeletons(skeletonCount)
-                "narrators" -> items((0 until skeletonCount).toList(), key = { "narratorSkeleton$it" }) { _ -> PersonCardSkeleton(Modifier.animateItem(fadeInSpec = skeletonFade(), fadeOutSpec = skeletonFade())) }
-                else -> item(span = { GridItemSpan(maxLineSpan) }) { Column { repeat(screenHeight / 72 + 1) { AvatarRowSkeleton() } } }
+                "titles" -> titleCardSkeletons(skeletonCount, sl)
+                "narrators" -> items((0 until skeletonCount).toList(), key = { "narratorSkeleton$it" }) { _ -> PersonCardSkeleton(sl.animateItem(fadeInSpec = skeletonFade(), fadeOutSpec = skeletonFade())) }
+                else -> item(span = { GridItemSpan(maxLineSpan) }) { Column(sl) { repeat(screenHeight / 72 + 1) { AvatarRowSkeleton() } } }
             }
-            else if (error != null) item(span = { GridItemSpan(maxLineSpan) }) { ErrorState(error!!, { nonce++ }) }
+            else if (error != null) item(span = { GridItemSpan(maxLineSpan) }) { Box(sl) { ErrorState(error!!, { nonce++ }) } }
             else when (tab) {
                 "titles" -> {
                     val d = data
-                    if (d == null || d.items.isEmpty()) item(span = { GridItemSpan(maxLineSpan) }) { EmptyState("Тайтлы не найдены", "Попробуйте смягчить или сбросить фильтры.", Lucide.SearchX) }
+                    if (d == null || d.items.isEmpty()) item(span = { GridItemSpan(maxLineSpan) }) { Box(sl) { EmptyState("Тайтлы не найдены", "Попробуйте смягчить или сбросить фильтры.", Lucide.SearchX) } }
                     else {
-                        items(d.items, key = { it.id }) { t -> TitleCardC(t) }
-                        item(span = { GridItemSpan(maxLineSpan) }) { Pagination(d.page, d.total, d.per_page) { page = it; scope.launch { gridState.scrollToItem(0) } } }
-                        d.external?.takeIf { it.isNotEmpty() }?.let { ext -> item(span = { GridItemSpan(maxLineSpan) }) { RequestableTitles(ext) } }
+                        items(d.items, key = { it.id }) { t -> Box(sl) { TitleCardC(t) } }
+                        item(span = { GridItemSpan(maxLineSpan) }) { Box(sl) { Pagination(d.page, d.total, d.per_page) { page = it; scope.launch { gridState.scrollToItem(0) } } } }
+                        d.external?.takeIf { it.isNotEmpty() }?.let { ext -> item(span = { GridItemSpan(maxLineSpan) }) { Box(sl) { RequestableTitles(ext) } } }
                     }
                 }
                 "narrators" -> {
                     val n = narrators
-                    if (n == null || n.items.isEmpty()) item(span = { GridItemSpan(maxLineSpan) }) { EmptyState("Чтецы не найдены", "Попробуйте другой запрос.", Lucide.SearchX) }
+                    if (n == null || n.items.isEmpty()) item(span = { GridItemSpan(maxLineSpan) }) { Box(sl) { EmptyState("Чтецы не найдены", "Попробуйте другой запрос.", Lucide.SearchX) } }
                     else {
-                        items(n.items, key = { it.id }) { NarratorPersonCard(it) }
-                        item(span = { GridItemSpan(maxLineSpan) }) { Pagination(n.page, n.total, n.per_page) { page = it; scope.launch { gridState.scrollToItem(0) } } }
+                        items(n.items, key = { it.id }) { Box(sl) { NarratorPersonCard(it) } }
+                        item(span = { GridItemSpan(maxLineSpan) }) { Box(sl) { Pagination(n.page, n.total, n.per_page) { page = it; scope.launch { gridState.scrollToItem(0) } } } }
                     }
                 }
                 else -> {
                     val u = users
-                    if (u == null || u.isEmpty()) item(span = { GridItemSpan(maxLineSpan) }) { EmptyState("Пользователи не найдены", if (debouncedQ.isNotBlank()) "Попробуйте другой запрос." else "Начните вводить имя пользователя.", Lucide.SearchX) }
+                    if (u == null || u.isEmpty()) item(span = { GridItemSpan(maxLineSpan) }) { Box(sl) { EmptyState("Пользователи не найдены", if (debouncedQ.isNotBlank()) "Попробуйте другой запрос." else "Начните вводить имя пользователя.", Lucide.SearchX) } }
                     else items(u, key = { it.id }, span = { GridItemSpan(maxLineSpan) }) { h ->
-                        Row(Modifier.fillMaxWidth().clip(RoundedCornerShape(10.dp)).clickable { nav.go(Routes.user(h.id)) }.padding(8.dp), verticalAlignment = Alignment.CenterVertically) {
+                        Row(sl.fillMaxWidth().clip(RoundedCornerShape(10.dp)).clickable { nav.go(Routes.user(h.id)) }.padding(8.dp), verticalAlignment = Alignment.CenterVertically) {
                             UserAvatar(h.username, h.avatar_url, 40.dp, thumbUrl = h.avatar_thumb_url)
                             Spacer(Modifier.width(10.dp))
                             Column {

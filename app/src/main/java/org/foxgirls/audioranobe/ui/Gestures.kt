@@ -1,6 +1,16 @@
 package org.foxgirls.audioranobe.ui
 
 import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.AnimationVector1D
+import androidx.compose.animation.core.tween
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.platform.LocalConfiguration
+import kotlinx.coroutines.CoroutineStart
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.lazy.LazyItemScope
+import androidx.compose.foundation.lazy.LazyListScope
 import androidx.compose.foundation.gestures.detectHorizontalDragGestures
 import androidx.compose.foundation.gestures.detectVerticalDragGestures
 import androidx.compose.runtime.Composable
@@ -43,6 +53,46 @@ fun Modifier.swipeTabs(keys: List<String>, active: String, onChange: (String) ->
             total += dragAmount
             vertical += change.positionChange().y
         }
+    }
+}
+
+/**
+ * Horizontal offset that slides a screen's tab content in from the side the
+ * new tab sits on. Apply it with [tabSlide] to the content, or wrap lazy tab
+ * items in [slideItems].
+ */
+@Composable
+fun rememberTabSlide(keys: List<String>, active: String): Animatable<Float, AnimationVector1D> {
+    val x = remember { Animatable(0f) }
+    val scope = rememberCoroutineScope()
+    val width = with(LocalDensity.current) { LocalConfiguration.current.screenWidthDp.dp.toPx() }
+    val index = keys.indexOf(active)
+    var last by remember { mutableIntStateOf(index) }
+    if (index != last) {
+        val dir = if (index > last) 1f else -1f
+        last = index
+        scope.launch(start = CoroutineStart.UNDISPATCHED) { x.snapTo(width * dir); x.animateTo(0f, tween(280)) }
+    }
+    return x
+}
+
+fun Modifier.tabSlide(x: Animatable<Float, AnimationVector1D>): Modifier = graphicsLayer { translationX = x.value }
+
+/** Emits the items of [block] with each one sliding by [x], so only the tab content moves and the page header stays still. */
+fun LazyListScope.slideItems(x: Animatable<Float, AnimationVector1D>, block: LazyListScope.() -> Unit) = SlideListScope(this, x).block()
+
+
+private class SlideListScope(private val base: LazyListScope, x: Animatable<Float, AnimationVector1D>) : LazyListScope by base {
+    private val slide = Modifier.tabSlide(x)
+
+    override fun item(key: Any?, contentType: Any?, content: @Composable LazyItemScope.() -> Unit) {
+        val m = slide
+        base.item(key, contentType) { val s = this; Box(m) { s.content() } }
+    }
+
+    override fun items(count: Int, key: ((Int) -> Any)?, contentType: (Int) -> Any?, itemContent: @Composable LazyItemScope.(Int) -> Unit) {
+        val m = slide
+        base.items(count, key, contentType) { i -> val s = this; Box(m) { s.itemContent(i) } }
     }
 }
 

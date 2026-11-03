@@ -63,6 +63,8 @@ import org.foxgirls.audioranobe.data.UserProfile
 import org.foxgirls.audioranobe.ui.LocalBottomInset
 import org.foxgirls.audioranobe.ui.dockScrollAware
 import org.foxgirls.audioranobe.ui.swipeTabs
+import org.foxgirls.audioranobe.ui.rememberTabSlide
+import org.foxgirls.audioranobe.ui.slideItems
 import org.foxgirls.audioranobe.ui.components.ArButton
 import org.foxgirls.audioranobe.ui.components.ArImage
 import org.foxgirls.audioranobe.ui.components.ArMarkdown
@@ -192,6 +194,7 @@ fun UserScreen(userRef: String, initialTab: String?) {
     }
 
     val pageList = rememberLazyListState()
+    val slide = rememberTabSlide(USER_TABS, tab)
     Box(Modifier.fillMaxSize()) {
         LazyColumn(state = pageList, modifier = Modifier.fillMaxSize().dockScrollAware().swipeTabs(USER_TABS, tab) { tab = it }, contentPadding = PaddingValues(bottom = bottom + 24.dp)) {
             item {
@@ -263,7 +266,7 @@ fun UserScreen(userRef: String, initialTab: String?) {
                     }
                 }
             }
-            when (tab) {
+            slideItems(slide) { when (tab) {
                 "info" -> item {
                     Column(Modifier.padding(horizontal = 16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
                         if (user.bio.isNotBlank() || user.socials.isNotEmpty()) GlassPanel {
@@ -329,7 +332,7 @@ fun UserScreen(userRef: String, initialTab: String?) {
                 "friends" -> pagedItems(friends, "Друзей пока нет", if (isOwn) "У вас пока нет друзей. Найдите пользователей и отправьте заявку." else "У ${user.shownName} пока нет друзей.", Lucide.Users, key = { it.id }, rowHeight = 64.dp, placeholder = { PersonRowSkeleton() }) { f ->
                     PersonRow(f, Modifier.padding(horizontal = 16.dp, vertical = 4.dp)) {}
                 }
-            }
+            } }
         }
         StickyBackBar({ pageList.firstVisibleItemIndex > 0 || pageList.firstVisibleItemScrollOffset > 0 }, { nav.back() }, horizontalPadding = 8.dp, chip = true)
     }

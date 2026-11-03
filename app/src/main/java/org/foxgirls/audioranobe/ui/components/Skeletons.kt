@@ -220,9 +220,9 @@ fun catalogSkeletonCount(cols: Int = gridColumns(LocalConfiguration.current.scre
 
 /** Lazy-grid placeholder cards, for screens whose cards live in a LazyVerticalGrid. Keys are strings so they never clash with real item ids. */
 @OptIn(ExperimentalFoundationApi::class)
-fun LazyGridScope.titleCardSkeletons(count: Int = 6) {
+fun LazyGridScope.titleCardSkeletons(count: Int = 6, modifier: Modifier = Modifier) {
     gridItems((0 until count).toList(), key = { "skeleton$it" }) { _ ->
-        TitleCardSkeleton(Modifier.animateItem(fadeInSpec = skeletonFade(), fadeOutSpec = skeletonFade()))
+        TitleCardSkeleton(modifier.animateItem(fadeInSpec = skeletonFade(), fadeOutSpec = skeletonFade()))
     }
 }
 

@@ -81,6 +81,8 @@ import org.foxgirls.audioranobe.ui.screens.offline.DownloadSheet
 import org.foxgirls.audioranobe.ui.LocalBottomInset
 import org.foxgirls.audioranobe.ui.dockScrollAware
 import org.foxgirls.audioranobe.ui.swipeTabs
+import org.foxgirls.audioranobe.ui.rememberTabSlide
+import org.foxgirls.audioranobe.ui.slideItems
 import org.foxgirls.audioranobe.ui.components.AccentBadge
 import org.foxgirls.audioranobe.ui.components.AiBadge
 import org.foxgirls.audioranobe.ui.components.ArButton
@@ -275,6 +277,7 @@ fun TitleScreen(slug: String, initialTab: String?) {
     )
 
     val pageList = rememberLazyListState()
+    val slide = rememberTabSlide(tabs.map { it.key }, tab)
     Box(Modifier.fillMaxSize()) {
         LazyColumn(state = pageList, modifier = Modifier.fillMaxSize().dockScrollAware().swipeTabs(tabs.map { it.key }, tab) { tab = it }, contentPadding = PaddingValues(bottom = bottom + 24.dp)) {
             item {
@@ -323,7 +326,7 @@ fun TitleScreen(slug: String, initialTab: String?) {
                     Spacer(Modifier.height(14.dp))
                 }
             }
-            when (tab) {
+            slideItems(slide) { when (tab) {
                 "about" -> item {
                     Column(Modifier.padding(horizontal = 16.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
                         if (title.description.isNotBlank()) Column {
@@ -481,7 +484,7 @@ fun TitleScreen(slug: String, initialTab: String?) {
                 "illustrations" -> item { Box(Modifier.padding(horizontal = 16.dp)) { IllustrationGallery(illustrations, title.volume_label, volumeCovers, title.volume_label_plural) } }
                 "comments" -> item { Box(Modifier.padding(horizontal = 16.dp)) { CommentSection("title", title.id, title.comments, showHeading = false) } }
                 "similar" -> item { Box(Modifier.padding(horizontal = 16.dp)) { CardGrid(title.similar) } }
-            }
+            } }
         }
         StickyBackBar({ pageList.firstVisibleItemIndex > 0 || pageList.firstVisibleItemScrollOffset > 0 }, { nav.back() }) {
             if (title.can_edit) {
