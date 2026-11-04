@@ -38,6 +38,7 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
@@ -359,7 +360,7 @@ fun NotificationsScreen() {
                                 Spacer(Modifier.width(10.dp))
                                 Column(Modifier.weight(1f)) {
                                     Text((TYPE_LABELS[n.type] ?: n.type).uppercase(), color = Ar.textMuted, fontSize = 10.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.2.sp)
-                                    Text(n.body, color = if (n.is_read) Ar.textSecondary else Ar.text, fontSize = 13.sp, lineHeight = 18.sp)
+                                    NotifBody(n.body, if (n.is_read) Ar.textSecondary else Ar.text)
                                     Text(Fmt.timeAgo(n.created_at), color = Ar.textMuted, fontSize = 11.sp, modifier = Modifier.padding(top = 3.dp))
                                 }
                                 if (!n.is_read) IconBtn(Lucide.Check, "Отметить прочитанным", { markRead(n) }, size = 30.dp, iconSize = 16.dp)
@@ -464,3 +465,13 @@ fun JsonObject.int(key: String): Int? = (this[key] as? JsonPrimitive)?.content?.
 fun JsonObject.bool(key: String): Boolean? = (this[key] as? JsonPrimitive)?.content?.toBooleanStrictOrNull()
 fun kotlinx.serialization.json.JsonElement?.asText(): String = if (this == null) "" else jsonValueText(this).let { if (it == "—") "" else it }
 fun kotlinx.serialization.json.JsonElement?.primitiveContent(): String? = (this as? JsonPrimitive)?.jsonPrimitive?.content
+
+@Composable
+private fun NotifBody(text: String, color: Color) {
+    var open by remember(text) { mutableStateOf(false) }
+    var long by remember(text) { mutableStateOf(false) }
+    Text(text, color = color, fontSize = 13.sp, lineHeight = 18.sp, maxLines = if (open) Int.MAX_VALUE else 4, overflow = TextOverflow.Ellipsis,
+        onTextLayout = { if (!open) long = it.hasVisualOverflow })
+    if (long) Text(if (open) "Свернуть" else "Показать полностью", color = Ar.accent, fontSize = 13.sp, fontWeight = FontWeight.SemiBold,
+        modifier = Modifier.padding(top = 4.dp).clickable { open = !open })
+}
