@@ -30,6 +30,8 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.toArgb
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalUriHandler
@@ -66,8 +68,8 @@ private val SIZED_IMG = Regex("!\\[([^\\]]*)]\\(\\s*([^\\s\")]+)\\s+\"(\\d+)\\s*
  * Spoilers render hidden; tapping one reveals it.
  */
 @Composable
-fun ArMarkdown(source: String, modifier: Modifier = Modifier, compact: Boolean = false, media: String? = null) {
-    if (RAW_HTML.containsMatchIn(source)) return HtmlMarkdown(source, modifier, compact, media)
+fun ArMarkdown(source: String, modifier: Modifier = Modifier, compact: Boolean = false, media: String? = null, color: Color = Ar.textSecondary) {
+    if (RAW_HTML.containsMatchIn(source)) return HtmlMarkdown(source, modifier, compact, media, color)
     val nav = LocalNav.current
     var revealed by remember(source) { mutableStateOf(setOf<Int>()) }
 
@@ -96,13 +98,13 @@ fun ArMarkdown(source: String, modifier: Modifier = Modifier, compact: Boolean =
         }
     }
 
-    val base = TextStyle(fontFamily = InterFamily, fontSize = if (compact) 14.sp else 15.sp, lineHeight = if (compact) 20.sp else 23.sp, color = Ar.textSecondary)
+    val base = TextStyle(fontFamily = InterFamily, fontSize = if (compact) 14.sp else 15.sp, lineHeight = if (compact) 20.sp else 23.sp, color = color)
     CompositionLocalProvider(LocalUriHandler provides handler) {
         Markdown(
             content = prepared,
             modifier = modifier.fillMaxWidth().wrapContentHeight(),
             colors = markdownColor(
-                text = Ar.textSecondary,
+                text = color,
                 codeBackground = Ar.fill06,
                 inlineCodeBackground = Ar.fill08,
                 dividerColor = Ar.border,
@@ -155,10 +157,10 @@ private fun markdownToHtml(source: String, media: String?): String {
     return org.intellij.markdown.html.HtmlGenerator(s, tree, flavour).generateHtml()
 }
 
-private fun htmlPage(body: String, compact: Boolean) = """<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><style>
+private fun htmlPage(body: String, compact: Boolean, color: Color) = """<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><style>
 @font-face{font-family:Inter;src:url(file:///android_res/font/inter.ttf)}
 html,body{margin:0;padding:0;background:transparent}
-#md{font-family:Inter,sans-serif;font-size:${if (compact) 14 else 15}px;line-height:${if (compact) 1.45 else 1.55};color:#a6acb2;overflow-wrap:anywhere;word-break:break-word}
+#md{font-family:Inter,sans-serif;font-size:${if (compact) 14 else 15}px;line-height:${if (compact) 1.45 else 1.55};color:#${"%06x".format(color.toArgb() and 0xFFFFFF)};overflow-wrap:anywhere;word-break:break-word}
 #md>*:first-child{margin-top:0}#md>*:last-child{margin-bottom:0}
 #md p{margin:${if (compact) "0 0 .5em" else "14px 0"}}
 #md h1,#md h2,#md h3,#md h4,#md h5,#md h6{color:#fff;font-weight:600;line-height:1.25;margin:1.2em 0 .6em}
@@ -185,9 +187,9 @@ new ResizeObserver(h).observe(md);window.addEventListener('load',h);h();
 
 /** Content with raw HTML in it renders like the site does: through a WebView sized to its content. */
 @Composable
-private fun HtmlMarkdown(source: String, modifier: Modifier, compact: Boolean, media: String?) {
+private fun HtmlMarkdown(source: String, modifier: Modifier, compact: Boolean, media: String?, color: Color) {
     val nav = LocalNav.current
-    val page = remember(source, compact, media) { htmlPage(markdownToHtml(source, media), compact) }
+    val page = remember(source, compact, media, color) { htmlPage(markdownToHtml(source, media), compact, color) }
     var contentHeight by remember { mutableStateOf(0f) }
     androidx.compose.ui.viewinterop.AndroidView(
         modifier = modifier.fillMaxWidth().height(contentHeight.dp),

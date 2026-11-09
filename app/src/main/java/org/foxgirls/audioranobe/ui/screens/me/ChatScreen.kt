@@ -313,6 +313,7 @@ private fun Thread(userId: Int) {
     Column(Modifier.fillMaxSize().swipeBack { nav.back() }.statusBarsPadding().navigationBarsPadding().imePadding()) {
         Row(Modifier.fillMaxWidth().padding(horizontal = 6.dp, vertical = 6.dp), verticalAlignment = Alignment.CenterVertically) {
             IconBtn(Lucide.ArrowLeft, "Назад", { nav.back() }, tint = Ar.text)
+            Spacer(Modifier.width(8.dp))
             if (t != null) Row(Modifier.weight(1f).clickable { nav.go(Routes.user(t.user.id)) }, verticalAlignment = Alignment.CenterVertically) {
                 UserAvatar(t.user.username, t.user.avatar_url, 38.dp, presence = t.user.presence, thumbUrl = t.user.avatar_thumb_url)
                 Spacer(Modifier.width(10.dp))
@@ -445,7 +446,7 @@ private fun Bubble(m: ChatMessage, t: ChatThread, highlighted: Boolean, onLongPr
                     lastLineWidth = if (m.format == "rich") -1 else lastLine,
                     meta = meta,
                 ) {
-                    if (m.format == "rich") ArMarkdown(m.body, compact = true)
+                    if (m.format == "rich") ArMarkdown(m.body, compact = true, color = Ar.text)
                     else LinkifiedText(m.body, onLastLine = { lastLine = it }) { Links.open(nav, it) }
                 }
             } else Box(Modifier.align(Alignment.End).padding(top = 2.dp)) { meta() }
