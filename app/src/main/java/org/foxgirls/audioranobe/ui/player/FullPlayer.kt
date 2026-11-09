@@ -2,6 +2,9 @@ package org.foxgirls.audioranobe.ui.player
 
 import org.foxgirls.audioranobe.ui.components.ditheredBackground
 import org.foxgirls.audioranobe.ui.components.PlayPauseIcon
+import androidx.compose.animation.Crossfade
+import androidx.compose.animation.core.tween
+import org.foxgirls.audioranobe.data.Stores
 import androidx.compose.foundation.basicMarquee
 import androidx.compose.foundation.MarqueeSpacing
 import androidx.compose.foundation.ExperimentalFoundationApi
@@ -83,10 +86,13 @@ fun FullPlayer() {
     val sleep by PlayerController.sleep.collectAsStateWithLifecycle()
     val sleepRemaining by PlayerController.sleepRemaining.collectAsStateWithLifecycle()
     val loading by PlayerController.loading.collectAsStateWithLifecycle()
+    val reader by PlayerController.reader.collectAsStateWithLifecycle()
     val cur = current ?: return
     var scrub by remember { mutableStateOf<Float?>(null) }
     var menu by remember { mutableStateOf<String?>(null) }
     var viewer by remember { mutableStateOf<Int?>(null) }
+    var ttsSheet by remember { mutableStateOf(false) }
+    var prompter by remember { mutableStateOf(Stores.prefs.ttsPrompter) }
 
     val shown = scrub?.toDouble() ?: position
     val max = if (duration > 0) duration else maxOf(shown, 1.0)
@@ -112,7 +118,10 @@ fun FullPlayer() {
             // Artwork: chapter illustrations if present, else the cover; centered in the free space.
             Column(Modifier.weight(1f).fillMaxWidth(), verticalArrangement = Arrangement.Center, horizontalAlignment = Alignment.CenterHorizontally) {
                 val ills = cur.illustrations
-                if (ills.isNotEmpty()) {
+                val text = reader
+                if (text != null) {
+                    Crossfade(prompter, Modifier.weight(1f), animationSpec = tween(300), label = "readerStyle") { p -> TtsReader(text, shown, p) }
+                } else if (ills.isNotEmpty()) {
                     val pager = rememberPagerState(pageCount = { ills.size })
                     LaunchedEffect(cur.id) { pager.scrollToPage(0) }
                     HorizontalPager(pager, Modifier.widthIn(max = 720.dp).fillMaxWidth().weight(1f, fill = false).aspectRatio(1f, matchHeightConstraintsFirst = true).clip(RoundedCornerShape(18.dp))) { i ->
@@ -163,7 +172,7 @@ fun FullPlayer() {
                 IconBtn(Lucide.SkipBack, "Предыдущая глава", { PlayerController.prev() }, tint = Ar.text, size = 48.dp, iconSize = 24.dp)
                 IconBtn(Lucide.RotateCcw, "Назад на 10 секунд", { PlayerController.skip(-10.0) }, tint = Ar.text, size = 48.dp, iconSize = 26.dp)
                 Box(Modifier.size(72.dp).clip(CircleShape).background(Ar.accent).clickable { PlayerController.toggle() }, contentAlignment = Alignment.Center) {
-                    if (loading && !playing) org.foxgirls.audioranobe.ui.components.Spinner(size = 28.dp)
+                    if (loading && !playing) org.foxgirls.audioranobe.ui.components.Spinner(size = 28.dp, color = Ar.accentOn, track = Ar.accentOn.copy(alpha = 0.2f))
                     else PlayPauseIcon(playing, Ar.accentOn, 32.dp, 3.dp)
                 }
                 IconBtn(Lucide.RotateCw, "Вперёд на 10 секунд", { PlayerController.skip(10.0) }, tint = Ar.text, size = 48.dp, iconSize = 26.dp)
@@ -172,6 +181,7 @@ fun FullPlayer() {
 
             Spacer(Modifier.height(14.dp))
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End, verticalAlignment = Alignment.CenterVertically) {
+                if (reader != null) IconBtn(Lucide.SlidersHorizontal, "Настройки озвучки", { ttsSheet = true }, tint = Ar.textSecondary, iconSize = 20.dp)
                 Text("${Fmt.trimNum(rate.toDouble())}x", color = if (rate != 1f) Ar.accent else Ar.textSecondary, fontSize = 14.sp, fontWeight = FontWeight.SemiBold,
                     modifier = Modifier.clip(CircleShape).clickable { menu = "rate" }.padding(horizontal = 14.dp, vertical = 8.dp))
                 Row(Modifier.clip(CircleShape).clickable { menu = "sleep" }.padding(horizontal = 14.dp, vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
@@ -186,6 +196,7 @@ fun FullPlayer() {
         }
     }
 
+    TtsSettingsSheet(ttsSheet, { ttsSheet = false }, prompter, { prompter = it; Stores.prefs.ttsPrompter = it })
     ArSheet(menu == "rate", { menu = null }, "Скорость") {
         for (r in PlayerController.RATES) MenuRow(null, "${Fmt.trimNum(r.toDouble())}x", { PlayerController.setRate(r); menu = null }, tint = Ar.text) {
             if (r == rate) Icon(Lucide.Check, null, tint = Ar.accent, modifier = Modifier.size(15.dp))

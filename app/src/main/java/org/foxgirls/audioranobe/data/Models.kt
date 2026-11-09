@@ -239,6 +239,8 @@ data class ChapterRow(
     val name: String = "",
     val duration_seconds: Double = 0.0,
     val audio_status: String = "none",
+    /** The chapter has a stored text, so it can be read aloud by the on-device narrator. */
+    val has_text: Boolean = false,
     val mod_status: String = "approved",
     val my_position: Double? = null,
     val narrators: List<NarratorRef> = emptyList(),
@@ -249,6 +251,8 @@ data class ChapterRow(
     val position: Int? = null,
 ) {
     val playable get() = audio_status == "ready"
+    /** Can be saved for offline: as audio, or as text for reading aloud. */
+    val downloadable get() = playable || has_text
 }
 
 @Serializable
@@ -265,7 +269,19 @@ data class Volume(
 }
 
 @Serializable
-data class TitleVersion(val id: Int, val name: String = "", val sort: Int = 0, val standalone_volume_ids: List<Int> = emptyList())
+data class TitleVersion(
+    val id: Int,
+    val name: String = "",
+    val sort: Int = 0,
+    val standalone_volume_ids: List<Int> = emptyList(),
+    /** "ai" is the AudioRanobe AI branch: chapter texts read aloud on the device. */
+    val kind: String = "audio",
+) {
+    val isAi get() = kind == "ai"
+}
+
+@Serializable
+data class TextBranch(val enabled: Boolean = true, val total: Int = 0, val active: Int = 0)
 
 @Serializable
 data class NarratorCard(
@@ -396,12 +412,13 @@ data class TitleFull(
     val selected_version_id: Int = 0,
     @Serializable(with = ChapterRowsMap::class) val alt_chapters: Map<String, List<ChapterRow>> = emptyMap(),
     val narrator_ids: List<Int>? = null,
+    val text_branch: TextBranch? = null,
 ) {
     fun asCard() = TitleCard(id, slug, name, author, year, cover_url, cover_thumb_url, release_status, country, avg_rating, rating_count, listens, updated_at, chapters_count, genres, age_rating, my_favorite, is_deleted, is_hidden, is_nsfw, is_ai, has_sensitive_genre, is_restricted)
 }
 
 @Serializable
-data class ChapterPlayVolume(val id: Int, val number: Double = 0.0, val name: String = "", val cover_url: String? = null, val cover_thumb_url: String? = null)
+data class ChapterPlayVolume(val id: Int, val number: Double = 0.0, val name: String = "", val count: Int = 1, val cover_url: String? = null, val cover_thumb_url: String? = null)
 
 @Serializable
 data class ChapterPlayTitle(val id: Int, val slug: String = "", val name: String = "", val cover_url: String? = null, val volume_label: String = "Том")
@@ -415,6 +432,8 @@ data class ChapterPlay(
     val duration_seconds: Double = 0.0,
     val audio_url: String = "",
     val my_position: Double? = null,
+    /** "tts": the device reads the stored text aloud (AI version selected, or the chapter has no audio). */
+    val narration: String = "audio",
     val volume: ChapterPlayVolume,
     val title: ChapterPlayTitle,
     val prev_id: Int? = null,
@@ -423,7 +442,22 @@ data class ChapterPlay(
     val illustrations: List<Illustration> = emptyList(),
 ) {
     val coverUrl get() = volume.cover_url ?: title.cover_url
+    val isTts get() = narration == "tts" || audio_url.isBlank()
 }
+
+@Serializable
+data class ChapterText(
+    val chapter_id: Int,
+    val text: String,
+    val edited: Boolean = false,
+    val speaker: String = "baya",
+    val sample_rate: Int = 48000,
+    val defaults: TextDefaults? = null,
+)
+
+/** Narration settings the moderators picked for everyone; a listener's own choices win. */
+@Serializable
+data class TextDefaults(val pause: Double = 0.35, val announce: Boolean = true)
 
 @Serializable
 data class Comment(

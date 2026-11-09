@@ -4,6 +4,7 @@ import android.app.PendingIntent
 import android.content.Intent
 import android.net.Uri
 import android.os.Bundle
+import android.os.Looper
 import androidx.media3.common.AudioAttributes
 import androidx.media3.common.C
 import androidx.media3.common.ForwardingSimpleBasePlayer
@@ -40,6 +41,7 @@ import org.foxgirls.audioranobe.data.SearchSuggest
 import org.foxgirls.audioranobe.data.TitleFull
 import org.foxgirls.audioranobe.data.Stores
 import org.foxgirls.audioranobe.offline.OfflineStore
+import org.foxgirls.audioranobe.tts.SentenceSpeaker
 import com.google.common.collect.ImmutableList
 import com.google.common.util.concurrent.Futures
 import com.google.common.util.concurrent.ListenableFuture
@@ -59,6 +61,8 @@ import kotlinx.serialization.builtins.ListSerializer
 class PlaybackService : MediaLibraryService() {
     private var session: MediaLibrarySession? = null
     private val scope = MainScope()
+    private var audioPlayer: Player? = null
+    private val ttsPlayer by lazy { TtsPlayer(Looper.getMainLooper()) }
 
     override fun onCreate() {
         super.onCreate()
@@ -86,16 +90,21 @@ class PlaybackService : MediaLibraryService() {
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
         )
 
-        val s = MediaLibrarySession.Builder(this, ChapterPlayer(exo), LibraryCallback())
+        val chapterPlayer = ChapterPlayer(exo)
+        audioPlayer = chapterPlayer
+        val s = MediaLibrarySession.Builder(this, chapterPlayer, LibraryCallback())
             .setSessionActivity(openApp)
             .setMediaButtonPreferences(buttons(exo.playbackParameters.speed))
             .build()
         session = s
-        exo.addListener(object : Player.Listener {
+        val speedListener = object : Player.Listener {
             override fun onPlaybackParametersChanged(playbackParameters: PlaybackParameters) {
                 s.setMediaButtonPreferences(buttons(playbackParameters.speed))
             }
-        })
+        }
+        exo.addListener(speedListener)
+        ttsPlayer.addListener(speedListener)
+        instance = this
         scope.launch { OfflineStore.titles.collect { s.notifyChildrenChanged(DOWNLOADS, Int.MAX_VALUE, null) } }
         scope.launch { PlayerController.current.collect { s.notifyChildrenChanged(CONTINUE, Int.MAX_VALUE, null) } }
     }
@@ -109,12 +118,33 @@ class PlaybackService : MediaLibraryService() {
         }
     }
 
-    override fun onDestroy() {
-        scope.cancel()
-        session?.run {
-            player.release()
-            release()
+    /** Reads [item]'s text aloud: the session switches from the file player to the narration player. */
+    fun startTts(item: MediaItem, startSeconds: Double, play: Boolean, create: (SentenceSpeaker.Listener) -> SentenceSpeaker) {
+        val s = session ?: return
+        if (s.player !== ttsPlayer) {
+            audioPlayer?.pause()
+            s.player = ttsPlayer
         }
+        ttsPlayer.load(item, startSeconds, play, create)
+    }
+
+    /** Back to the file player (for an audio chapter, or when playback is stopped). */
+    fun leaveTts() {
+        val s = session ?: return
+        if (s.player !== ttsPlayer) return
+        ttsPlayer.unload()
+        s.player = audioPlayer ?: return
+    }
+
+    fun ttsSeconds(): Double = ttsPlayer.totalSeconds
+
+    override fun onDestroy() {
+        instance = null
+        scope.cancel()
+        ttsPlayer.release()
+        audioPlayer?.release()
+        audioPlayer = null
+        session?.release()
         session = null
         super.onDestroy()
     }
@@ -277,7 +307,7 @@ class PlaybackService : MediaLibraryService() {
         }
         val found = runCatching { Api.get<SearchSuggest>("/search/suggest", mapOf("q" to words.joinToString(" "))) }.getOrNull()?.titles?.firstOrNull() ?: return null
         val t = Api.get<TitleFull>("/titles/${found.id}")
-        val chapters = t.volumes.sortedBy { it.number }.flatMap { v -> v.liveChapters.sortedBy { it.number } }.filter { it.playable }
+        val chapters = t.volumes.sortedBy { it.number }.flatMap { v -> v.liveChapters.sortedBy { it.number } }.filter { it.downloadable }
         return (chapters.firstOrNull { (it.my_position ?: 0.0) > 0 && it.my_position!! < it.duration_seconds - 5 } ?: chapters.firstOrNull())?.id
     }
 
@@ -377,6 +407,7 @@ class PlaybackService : MediaLibraryService() {
     }
 
     companion object {
+        @Volatile var instance: PlaybackService? = null
         const val CMD_BACK = "audioranobe.back10"
         const val CMD_FWD = "audioranobe.fwd10"
         const val CMD_SPEED = "audioranobe.speed"

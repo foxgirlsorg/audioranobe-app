@@ -1,5 +1,7 @@
 package org.foxgirls.audioranobe.ui.screens.content
 
+import org.foxgirls.audioranobe.ui.components.StickyBarHeight
+import org.foxgirls.audioranobe.ui.components.StickyBackBar
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -317,70 +319,72 @@ fun CollectionScreen(id: Int) {
         }
     }
 
-    Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).statusBarsPadding().padding(pagePadding())) {
-        Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(bottom = 8.dp)) {
-            IconBtn(Lucide.ArrowLeft, "Назад", { nav.back() }, tint = Ar.text)
-        }
-        GlassPanel {
-            Eyebrow("Коллекция")
-            Text(col.name, color = Ar.white, fontSize = 24.sp, fontWeight = FontWeight.Medium, lineHeight = 30.sp, modifier = Modifier.padding(top = 4.dp))
-            if (col.description.isNotBlank()) Text(col.description, color = Ar.textSecondary, fontSize = 14.sp, lineHeight = 20.sp, modifier = Modifier.padding(top = 6.dp))
-            Spacer(Modifier.height(10.dp))
-            FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                Row(Modifier.clickable { nav.go(Routes.user(col.user.id)) }, verticalAlignment = Alignment.CenterVertically) {
-                    UserAvatar(col.user.username, col.user.avatar_url, 22.dp, thumbUrl = col.user.avatar_thumb_url)
-                    Spacer(Modifier.width(6.dp))
-                    Text(col.user.display_name.ifBlank { col.user.username }, color = Ar.text, fontSize = 13.sp, fontWeight = FontWeight.Medium)
+    val pageScroll = rememberScrollState()
+    Box(Modifier.fillMaxSize()) {
+        Column(Modifier.fillMaxSize().verticalScroll(pageScroll).statusBarsPadding().padding(pagePadding())) {
+            Spacer(Modifier.height(StickyBarHeight - 4.dp))
+            GlassPanel {
+                Eyebrow("Коллекция")
+                Text(col.name, color = Ar.white, fontSize = 24.sp, fontWeight = FontWeight.Medium, lineHeight = 30.sp, modifier = Modifier.padding(top = 4.dp))
+                if (col.description.isNotBlank()) Text(col.description, color = Ar.textSecondary, fontSize = 14.sp, lineHeight = 20.sp, modifier = Modifier.padding(top = 6.dp))
+                Spacer(Modifier.height(10.dp))
+                FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                    Row(Modifier.clickable { nav.go(Routes.user(col.user.id)) }, verticalAlignment = Alignment.CenterVertically) {
+                        UserAvatar(col.user.username, col.user.avatar_url, 22.dp, thumbUrl = col.user.avatar_thumb_url)
+                        Spacer(Modifier.width(6.dp))
+                        Text(col.user.display_name.ifBlank { col.user.username }, color = Ar.text, fontSize = 13.sp, fontWeight = FontWeight.Medium)
+                    }
+                    Text("· Тайтлов: ${col.items_count}", color = Ar.textMuted, fontSize = 13.sp)
+                    Text("· Обновлено ${Fmt.date(col.updated_at)}", color = Ar.textMuted, fontSize = 13.sp)
+                    if (!col.is_public) AccentBadge("Приватная", icon = Lucide.Lock, color = Ar.textSecondary)
                 }
-                Text("· Тайтлов: ${col.items_count}", color = Ar.textMuted, fontSize = 13.sp)
-                Text("· Обновлено ${Fmt.date(col.updated_at)}", color = Ar.textMuted, fontSize = 13.sp)
-                if (!col.is_public) AccentBadge("Приватная", icon = Lucide.Lock, color = Ar.textSecondary)
-            }
-            Spacer(Modifier.height(12.dp))
-            FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                val liked = col.my_like
-                Row(
-                    Modifier.clip(CircleShape).background(if (liked) Ar.accent.copy(alpha = 0.14f) else Ar.fill04)
-                        .border(1.dp, if (liked) Ar.accent.copy(alpha = 0.5f) else Ar.border, CircleShape)
-                        .clickable(enabled = !likeBusy) { toggleLike() }.heightIn(min = 34.dp).padding(horizontal = 12.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                ) {
-                    Icon(Lucide.Heart, null, tint = if (liked) Ar.accent else Ar.textSecondary, modifier = Modifier.size(14.dp))
-                    Spacer(Modifier.width(6.dp))
-                    Text(col.likes_count.toString(), color = if (liked) Ar.accent else Ar.text, fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
-                }
-                if (isOwner) ArButton("Добавить тайтлы", { addOpen = true }, kind = ButtonKind.Primary, icon = Lucide.Plus, small = true)
-                if (canEditMeta) {
-                    ArButton("Изменить", { editOpen = true }, icon = Lucide.Pencil, small = true)
-                    ArButton(if (col.is_public) "Публичная" else "Приватная", { toggleVisibility() }, icon = if (col.is_public) Lucide.Globe else Lucide.Lock, small = true, busy = visBusy)
-                    ArButton("Удалить", { deleteOpen = true }, kind = ButtonKind.Danger, icon = Lucide.Trash2, small = true)
-                }
-            }
-        }
-        Spacer(Modifier.height(16.dp))
-        if (col.items.isEmpty()) EmptyState(
-            "Пока нет тайтлов",
-            if (isOwner) "Нажмите «Добавить тайтлы», чтобы начать собирать коллекцию." else "Владелец пока не добавил ни одного тайтла.",
-            Lucide.Library,
-        ) else {
-            FlowRow(horizontalArrangement = Arrangement.spacedBy(14.dp), verticalArrangement = Arrangement.spacedBy(16.dp), maxItemsInEachRow = columns) {
-                col.items.forEachIndexed { index, item ->
-                    Column(Modifier.weight(1f)) {
-                        TitleCardC(item.title)
-                        if (item.note.isNotBlank()) Text(item.note, color = Ar.textSecondary, fontSize = 12.sp, lineHeight = 16.sp, modifier = Modifier.padding(top = 6.dp))
-                        if (isOwner) Row(Modifier.padding(top = 4.dp), horizontalArrangement = Arrangement.spacedBy(2.dp)) {
-                            IconBtn(Lucide.ArrowUp, "Переместить вверх", { move(index, -1) }, size = 28.dp, iconSize = 14.dp, enabled = index > 0 && !moveBusy)
-                            IconBtn(Lucide.ArrowDown, "Переместить вниз", { move(index, 1) }, size = 28.dp, iconSize = 14.dp, enabled = index < col.items.size - 1 && !moveBusy)
-                            IconBtn(Lucide.StickyNote, if (item.note.isNotBlank()) "Изменить заметку" else "Добавить заметку", { noteInitial = item.note; noteFor = item.title.id }, size = 28.dp, iconSize = 14.dp)
-                            IconBtn(Lucide.X, "Убрать из коллекции", { removeItem(item.title.id) }, size = 28.dp, iconSize = 14.dp, tint = Ar.danger)
-                        }
+                Spacer(Modifier.height(12.dp))
+                FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    val liked = col.my_like
+                    Row(
+                        Modifier.clip(CircleShape).background(if (liked) Ar.accent.copy(alpha = 0.14f) else Ar.fill04)
+                            .border(1.dp, if (liked) Ar.accent.copy(alpha = 0.5f) else Ar.border, CircleShape)
+                            .clickable(enabled = !likeBusy) { toggleLike() }.heightIn(min = 34.dp).padding(horizontal = 12.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        Icon(Lucide.Heart, null, tint = if (liked) Ar.accent else Ar.textSecondary, modifier = Modifier.size(14.dp))
+                        Spacer(Modifier.width(6.dp))
+                        Text(col.likes_count.toString(), color = if (liked) Ar.accent else Ar.text, fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
+                    }
+                    if (isOwner) ArButton("Добавить тайтлы", { addOpen = true }, kind = ButtonKind.Primary, icon = Lucide.Plus, small = true)
+                    if (canEditMeta) {
+                        ArButton("Изменить", { editOpen = true }, icon = Lucide.Pencil, small = true)
+                        ArButton(if (col.is_public) "Публичная" else "Приватная", { toggleVisibility() }, icon = if (col.is_public) Lucide.Globe else Lucide.Lock, small = true, busy = visBusy)
+                        ArButton("Удалить", { deleteOpen = true }, kind = ButtonKind.Danger, icon = Lucide.Trash2, small = true)
                     }
                 }
-                // Keep the last row aligned with the grid when it is not full.
-                val rem = col.items.size % columns
-                if (rem != 0) repeat(columns - rem) { Spacer(Modifier.weight(1f)) }
+            }
+            Spacer(Modifier.height(16.dp))
+            if (col.items.isEmpty()) EmptyState(
+                "Пока нет тайтлов",
+                if (isOwner) "Нажмите «Добавить тайтлы», чтобы начать собирать коллекцию." else "Владелец пока не добавил ни одного тайтла.",
+                Lucide.Library,
+            ) else {
+                FlowRow(horizontalArrangement = Arrangement.spacedBy(14.dp), verticalArrangement = Arrangement.spacedBy(16.dp), maxItemsInEachRow = columns) {
+                    col.items.forEachIndexed { index, item ->
+                        Column(Modifier.weight(1f)) {
+                            TitleCardC(item.title)
+                            if (item.note.isNotBlank()) Text(item.note, color = Ar.textSecondary, fontSize = 12.sp, lineHeight = 16.sp, modifier = Modifier.padding(top = 6.dp))
+                            if (isOwner) Row(Modifier.padding(top = 4.dp), horizontalArrangement = Arrangement.spacedBy(2.dp)) {
+                                IconBtn(Lucide.ArrowUp, "Переместить вверх", { move(index, -1) }, size = 28.dp, iconSize = 14.dp, enabled = index > 0 && !moveBusy)
+                                IconBtn(Lucide.ArrowDown, "Переместить вниз", { move(index, 1) }, size = 28.dp, iconSize = 14.dp, enabled = index < col.items.size - 1 && !moveBusy)
+                                IconBtn(Lucide.StickyNote, if (item.note.isNotBlank()) "Изменить заметку" else "Добавить заметку", { noteInitial = item.note; noteFor = item.title.id }, size = 28.dp, iconSize = 14.dp)
+                                IconBtn(Lucide.X, "Убрать из коллекции", { removeItem(item.title.id) }, size = 28.dp, iconSize = 14.dp, tint = Ar.danger)
+                            }
+                        }
+                    }
+                    // Keep the last row aligned with the grid when it is not full.
+                    val rem = col.items.size % columns
+                    if (rem != 0) repeat(columns - rem) { Spacer(Modifier.weight(1f)) }
+                }
             }
         }
+        StickyBackBar({ pageScroll.value > 0 }, { nav.back() })
     }
 
     CollectionFormDialog(editOpen, { editOpen = false }, col) { fresh -> apply(fresh); editOpen = false; toast("Коллекция обновлена") }

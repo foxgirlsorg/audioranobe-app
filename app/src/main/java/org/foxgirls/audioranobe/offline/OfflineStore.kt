@@ -10,6 +10,8 @@ import android.net.Uri
 import org.foxgirls.audioranobe.core.Api
 import org.foxgirls.audioranobe.core.AppJson
 import org.foxgirls.audioranobe.data.ChapterPlay
+import org.foxgirls.audioranobe.data.ChapterText
+import org.foxgirls.audioranobe.tts.TtsModels
 import org.foxgirls.audioranobe.data.ChapterRow
 import org.foxgirls.audioranobe.data.ContinueChapter
 import org.foxgirls.audioranobe.data.ContinueItem
@@ -38,9 +40,15 @@ import okhttp3.Request
 import java.io.File
 import java.util.concurrent.ConcurrentHashMap
 
-/** One downloaded chapter: the ChapterPlay payload as fetched plus the local audio file name. */
+/** One downloaded chapter: the ChapterPlay payload as fetched plus the local file: audio, or the text when [text] (read aloud on the device). */
 @Serializable
-data class OfflineChapter(val play: ChapterPlay, val file: String, val bytes: Long = 0, val savedAt: Long = 0)
+data class OfflineChapter(val play: ChapterPlay, val file: String, val bytes: Long = 0, val savedAt: Long = 0, val text: Boolean = false)
+
+@Serializable
+private data class OfflineText(val chapter: ChapterPlay, val text: ChapterText)
+
+@Serializable
+private data class OfflineTexts(val chapters: List<OfflineText> = emptyList())
 
 /** Everything the app keeps for one title on disk. */
 @Serializable
@@ -61,7 +69,7 @@ data class OfflineManifest(
 
 /** Listening progress made while offline; synced to the server when a connection is back. */
 @Serializable
-data class PendingProgress(val chapterId: Int, val titleId: Int, val number: Double, val position: Double, val updatedAt: Long)
+data class PendingProgress(val chapterId: Int, val titleId: Int, val number: Double, val position: Double, val updatedAt: Long, val listened: Double = 0.0)
 
 @Serializable
 private data class PendingFile(val items: List<PendingProgress> = emptyList())
@@ -72,7 +80,7 @@ sealed class DlState {
     data class Failed(val message: String) : DlState()
 }
 
-data class DownloadTask(val chapterId: Int, val titleId: Int, val titleName: String, val label: String)
+data class DownloadTask(val chapterId: Int, val titleId: Int, val titleName: String, val label: String, val asText: Boolean = false)
 
 /**
  * The app-only offline library: chapters, volumes or whole books saved on the
@@ -80,6 +88,7 @@ data class DownloadTask(val chapterId: Int, val titleId: Int, val titleName: Str
  * with progress kept locally until it can be synced.
  */
 object OfflineStore {
+    private const val TEXT_BATCH = 50
     private lateinit var appContext: Context
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
     private val io = Mutex()
@@ -164,7 +173,8 @@ object OfflineStore {
         val ordered = playableIds(m.title)
         val idx = ordered.indexOf(chapterId)
         return oc.play.copy(
-            audio_url = Uri.fromFile(f).toString(),
+            audio_url = if (oc.text) "" else Uri.fromFile(f).toString(),
+            narration = if (oc.text) "tts" else oc.play.narration,
             my_position = local,
             prev_id = ordered.getOrNull(idx - 1) ?: oc.play.prev_id,
             next_id = ordered.getOrNull(idx + 1) ?: oc.play.next_id,
@@ -172,7 +182,17 @@ object OfflineStore {
         )
     }
 
-    private fun playableIds(t: TitleFull) = t.volumes.sortedBy { it.number }.flatMap { v -> v.liveChapters.sortedBy { it.number } }.filter { it.audio_status == "ready" }.map { it.id }
+    private fun playableIds(t: TitleFull) = t.volumes.sortedBy { it.number }.flatMap { v -> v.liveChapters.sortedBy { it.number } }.filter { it.downloadable }.map { it.id }
+
+    /** The saved text of a chapter downloaded for reading aloud. */
+    fun chapterText(chapterId: Int): ChapterText? {
+        val m = manifestForChapter(chapterId) ?: return null
+        val oc = m.chapters[chapterId]?.takeIf { it.text } ?: return null
+        return runCatching { AppJson.decodeFromString(ChapterText.serializer(), File(titleDir(m.titleId), oc.file).readText()) }.getOrNull()
+    }
+
+    /** A chapter is saved as text when it has no audio, or when the title is on its AI version (read aloud); otherwise as audio. */
+    private fun asText(title: TitleFull, c: ChapterRow) = c.has_text && (!c.playable || title.versions.any { it.id == title.selected_version_id && it.isAi })
 
     /** The saved title with the locally known progress folded into its chapters. */
     fun offlineTitle(m: OfflineManifest): TitleFull {
@@ -197,7 +217,7 @@ object OfflineStore {
 
     /** Saves the title info + images now and queues the given chapters (all playable ones when null). */
     fun download(title: TitleFull, chapterIds: List<Int>? = null) {
-        val wanted = (chapterIds ?: playableIds(title)).filter { id -> title.volumes.flatMap { it.chapters }.any { it.id == id && it.audio_status == "ready" } }
+        val wanted = (chapterIds ?: playableIds(title)).filter { id -> title.volumes.flatMap { it.chapters }.any { it.id == id && it.downloadable } }
         scope.launch {
             val existing = manifest(title.id)
             save(OfflineManifest(title.id, title.slug, title.name, existing?.savedAt ?: System.currentTimeMillis(), title, existing?.chapters ?: emptyMap(), existing?.images ?: emptyMap()))
@@ -205,9 +225,10 @@ object OfflineStore {
             val tasks = wanted.filter { id -> existing?.chapters?.containsKey(id) != true && _queue.value.none { it.chapterId == id } }.map { id ->
                 val ch = title.volumes.flatMap { it.chapters }.first { it.id == id }
                 cancelled.remove(id)
-                DownloadTask(id, title.id, title.name, org.foxgirls.audioranobe.core.Fmt.chapterLabel(ch.number, ch.number_end, ch.name))
+                DownloadTask(id, title.id, title.name, org.foxgirls.audioranobe.core.Fmt.chapterLabel(ch.number, ch.number_end, ch.name), asText(title, ch))
             }
             if (tasks.isEmpty()) return@launch
+            if (tasks.any { it.asText } && !TtsModels.installed.value) TtsModels.ask()
             _queue.update { it + tasks }
             _states.update { s -> s + tasks.associate { it.chapterId to DlState.Queued } }
             startWorker()
@@ -217,10 +238,11 @@ object OfflineStore {
     /** Which of the given chapters are not on the device yet. */
     fun missing(title: TitleFull, chapterIds: List<Int>): List<Int> = manifest(title.id)?.chapters?.let { have -> chapterIds.filter { it !in have } } ?: chapterIds
 
-    /** Rough download size: chapters are 32 kbps Opus, ~4 KB per second. */
-    fun estimateBytes(seconds: Double): Long = (seconds * 4000).toLong()
+    /** Rough download size: audio is 32 kbps Opus, ~4 KB per second; a text chapter is ~2 bytes per character (14 per stored second). */
+    fun estimateBytes(title: TitleFull, chapters: List<ChapterRow>): Long =
+        chapters.sumOf { c -> if (asText(title, c)) (c.duration_seconds * 28).toLong() else (c.duration_seconds * 4000).toLong() }
 
-    fun downloadVolume(title: TitleFull, volume: Volume) = download(title, volume.liveChapters.filter { it.audio_status == "ready" }.map { it.id })
+    fun downloadVolume(title: TitleFull, volume: Volume) = download(title, volume.liveChapters.filter { it.downloadable }.map { it.id })
     fun downloadChapter(title: TitleFull, chapter: ChapterRow) = download(title, listOf(chapter.id))
 
     fun cancel(chapterId: Int) {
@@ -241,16 +263,44 @@ object OfflineStore {
         worker = scope.launch {
             while (isActive) {
                 val task = _queue.value.firstOrNull() ?: break
+                val batch = if (task.asText) _queue.value.filter { it.asText && it.titleId == task.titleId }.take(TEXT_BATCH) else listOf(task)
                 try {
-                    downloadOne(task)
-                    _states.update { it - task.chapterId }
+                    if (task.asText) downloadTexts(batch) else { downloadOne(task); _states.update { it - task.chapterId } }
                 } catch (e: Exception) {
-                    if (task.chapterId !in cancelled) _states.update { it + (task.chapterId to DlState.Failed(e.message ?: "Ошибка загрузки")) }
+                    val failed = DlState.Failed(e.message ?: "Ошибка загрузки")
+                    _states.update { s -> s + batch.filter { it.chapterId !in cancelled && s[it.chapterId] !is DlState.Failed && it.chapterId in s }.associate { it.chapterId to failed } }
                 }
-                _queue.update { q -> q.filter { it.chapterId != task.chapterId } }
+                val done = batch.map { it.chapterId }.toSet()
+                _queue.update { q -> q.filter { it.chapterId !in done } }
             }
-            DownloadService.stop(appContext)
         }
+    }
+
+    /** Read-aloud chapters of one title, saved with a single request. */
+    private suspend fun downloadTexts(tasks: List<DownloadTask>) {
+        _states.update { s -> s + tasks.associate { it.chapterId to DlState.Running(0f) } }
+        val got = Api.post<OfflineTexts>("/chapters/offline", buildJsonObject {
+            put("ids", kotlinx.serialization.json.JsonArray(tasks.map { kotlinx.serialization.json.JsonPrimitive(it.chapterId) }))
+        }).chapters.associateBy { it.chapter.id }
+        val dir = File(titleDir(tasks.first().titleId), "chapters").apply { mkdirs() }
+        for (task in tasks) {
+            if (task.chapterId in cancelled) continue
+            val r = got[task.chapterId]
+            if (r == null) { _states.update { it + (task.chapterId to DlState.Failed("Текст главы недоступен")) }; continue }
+            val json = AppJson.encodeToString(ChapterText.serializer(), r.text)
+            File(dir, "${task.chapterId}.json").writeText(json)
+            saveChapter(task, r.chapter.copy(narration = "tts", audio_url = ""), "chapters/${task.chapterId}.json", json.toByteArray().size.toLong(), text = true)
+            _states.update { it - task.chapterId }
+        }
+    }
+
+    private suspend fun saveChapter(task: DownloadTask, play: ChapterPlay, name: String, bytes: Long, text: Boolean) {
+        val images = mutableMapOf<String, String>()
+        play.illustrations.forEach { ill -> listOfNotNull(ill.thumb_url.takeIf { it.isNotBlank() }, ill.url.takeIf { it.isNotBlank() }).forEach { u -> saveImage(task.titleId, u)?.let { images[u] = it } } }
+        val m = manifest(task.titleId) ?: return
+        // The chapter may have been saved the other way before (audio or text): drop that file.
+        m.chapters[task.chapterId]?.takeIf { it.file != name }?.let { File(titleDir(m.titleId), it.file).delete() }
+        save(m.copy(chapters = m.chapters + (task.chapterId to OfflineChapter(play, name, bytes, System.currentTimeMillis(), text)), images = m.images + images))
     }
 
     private suspend fun downloadOne(task: DownloadTask) {
@@ -265,11 +315,7 @@ object OfflineStore {
         if (task.chapterId in cancelled) { tmp.delete(); return }
         val dst = File(dir, "${task.chapterId}.$ext")
         if (!tmp.renameTo(dst)) { tmp.copyTo(dst, overwrite = true); tmp.delete() }
-        // Illustrations of the chapter, for the full player.
-        val images = mutableMapOf<String, String>()
-        play.illustrations.forEach { ill -> listOfNotNull(ill.thumb_url.takeIf { it.isNotBlank() }, ill.url.takeIf { it.isNotBlank() }).forEach { u -> saveImage(task.titleId, u)?.let { images[u] = it } } }
-        val m = manifest(task.titleId) ?: return
-        save(m.copy(chapters = m.chapters + (task.chapterId to OfflineChapter(play, name, bytes, System.currentTimeMillis())), images = m.images + images))
+        saveChapter(task, play, name, bytes, text = false)
     }
 
     private suspend fun fetchToFile(url: String, dst: File, chapterId: Int, onProgress: (Float) -> Unit): Long = withContext(Dispatchers.IO) {
@@ -354,10 +400,12 @@ object OfflineStore {
     // ---------- progress ----------
 
     /** Called by the player when a save could not reach the server (or the chapter is offline). */
-    fun recordProgress(play: ChapterPlay, position: Double) {
+    fun recordProgress(play: ChapterPlay, position: Double, listened: Double = 0.0) {
         val m = manifestForChapter(play.id) ?: manifest(play.title.id)
-        val rec = PendingProgress(play.id, play.title.id, play.number, position, System.currentTimeMillis())
-        _pending.update { list -> list.filter { it.chapterId != play.id } + rec }
+        _pending.update { list ->
+            val before = list.firstOrNull { it.chapterId == play.id }?.listened ?: 0.0
+            list.filter { it.chapterId != play.id } + PendingProgress(play.id, play.title.id, play.number, position, System.currentTimeMillis(), before + listened)
+        }
         scope.launch {
             savePending()
             // Keep the saved title in step so the offline title page shows the progress.
@@ -390,8 +438,12 @@ object OfflineStore {
                     for (rec in recs) {
                         val serverSame = serverChapters.firstOrNull { it.id == rec.chapterId }
                         val serverAhead = (furthest != null && furthest.number > rec.number) || ((serverSame?.my_position ?: 0.0) >= rec.position)
-                        if (!serverAhead) {
-                            val ok = runCatching { Api.put<Unit>("/me/progress/${rec.chapterId}", buildJsonObject { put("position", rec.position) }) }.isSuccess
+                        // The listening time counts for the stats even when the position itself is stale.
+                        val at = if (!serverAhead) rec.position else if (rec.listened > 0) maxOf(rec.position, serverSame?.my_position ?: 0.0) else null
+                        if (at != null) {
+                            val ok = runCatching {
+                                Api.put<Unit>("/me/progress/${rec.chapterId}", buildJsonObject { put("position", at); if (rec.listened > 0) put("listened", rec.listened) })
+                            }.isSuccess
                             if (!ok) continue
                         }
                         _pending.update { list -> list.filter { it.chapterId != rec.chapterId } }
@@ -418,7 +470,7 @@ object OfflineStore {
     }
 }
 
-/** Foreground service that keeps the process alive while chapters download and shows the progress. */
+/** Foreground service that keeps the process alive while chapters download and shows the progress. It stops itself once the queue is empty. */
 class DownloadService : android.app.Service() {
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main)
 
@@ -463,6 +515,5 @@ class DownloadService : android.app.Service() {
         private const val CHANNEL = "downloads"
         private const val NOTIFICATION_ID = 41
         fun start(context: Context) { runCatching { androidx.core.content.ContextCompat.startForegroundService(context, Intent(context, DownloadService::class.java)) } }
-        fun stop(context: Context) { runCatching { context.stopService(Intent(context, DownloadService::class.java)) } }
     }
 }

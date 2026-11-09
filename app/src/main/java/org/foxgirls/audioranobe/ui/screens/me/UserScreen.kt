@@ -1,5 +1,8 @@
 package org.foxgirls.audioranobe.ui.screens.me
 
+import androidx.compose.foundation.lazy.rememberLazyListState
+import org.foxgirls.audioranobe.ui.components.StickyBarHeight
+import org.foxgirls.audioranobe.ui.components.StickyBackBar
 import org.foxgirls.audioranobe.ui.components.ditheredBackground
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -60,6 +63,8 @@ import org.foxgirls.audioranobe.data.UserProfile
 import org.foxgirls.audioranobe.ui.LocalBottomInset
 import org.foxgirls.audioranobe.ui.dockScrollAware
 import org.foxgirls.audioranobe.ui.swipeTabs
+import org.foxgirls.audioranobe.ui.rememberTabSlide
+import org.foxgirls.audioranobe.ui.slideItems
 import org.foxgirls.audioranobe.ui.components.ArButton
 import org.foxgirls.audioranobe.ui.components.ArImage
 import org.foxgirls.audioranobe.ui.components.ArMarkdown
@@ -188,145 +193,148 @@ fun UserScreen(userRef: String, initialTab: String?) {
         }
     }
 
-    LazyColumn(Modifier.fillMaxSize().dockScrollAware().swipeTabs(USER_TABS, tab) { tab = it }, contentPadding = PaddingValues(bottom = bottom + 24.dp)) {
-        item {
-            Box(Modifier.fillMaxWidth()) {
-                Box(Modifier.fillMaxWidth().height(170.dp)) {
-                    if (user.cover_url != null) ArImage(user.cover_url, Modifier.fillMaxSize())
-                    else Box(Modifier.fillMaxSize().ditheredBackground(Brush.linearGradient(listOf(Ar.accent.copy(alpha = 0.25f), Ar.surfaceSolid))))
-                    Box(Modifier.fillMaxSize().ditheredBackground(Brush.verticalGradient(listOf(androidx.compose.ui.graphics.Color.Transparent, Ar.bg.copy(alpha = 0.85f)))))
-                }
-                Row(Modifier.statusBarsPadding().padding(8.dp)) {
-                    IconBtn(Lucide.ArrowLeft, "Назад", { nav.back() }, tint = Ar.text, background = Ar.bg.copy(alpha = 0.5f))
-                }
-                Column(Modifier.fillMaxWidth().padding(top = 120.dp).padding(horizontal = 16.dp)) {
-                    Box {
-                        Box(Modifier.size(96.dp).clip(CircleShape).border(3.dp, Ar.bg, CircleShape).clickable(enabled = user.avatar_url != null) { avatarViewer = true }) {
-                            UserAvatar(user.username, user.avatar_url, 96.dp, thumbUrl = user.avatar_thumb_url)
-                        }
-                        PresenceDot(user.presence, Modifier.align(Alignment.BottomEnd).offset(x = (-4).dp, y = (-4).dp), size = 16.dp, ringWidth = 3.dp)
+    val pageList = rememberLazyListState()
+    val slide = rememberTabSlide(USER_TABS, tab)
+    Box(Modifier.fillMaxSize()) {
+        LazyColumn(state = pageList, modifier = Modifier.fillMaxSize().dockScrollAware().swipeTabs(USER_TABS, tab) { tab = it }, contentPadding = PaddingValues(bottom = bottom + 24.dp)) {
+            item {
+                Box(Modifier.fillMaxWidth()) {
+                    Box(Modifier.fillMaxWidth().height(170.dp)) {
+                        if (user.cover_url != null) ArImage(user.cover_url, Modifier.fillMaxSize())
+                        else Box(Modifier.fillMaxSize().ditheredBackground(Brush.linearGradient(listOf(Ar.accent.copy(alpha = 0.25f), Ar.surfaceSolid))))
+                        Box(Modifier.fillMaxSize().ditheredBackground(Brush.verticalGradient(listOf(androidx.compose.ui.graphics.Color.Transparent, Ar.bg.copy(alpha = 0.85f)))))
                     }
-                    Spacer(Modifier.height(8.dp))
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Text(user.shownName, color = Ar.white, fontSize = 22.sp, fontWeight = FontWeight.Medium, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f, fill = false))
-                        Spacer(Modifier.width(6.dp))
-                        UserBadgesRow(user.badges, user.is_banned, 18.dp)
-                        Spacer(Modifier.width(6.dp))
-                        if (isOwn) IconBtn(Lucide.Pencil, "Редактировать", { nav.go(Routes.settings()) }, size = 32.dp, iconSize = 15.dp)
-                        else if (auth.can("users.edit")) IconBtn(Lucide.Pencil, "Редактировать", { editing = true }, size = 32.dp, iconSize = 15.dp)
-                    }
-                    Text(listOfNotNull(
-                        if (user.display_name.isNotBlank()) "@${user.username}" else null, user.role_name.takeIf { it.isNotBlank() },
-                        Fmt.presenceLabel(user.presence, user.last_seen_at), "На сайте с ${Fmt.date(user.created_at)}",
-                    ).joinToString(" · "), color = Ar.textMuted, fontSize = 12.sp, lineHeight = 16.sp)
-                    if (viewer != null && !isOwn) Row(Modifier.padding(top = 10.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        if (profile.can_message) ArButton("Написать", { nav.go(Routes.chat(user.id)) }, icon = Lucide.MessageSquare, small = true)
-                        when (friendStatus) {
-                            "none" -> ArButton("В друзья", { runFriend("POST", "/friends/${user.id}", "Заявка отправлена") }, kind = ButtonKind.Primary, icon = Lucide.UserPlus, small = true, busy = friendBusy)
-                            "outgoing" -> ArButton("Отменить заявку", { runFriend("DELETE", "/friends/${user.id}", "Заявка отменена") }, kind = ButtonKind.Ghost, icon = Lucide.Clock, small = true, busy = friendBusy)
-                            "incoming" -> {
-                                ArButton("Принять", { runFriend("POST", "/friends/${user.id}/accept", "Заявка принята") }, kind = ButtonKind.Primary, icon = Lucide.Check, small = true, busy = friendBusy)
-                                ArButton("Отклонить", { runFriend("DELETE", "/friends/${user.id}", "Заявка отклонена") }, kind = ButtonKind.Ghost, icon = Lucide.X, small = true)
+                
+                    Column(Modifier.fillMaxWidth().padding(top = 120.dp).padding(horizontal = 16.dp)) {
+                        Box {
+                            Box(Modifier.size(96.dp).clip(CircleShape).border(3.dp, Ar.bg, CircleShape).clickable(enabled = user.avatar_url != null) { avatarViewer = true }) {
+                                UserAvatar(user.username, user.avatar_url, 96.dp, thumbUrl = user.avatar_thumb_url)
                             }
-                            "friends" -> ArButton("Из друзей", { runFriend("DELETE", "/friends/${user.id}", "Удалён из друзей") }, kind = ButtonKind.Ghost, icon = Lucide.UserMinus, small = true, busy = friendBusy)
+                            PresenceDot(user.presence, Modifier.align(Alignment.BottomEnd).offset(x = (-4).dp, y = (-4).dp), size = 16.dp, ringWidth = 3.dp)
                         }
-                        if (profile.can_block || profile.is_blocked) IconBtn(
-                            Lucide.Ban, if (profile.is_blocked) "Разблокировать" else "Заблокировать",
-                            { if (profile.is_blocked) toggleBlock(false, user.id) else confirmBlock = true }, size = 34.dp, iconSize = 16.dp,
-                            tint = if (profile.is_blocked) Ar.danger else Ar.textSecondary,
-                        )
-                        ConfirmDialog(
-                            confirmBlock, { confirmBlock = false },
-                            onConfirm = { confirmBlock = false; toggleBlock(true, user.id) },
-                            title = "Заблокировать @${user.username}?",
-                            body = "Вы не сможете переписываться друг с другом в личных сообщениях. Разблокировать можно в любой момент — здесь или в настройках.",
-                            danger = true, confirmLabel = "Заблокировать",
-                        )
-                    }
-                    if (profile.is_blocked) Text("Вы заблокировали этого пользователя — переписываться нельзя.", color = Ar.textMuted, fontSize = 12.sp, modifier = Modifier.padding(top = 6.dp))
-                    if (user.is_banned) GlassPanel(Modifier.padding(top = 10.dp), padding = PaddingValues(10.dp), borderColor = Ar.danger.copy(alpha = 0.4f)) {
+                        Spacer(Modifier.height(8.dp))
                         Row(verticalAlignment = Alignment.CenterVertically) {
-                            Icon(Lucide.ShieldBan, null, tint = Ar.danger, modifier = Modifier.size(16.dp))
-                            Spacer(Modifier.width(8.dp))
-                            Column { Text("Пользователь заблокирован", color = Ar.white, fontSize = 13.sp, fontWeight = FontWeight.SemiBold); Text("Этот аккаунт заблокирован администрацией и не может публиковать комментарии, сообщения и другой контент.", color = Ar.textSecondary, fontSize = 12.sp, lineHeight = 16.sp) }
+                            Text(user.shownName, color = Ar.white, fontSize = 22.sp, fontWeight = FontWeight.Medium, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f, fill = false))
+                            Spacer(Modifier.width(6.dp))
+                            UserBadgesRow(user.badges, user.is_banned, 18.dp)
+                            Spacer(Modifier.width(6.dp))
+                            if (isOwn) IconBtn(Lucide.Pencil, "Редактировать", { nav.go(Routes.settings()) }, size = 32.dp, iconSize = 15.dp)
+                            else if (auth.can("users.edit")) IconBtn(Lucide.Pencil, "Редактировать", { editing = true }, size = 32.dp, iconSize = 15.dp)
                         }
+                        Text(listOfNotNull(
+                            if (user.display_name.isNotBlank()) "@${user.username}" else null, user.role_name.takeIf { it.isNotBlank() },
+                            Fmt.presenceLabel(user.presence, user.last_seen_at), "На сайте с ${Fmt.date(user.created_at)}",
+                        ).joinToString(" · "), color = Ar.textMuted, fontSize = 12.sp, lineHeight = 16.sp)
+                        if (viewer != null && !isOwn) Row(Modifier.padding(top = 10.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            if (profile.can_message) ArButton("Написать", { nav.go(Routes.chat(user.id)) }, icon = Lucide.MessageSquare, small = true)
+                            when (friendStatus) {
+                                "none" -> ArButton("В друзья", { runFriend("POST", "/friends/${user.id}", "Заявка отправлена") }, kind = ButtonKind.Primary, icon = Lucide.UserPlus, small = true, busy = friendBusy)
+                                "outgoing" -> ArButton("Отменить заявку", { runFriend("DELETE", "/friends/${user.id}", "Заявка отменена") }, kind = ButtonKind.Ghost, icon = Lucide.Clock, small = true, busy = friendBusy)
+                                "incoming" -> {
+                                    ArButton("Принять", { runFriend("POST", "/friends/${user.id}/accept", "Заявка принята") }, kind = ButtonKind.Primary, icon = Lucide.Check, small = true, busy = friendBusy)
+                                    ArButton("Отклонить", { runFriend("DELETE", "/friends/${user.id}", "Заявка отклонена") }, kind = ButtonKind.Ghost, icon = Lucide.X, small = true)
+                                }
+                                "friends" -> ArButton("Из друзей", { runFriend("DELETE", "/friends/${user.id}", "Удалён из друзей") }, kind = ButtonKind.Ghost, icon = Lucide.UserMinus, small = true, busy = friendBusy)
+                            }
+                            if (profile.can_block || profile.is_blocked) IconBtn(
+                                Lucide.Ban, if (profile.is_blocked) "Разблокировать" else "Заблокировать",
+                                { if (profile.is_blocked) toggleBlock(false, user.id) else confirmBlock = true }, size = 34.dp, iconSize = 16.dp,
+                                tint = if (profile.is_blocked) Ar.danger else Ar.textSecondary,
+                            )
+                            ConfirmDialog(
+                                confirmBlock, { confirmBlock = false },
+                                onConfirm = { confirmBlock = false; toggleBlock(true, user.id) },
+                                title = "Заблокировать @${user.username}?",
+                                body = "Вы не сможете переписываться друг с другом в личных сообщениях. Разблокировать можно в любой момент — здесь или в настройках.",
+                                danger = true, confirmLabel = "Заблокировать",
+                            )
+                        }
+                        if (profile.is_blocked) Text("Вы заблокировали этого пользователя — переписываться нельзя.", color = Ar.textMuted, fontSize = 12.sp, modifier = Modifier.padding(top = 6.dp))
+                        if (user.is_banned) GlassPanel(Modifier.padding(top = 10.dp), padding = PaddingValues(10.dp), borderColor = Ar.danger.copy(alpha = 0.4f)) {
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Icon(Lucide.ShieldBan, null, tint = Ar.danger, modifier = Modifier.size(16.dp))
+                                Spacer(Modifier.width(8.dp))
+                                Column { Text("Пользователь заблокирован", color = Ar.white, fontSize = 13.sp, fontWeight = FontWeight.SemiBold); Text("Этот аккаунт заблокирован администрацией и не может публиковать комментарии, сообщения и другой контент.", color = Ar.textSecondary, fontSize = 12.sp, lineHeight = 16.sp) }
+                            }
+                        }
+                        Spacer(Modifier.height(12.dp))
+                        ArTabs(listOf(
+                            TabItem("info", "Информация"), TabItem("library", "Библиотека"), TabItem("favorites", "Избранное", stats.favorites),
+                            TabItem("comments", "Комментарии", stats.comments), TabItem("collections", "Коллекции"), TabItem("friends", "Друзья", friendsCount),
+                        ), tab, { tab = it }, variant = TabsVariant.Underline)
+                        Spacer(Modifier.height(12.dp))
                     }
-                    Spacer(Modifier.height(12.dp))
-                    ArTabs(listOf(
-                        TabItem("info", "Информация"), TabItem("library", "Библиотека"), TabItem("favorites", "Избранное", stats.favorites),
-                        TabItem("comments", "Комментарии", stats.comments), TabItem("collections", "Коллекции"), TabItem("friends", "Друзья", friendsCount),
-                    ), tab, { tab = it }, variant = TabsVariant.Underline)
-                    Spacer(Modifier.height(12.dp))
                 }
             }
-        }
-        when (tab) {
-            "info" -> item {
-                Column(Modifier.padding(horizontal = 16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                    if (user.bio.isNotBlank() || user.socials.isNotEmpty()) GlassPanel {
-                        Eyebrow(if (user.bio.isNotBlank()) "О себе" else "Ссылки")
-                        if (user.bio.isNotBlank()) { Spacer(Modifier.height(6.dp)); ArMarkdown(user.bio, media = "image") }
-                        SocialLinks(user.socials, Modifier.padding(top = 8.dp))
-                    }
-                    profile.listening_now?.let { ln ->
-                        GlassPanel(Modifier.fillMaxWidth(), padding = PaddingValues(10.dp), onClick = { nav.go(Routes.title(ln.title.slug)) }) {
-                            Row(verticalAlignment = Alignment.CenterVertically) {
-                                ArImage(ln.title.cover_thumb_url, Modifier.size(56.dp, 80.dp), fallbackIcon = Lucide.Headphones, shape = RoundedCornerShape(8.dp))
-                                Spacer(Modifier.width(12.dp))
-                                Column(verticalArrangement = Arrangement.spacedBy(3.dp)) {
-                                    Eyebrow("Слушает сейчас", color = Ar.accent, icon = Lucide.Headphones)
-                                    Text(ln.title.name, color = Ar.text, fontSize = 15.sp, fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                                    val volume = "${ln.title.volume_label} ${Fmt.trimNum(ln.volume.number)}" + if (ln.volume.name.isNotBlank()) " — ${ln.volume.name}" else ""
-                                    Text("$volume · ${Fmt.chapterLabel(ln.chapter.number, ln.chapter.number_end, ln.chapter.name)}", color = Ar.textMuted, fontSize = 12.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            slideItems(slide) { when (tab) {
+                "info" -> item {
+                    Column(Modifier.padding(horizontal = 16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                        if (user.bio.isNotBlank() || user.socials.isNotEmpty()) GlassPanel {
+                            Eyebrow(if (user.bio.isNotBlank()) "О себе" else "Ссылки")
+                            if (user.bio.isNotBlank()) { Spacer(Modifier.height(6.dp)); ArMarkdown(user.bio, media = "image") }
+                            SocialLinks(user.socials, Modifier.padding(top = 8.dp))
+                        }
+                        profile.listening_now?.let { ln ->
+                            GlassPanel(Modifier.fillMaxWidth(), padding = PaddingValues(10.dp), onClick = { nav.go(Routes.title(ln.title.slug)) }) {
+                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                    ArImage(ln.title.cover_thumb_url, Modifier.size(56.dp, 80.dp), fallbackIcon = Lucide.Headphones, shape = RoundedCornerShape(8.dp))
+                                    Spacer(Modifier.width(12.dp))
+                                    Column(verticalArrangement = Arrangement.spacedBy(3.dp)) {
+                                        Eyebrow("Слушает сейчас", color = Ar.accent, icon = Lucide.Headphones)
+                                        Text(ln.title.name, color = Ar.text, fontSize = 15.sp, fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                                        val volume = "${ln.title.volume_label} ${Fmt.trimNum(ln.volume.number)}" + if (ln.volume.name.isNotBlank()) " — ${ln.volume.name}" else ""
+                                        Text("$volume · ${Fmt.chapterLabel(ln.chapter.number, ln.chapter.number_end, ln.chapter.name)}", color = Ar.textMuted, fontSize = 12.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                                    }
                                 }
                             }
                         }
-                    }
-                    GlassPanel(Modifier.fillMaxWidth()) {
-                        StatRow(Lucide.Headphones, String.format(java.util.Locale.US, "%.2f", stats.seconds_listened / 3600.0).trimEnd('0').trimEnd('.'), "часов прослушано")
-                        StatRow(Lucide.Library, Fmt.count(libraryTotal), "${Fmt.plural(libraryTotal, "книга", "книги", "книг")} в библиотеке")
-                        StatRow(Lucide.MessageSquare, Fmt.count(stats.comments), Fmt.plural(stats.comments, "комментарий", "комментария", "комментариев"))
-                    }
-                    GlassPanel { ListeningHeatmap(userRef, profile.activity) }
-                    UserStatsCharts(profile.score_stats, stats)
-                }
-            }
-            "library" -> {
-                item {
-                    val opts = listOf(TabItem("all", "Все", libraryTotal)) + Labels.libraryValues.map { TabItem(it, Labels.libraryStatus[it]!!, when (it) { "planning" -> stats.planning; "in_progress" -> stats.in_progress; "completed" -> stats.completed; else -> stats.dropped }) }
-                    ArTabs(opts, libStatus, { libStatus = it }, Modifier.padding(horizontal = 16.dp), variant = TabsVariant.Pill)
-                    Spacer(Modifier.height(10.dp))
-                }
-                pagedItems(library, emptyTitle = "Здесь пусто", emptyBody = (if (isOwn) OWN_LIB_EMPTY else LIB_EMPTY)[libStatus] ?: "", icon = Lucide.Library, key = { it.title.id }, rowHeight = 100.dp, placeholder = { LibraryRowSkeleton() }) { e ->
-                    LibraryRow(e, user.id, canEditLibrary, isOwn, { n -> library.patch({ it.title.id == e.title.id }, { n }) }, { library.remove { it.title.id == e.title.id } })
-                }
-            }
-            "favorites" -> {
-                val items = favorites.items
-                when {
-                    items == null -> item { Box(Modifier.padding(horizontal = 16.dp)) { CardGridSkeleton(count = 12) } }
-                    items.isEmpty() -> item { EmptyState("Избранного пока нет", "У ${user.username} нет избранных тайтлов.", Lucide.Heart) }
-                    else -> item { Box(Modifier.padding(horizontal = 16.dp)) { CardGrid(items) }; InfiniteScrollTrigger(favorites) }
-                }
-            }
-            "comments" -> pagedItems(comments, "Комментариев пока нет", "У ${user.username} пока нет ни одного комментария.", Lucide.MessageSquare, key = { it.id }, rowHeight = 112.dp, placeholder = { CommentRowSkeleton() }) { c ->
-                GlassPanel(Modifier.padding(horizontal = 16.dp, vertical = 4.dp), padding = PaddingValues(12.dp), onClick = { c.target?.link?.let { nav.openLink(it + "#comment-${c.id}") } }) {
-                    Row { Text("к ", color = Ar.textMuted, fontSize = 12.sp); Text(c.target?.name ?: c.target?.type ?: "", color = Ar.accent, fontSize = 12.sp, fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f)); Text(Fmt.timeAgo(c.created_at), color = Ar.textMuted, fontSize = 11.sp) }
-                    Spacer(Modifier.height(6.dp))
-                    if (c.is_deleted) Text("Комментарий удалён", color = Ar.textMuted, fontSize = 13.sp)
-                    if (!c.is_deleted || auth.can("comments.moderate")) ArMarkdown(c.body, compact = true)
-                    Row(Modifier.padding(top = 6.dp), verticalAlignment = Alignment.CenterVertically) {
-                        Icon(Lucide.ArrowBigUp, null, tint = if (c.score > 0) Ar.ok else if (c.score < 0) Ar.danger else Ar.textMuted, modifier = Modifier.size(14.dp))
-                        Text(" ${c.score}", color = Ar.textSecondary, fontSize = 12.sp)
-                        if (c.updated_at != null) Text("  изменено", color = Ar.textMuted, fontSize = 11.sp)
+                        GlassPanel(Modifier.fillMaxWidth()) {
+                            StatRow(Lucide.Headphones, String.format(java.util.Locale.US, "%.2f", stats.seconds_listened / 3600.0).trimEnd('0').trimEnd('.'), "часов прослушано")
+                            StatRow(Lucide.Library, Fmt.count(libraryTotal), "${Fmt.plural(libraryTotal, "книга", "книги", "книг")} в библиотеке")
+                            StatRow(Lucide.MessageSquare, Fmt.count(stats.comments), Fmt.plural(stats.comments, "комментарий", "комментария", "комментариев"))
+                        }
+                        GlassPanel { ListeningHeatmap(userRef, profile.activity) }
+                        UserStatsCharts(profile.score_stats, stats)
                     }
                 }
-            }
-            "collections" -> pagedItems(collections, "Коллекций нет", "У ${user.username} нет опубликованных коллекций.", Lucide.BookOpen, key = { it.id }, rowHeight = 200.dp, placeholder = { CollectionCardSkeleton() }) { c -> CollectionCardC(c, Modifier.padding(horizontal = 16.dp, vertical = 5.dp)) }
-            "friends" -> pagedItems(friends, "Друзей пока нет", if (isOwn) "У вас пока нет друзей. Найдите пользователей и отправьте заявку." else "У ${user.shownName} пока нет друзей.", Lucide.Users, key = { it.id }, rowHeight = 64.dp, placeholder = { PersonRowSkeleton() }) { f ->
-                PersonRow(f, Modifier.padding(horizontal = 16.dp, vertical = 4.dp)) {}
-            }
+                "library" -> {
+                    item {
+                        val opts = listOf(TabItem("all", "Все", libraryTotal)) + Labels.libraryValues.map { TabItem(it, Labels.libraryStatus[it]!!, when (it) { "planning" -> stats.planning; "in_progress" -> stats.in_progress; "completed" -> stats.completed; else -> stats.dropped }) }
+                        ArTabs(opts, libStatus, { libStatus = it }, Modifier.padding(horizontal = 16.dp), variant = TabsVariant.Pill)
+                        Spacer(Modifier.height(10.dp))
+                    }
+                    pagedItems(library, emptyTitle = "Здесь пусто", emptyBody = (if (isOwn) OWN_LIB_EMPTY else LIB_EMPTY)[libStatus] ?: "", icon = Lucide.Library, key = { it.title.id }, rowHeight = 100.dp, placeholder = { LibraryRowSkeleton() }) { e ->
+                        LibraryRow(e, user.id, canEditLibrary, isOwn, { n -> library.patch({ it.title.id == e.title.id }, { n }) }, { library.remove { it.title.id == e.title.id } })
+                    }
+                }
+                "favorites" -> {
+                    val items = favorites.items
+                    when {
+                        items == null -> item { Box(Modifier.padding(horizontal = 16.dp)) { CardGridSkeleton(count = 12) } }
+                        items.isEmpty() -> item { EmptyState("Избранного пока нет", "У ${user.username} нет избранных тайтлов.", Lucide.Heart) }
+                        else -> item { Box(Modifier.padding(horizontal = 16.dp)) { CardGrid(items) }; InfiniteScrollTrigger(favorites) }
+                    }
+                }
+                "comments" -> pagedItems(comments, "Комментариев пока нет", "У ${user.username} пока нет ни одного комментария.", Lucide.MessageSquare, key = { it.id }, rowHeight = 112.dp, placeholder = { CommentRowSkeleton() }) { c ->
+                    GlassPanel(Modifier.padding(horizontal = 16.dp, vertical = 4.dp), padding = PaddingValues(12.dp), onClick = { c.target?.link?.let { nav.openLink(it + "#comment-${c.id}") } }) {
+                        Row { Text("к ", color = Ar.textMuted, fontSize = 12.sp); Text(c.target?.name ?: c.target?.type ?: "", color = Ar.accent, fontSize = 12.sp, fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f)); Text(Fmt.timeAgo(c.created_at), color = Ar.textMuted, fontSize = 11.sp) }
+                        Spacer(Modifier.height(6.dp))
+                        if (c.is_deleted) Text("Комментарий удалён", color = Ar.textMuted, fontSize = 13.sp)
+                        if (!c.is_deleted || auth.can("comments.moderate")) ArMarkdown(c.body, compact = true)
+                        Row(Modifier.padding(top = 6.dp), verticalAlignment = Alignment.CenterVertically) {
+                            Icon(Lucide.ArrowBigUp, null, tint = if (c.score > 0) Ar.ok else if (c.score < 0) Ar.danger else Ar.textMuted, modifier = Modifier.size(14.dp))
+                            Text(" ${c.score}", color = Ar.textSecondary, fontSize = 12.sp)
+                            if (c.updated_at != null) Text("  изменено", color = Ar.textMuted, fontSize = 11.sp)
+                        }
+                    }
+                }
+                "collections" -> pagedItems(collections, "Коллекций нет", "У ${user.username} нет опубликованных коллекций.", Lucide.BookOpen, key = { it.id }, rowHeight = 200.dp, placeholder = { CollectionCardSkeleton() }) { c -> CollectionCardC(c, Modifier.padding(horizontal = 16.dp, vertical = 5.dp)) }
+                "friends" -> pagedItems(friends, "Друзей пока нет", if (isOwn) "У вас пока нет друзей. Найдите пользователей и отправьте заявку." else "У ${user.shownName} пока нет друзей.", Lucide.Users, key = { it.id }, rowHeight = 64.dp, placeholder = { PersonRowSkeleton() }) { f ->
+                    PersonRow(f, Modifier.padding(horizontal = 16.dp, vertical = 4.dp)) {}
+                }
+            } }
         }
+        StickyBackBar({ pageList.firstVisibleItemIndex > 0 || pageList.firstVisibleItemScrollOffset > 0 }, { nav.back() }, horizontalPadding = 8.dp, chip = true)
     }
     ImageViewer(avatarViewer, listOfNotNull(user.avatar_url), 0, listOf(user.username)) { avatarViewer = false }
     if (editing) UserEditModal(user.id, { editing = false }) { loader.reload() }

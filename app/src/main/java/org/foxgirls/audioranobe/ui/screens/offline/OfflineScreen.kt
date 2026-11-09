@@ -1,5 +1,8 @@
 package org.foxgirls.audioranobe.ui.screens.offline
 
+import androidx.compose.foundation.lazy.rememberLazyListState
+import org.foxgirls.audioranobe.ui.components.TabHeaderSpace
+import org.foxgirls.audioranobe.ui.components.TabHeader
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
@@ -70,7 +73,6 @@ import org.foxgirls.audioranobe.ui.dockScrollAware
 import org.foxgirls.audioranobe.ui.icons.Lucide
 import org.foxgirls.audioranobe.ui.nav.LocalNav
 import org.foxgirls.audioranobe.ui.nav.Routes
-import org.foxgirls.audioranobe.ui.screens.TopBar
 import org.foxgirls.audioranobe.ui.theme.Ar
 import org.foxgirls.audioranobe.ui.toast.toast
 
@@ -90,88 +92,90 @@ fun OfflineScreen() {
     var pick by remember { mutableStateOf<TitleFull?>(null) }
     DownloadPicker(pick) { pick = null }
 
-    LazyColumn(Modifier.fillMaxSize().dockScrollAware().statusBarsPadding(), contentPadding = PaddingValues(bottom = bottom + 24.dp)) {
-        item {
-            Column(Modifier.padding(horizontal = 16.dp)) {
-                TopBar(onSearch = { shell.searchOpen = true }, horizontalPadding = 0.dp)
-                Eyebrow("Слушайте без сети")
-                SectionTitle("Ваши", "загрузки", Modifier.padding(top = 4.dp, bottom = 10.dp), size = 24)
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Icon(if (online) Lucide.Wifi else Lucide.WifiOff, null, tint = if (online) Ar.ok else Ar.amber, modifier = Modifier.size(14.dp))
-                    Spacer(Modifier.width(6.dp))
-                    Text(if (online) "Онлайн" else "Нет сети — доступны только скачанные главы", color = Ar.textMuted, fontSize = 12.sp)
-                    Spacer(Modifier.weight(1f))
-                    Text(Fmt.bytes(OfflineStore.totalBytes()), color = Ar.textMuted, fontSize = 12.sp)
-                }
-                AnimatedVisibility(pending.isNotEmpty(), enter = expandVertically() + fadeIn(), exit = shrinkVertically() + fadeOut()) {
-                    GlassPanel(Modifier.fillMaxWidth().padding(top = 10.dp), borderColor = Ar.amber.copy(alpha = 0.4f)) {
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            if (syncing) Spinner(size = 16.dp) else Icon(Lucide.RefreshCw, null, tint = Ar.amber, modifier = Modifier.size(16.dp))
-                            Spacer(Modifier.width(8.dp))
-                            Text("Прогресс ${pending.size} ${Fmt.plural(pending.size, "главы", "глав", "глав")} ждёт синхронизации", color = Ar.text, fontSize = 13.sp, modifier = Modifier.weight(1f))
-                            if (online && !syncing) ArButton("Синхронизировать", { OfflineStore.syncProgress() }, small = true)
-                        }
+    Box(Modifier.fillMaxSize()) {
+        val pageList = rememberLazyListState()
+        LazyColumn(Modifier.fillMaxSize().dockScrollAware(), state = pageList, contentPadding = PaddingValues(bottom = bottom + 24.dp)) {
+            item {
+                Column(Modifier.padding(horizontal = 16.dp)) {
+                    TabHeaderSpace()
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Icon(if (online) Lucide.Wifi else Lucide.WifiOff, null, tint = if (online) Ar.ok else Ar.amber, modifier = Modifier.size(14.dp))
+                        Spacer(Modifier.width(6.dp))
+                        Text(if (online) "Онлайн" else "Нет сети — доступны только скачанные главы", color = Ar.textMuted, fontSize = 12.sp)
+                        Spacer(Modifier.weight(1f))
+                        Text(Fmt.bytes(OfflineStore.totalBytes()), color = Ar.textMuted, fontSize = 12.sp)
                     }
-                }
-                Spacer(Modifier.height(14.dp))
-            }
-        }
-        if (queue.isNotEmpty()) item {
-            GlassPanel(Modifier.padding(horizontal = 16.dp).padding(bottom = 14.dp)) {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Text("Загружается", color = Ar.white, fontSize = 15.sp, fontWeight = FontWeight.SemiBold, modifier = Modifier.weight(1f))
-                    ArButton("Отменить все", { OfflineStore.cancelAll() }, kind = ButtonKind.Ghost, small = true)
-                }
-                queue.take(8).forEach { t ->
-                    val st = states[t.chapterId]
-                    Column(Modifier.padding(top = 8.dp)) {
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            Column(Modifier.weight(1f)) {
-                                Text(t.titleName, color = Ar.text, fontSize = 13.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                                Text(t.label, color = Ar.textMuted, fontSize = 12.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                    AnimatedVisibility(pending.isNotEmpty(), enter = expandVertically() + fadeIn(), exit = shrinkVertically() + fadeOut()) {
+                        GlassPanel(Modifier.fillMaxWidth().padding(top = 10.dp), borderColor = Ar.amber.copy(alpha = 0.4f)) {
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                if (syncing) Spinner(size = 16.dp) else Icon(Lucide.RefreshCw, null, tint = Ar.amber, modifier = Modifier.size(16.dp))
+                                Spacer(Modifier.width(8.dp))
+                                Text("Прогресс ${pending.size} ${Fmt.plural(pending.size, "главы", "глав", "глав")} ждёт синхронизации", color = Ar.text, fontSize = 13.sp, modifier = Modifier.weight(1f))
+                                if (online && !syncing) ArButton("Синхронизировать", { OfflineStore.syncProgress() }, small = true)
                             }
-                            Text(when (st) { is DlState.Running -> "${(st.fraction * 100).toInt()}%"; is DlState.Failed -> "ошибка"; else -> "в очереди" }, color = if (st is DlState.Failed) Ar.danger else Ar.textMuted, fontSize = 12.sp)
-                            IconBtn(Lucide.X, "Отменить", { OfflineStore.cancel(t.chapterId) }, size = 30.dp, iconSize = 14.dp)
-                        }
-                        val f by animateFloatAsState((st as? DlState.Running)?.fraction ?: 0f, tween(300), label = "dl")
-                        ProgressTrack(f, Modifier.padding(top = 4.dp))
-                    }
-                }
-                if (queue.size > 8) Text("… и ещё ${queue.size - 8}", color = Ar.textMuted, fontSize = 12.sp, modifier = Modifier.padding(top = 6.dp))
-            }
-        }
-        if (titles.isEmpty()) item {
-            Box(Modifier.padding(horizontal = 16.dp)) {
-                EmptyState("Пока ничего не скачано", icon = Lucide.Download, action = { ArButton("В каталог", { nav.tab(Routes.catalog()) }, kind = ButtonKind.Primary, icon = Lucide.LibraryBig) })
-            }
-        } else items(titles, key = { it.titleId }) { m ->
-            val done = m.chapters.size
-            val all = m.title.volumes.flatMap { it.liveChapters }.filter { it.audio_status == "ready" }
-            val queued = queue.count { it.titleId == m.titleId }
-            val t = OfflineStore.offlineTitle(m)
-            val listened = all.count { c -> (c.my_position ?: 0.0) > 0 }
-            GlassPanel(Modifier.padding(horizontal = 16.dp).padding(bottom = 10.dp), padding = PaddingValues(10.dp), onClick = { nav.go(Routes.title(m.slug)) }) {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    ArImage(m.title.cover_thumb_url ?: m.coverUrl, Modifier.width(56.dp).height(80.dp), fallbackIcon = Lucide.Headphones, shape = RoundedCornerShape(8.dp))
-                    Spacer(Modifier.width(12.dp))
-                    Column(Modifier.weight(1f)) {
-                        Text(m.name, color = Ar.white, fontSize = 15.sp, fontWeight = FontWeight.SemiBold, maxLines = 2, overflow = TextOverflow.Ellipsis)
-                        Text(
-                            listOfNotNull("$done из ${all.size} ${Fmt.plural(all.size, "главы", "глав", "глав")}", Fmt.bytes(m.bytes), if (queued > 0) "ещё $queued в очереди" else null).joinToString(" · "),
-                            color = Ar.textMuted, fontSize = 12.sp, modifier = Modifier.padding(top = 2.dp),
-                        )
-                        if (listened > 0) Text("прослушано глав: $listened", color = Ar.textSecondary, fontSize = 12.sp)
-                        Row(Modifier.padding(top = 6.dp), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                            val resume = all.lastOrNull { c -> (c.my_position ?: 0.0) > 0 && m.chapters.containsKey(c.id) } ?: all.firstOrNull { m.chapters.containsKey(it.id) }
-                            if (resume != null) ArButton("Слушать", { PlayerController.play(resume.id); PlayerController.setFull(true) }, kind = ButtonKind.Primary, icon = Lucide.Play, small = true)
-                            if (done < all.size) ArButton("Докачать", { pick = t }, icon = Lucide.Download, small = true)
                         }
                     }
-                    IconBtn(Lucide.Trash2, "Удалить загрузки", { toDelete = m }, size = 34.dp, iconSize = 16.dp, tint = Ar.danger)
+                    Spacer(Modifier.height(14.dp))
                 }
-                if (all.isNotEmpty()) ProgressTrack(done.toFloat() / all.size, Modifier.padding(top = 8.dp), height = 3.dp)
+            }
+            if (queue.isNotEmpty()) item {
+                GlassPanel(Modifier.padding(horizontal = 16.dp).padding(bottom = 14.dp)) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Text("Загружается", color = Ar.white, fontSize = 15.sp, fontWeight = FontWeight.SemiBold, modifier = Modifier.weight(1f))
+                        ArButton("Отменить все", { OfflineStore.cancelAll() }, kind = ButtonKind.Ghost, small = true)
+                    }
+                    queue.take(8).forEach { t ->
+                        val st = states[t.chapterId]
+                        Column(Modifier.padding(top = 8.dp)) {
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Column(Modifier.weight(1f)) {
+                                    Text(t.titleName, color = Ar.text, fontSize = 13.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                                    Text(t.label, color = Ar.textMuted, fontSize = 12.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                                }
+                                Text(when (st) { is DlState.Running -> "${(st.fraction * 100).toInt()}%"; is DlState.Failed -> "ошибка"; else -> "в очереди" }, color = if (st is DlState.Failed) Ar.danger else Ar.textMuted, fontSize = 12.sp)
+                                IconBtn(Lucide.X, "Отменить", { OfflineStore.cancel(t.chapterId) }, size = 30.dp, iconSize = 14.dp)
+                            }
+                            val f by animateFloatAsState((st as? DlState.Running)?.fraction ?: 0f, tween(300), label = "dl")
+                            ProgressTrack(f, Modifier.padding(top = 4.dp))
+                        }
+                    }
+                    if (queue.size > 8) Text("… и ещё ${queue.size - 8}", color = Ar.textMuted, fontSize = 12.sp, modifier = Modifier.padding(top = 6.dp))
+                }
+            }
+            if (titles.isEmpty()) item {
+                Box(Modifier.padding(horizontal = 16.dp)) {
+                    EmptyState("Пока ничего не скачано", icon = Lucide.Download, action = { ArButton("В каталог", { nav.tab(Routes.catalog()) }, kind = ButtonKind.Primary, icon = Lucide.LibraryBig) })
+                }
+            } else items(titles, key = { it.titleId }) { m ->
+                val done = m.chapters.size
+                val all = m.title.volumes.flatMap { it.liveChapters }.filter { it.downloadable }
+                val queued = queue.count { it.titleId == m.titleId }
+                val t = OfflineStore.offlineTitle(m)
+                val listened = all.count { c -> (c.my_position ?: 0.0) > 0 }
+                GlassPanel(Modifier.padding(horizontal = 16.dp).padding(bottom = 10.dp), padding = PaddingValues(10.dp), onClick = { nav.go(Routes.title(m.slug)) }) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        ArImage(m.title.cover_thumb_url ?: m.coverUrl, Modifier.width(56.dp).height(80.dp), fallbackIcon = Lucide.Headphones, shape = RoundedCornerShape(8.dp))
+                        Spacer(Modifier.width(12.dp))
+                        Column(Modifier.weight(1f)) {
+                            Text(m.name, color = Ar.white, fontSize = 15.sp, fontWeight = FontWeight.SemiBold, maxLines = 2, overflow = TextOverflow.Ellipsis)
+                            Text(
+                                listOfNotNull("$done из ${all.size} ${Fmt.plural(all.size, "главы", "глав", "глав")}", Fmt.bytes(m.bytes), if (queued > 0) "ещё $queued в очереди" else null).joinToString(" · "),
+                                color = Ar.textMuted, fontSize = 12.sp, modifier = Modifier.padding(top = 2.dp),
+                            )
+                            if (listened > 0) Text("прослушано глав: $listened", color = Ar.textSecondary, fontSize = 12.sp)
+                            Row(Modifier.padding(top = 6.dp), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                                val resume = all.lastOrNull { c -> (c.my_position ?: 0.0) > 0 && m.chapters.containsKey(c.id) } ?: all.firstOrNull { m.chapters.containsKey(it.id) }
+                                if (resume != null) ArButton("Слушать", { PlayerController.play(resume.id); PlayerController.setFull(true) }, kind = ButtonKind.Primary, icon = Lucide.Play, small = true)
+                                if (done < all.size) ArButton("Докачать", { pick = t }, icon = Lucide.Download, small = true)
+                            }
+                        }
+                        IconBtn(Lucide.Trash2, "Удалить загрузки", { toDelete = m }, size = 34.dp, iconSize = 16.dp, tint = Ar.danger)
+                    }
+                    if (all.isNotEmpty()) ProgressTrack(done.toFloat() / all.size, Modifier.padding(top = 8.dp), height = 3.dp)
+                }
             }
         }
+        TabHeader("Ваши", "загрузки", scrolled = { pageList.canScrollBackward })
     }
     ConfirmDialog(toDelete != null, { toDelete = null }, onConfirm = { toDelete?.let { OfflineStore.removeTitle(it.titleId); toast("Загрузки удалены") }; toDelete = null }, title = "Удалить загрузки", body = "Удалить с устройства все скачанные главы книги «${toDelete?.name}»? Прогресс прослушивания сохранится.", danger = true, confirmLabel = "Удалить")
 }
@@ -193,7 +197,7 @@ fun ChapterDownloadButton(title: TitleFull, ch: ChapterRow, state: DlState?, dow
 /** The title header's download sheet: whole book, per volume, or remove everything. */
 @Composable
 fun DownloadSheet(open: Boolean, onClose: () -> Unit, title: TitleFull, manifest: OfflineManifest?, states: Map<Int, DlState>) {
-    val all = title.volumes.flatMap { it.liveChapters }.filter { it.audio_status == "ready" }
+    val all = title.volumes.flatMap { it.liveChapters }.filter { it.downloadable }
     val done = all.count { manifest?.chapters?.containsKey(it.id) == true }
     val runtime = all.sumOf { it.duration_seconds }
     var ask by remember { mutableStateOf<DownloadAsk?>(null) }
@@ -208,7 +212,7 @@ fun DownloadSheet(open: Boolean, onClose: () -> Unit, title: TitleFull, manifest
         }
         HairlineDivider(Modifier.padding(vertical = 6.dp))
         title.volumes.forEach { v ->
-            val ready = v.liveChapters.filter { it.audio_status == "ready" }
+            val ready = v.liveChapters.filter { it.downloadable }
             if (ready.isEmpty()) return@forEach
             val vDone = ready.count { manifest?.chapters?.containsKey(it.id) == true }
             val vQueued = ready.count { states[it.id] != null }
@@ -245,7 +249,7 @@ fun DownloadConfirm(ask: DownloadAsk?, onClose: () -> Unit) {
         ask != null, onClose,
         onConfirm = { ask?.let { OfflineStore.download(it.title, it.chapterIds); toast(it.done) } },
         title = "Скачать ${ask?.what ?: ""}?",
-        body = "${chapters.size} ${Fmt.plural(chapters.size, "глава", "главы", "глав")} · ${Fmt.duration(seconds)} · примерно ${Fmt.bytes(OfflineStore.estimateBytes(seconds))}",
+        body = "${chapters.size} ${Fmt.plural(chapters.size, "глава", "главы", "глав")} · ${Fmt.duration(seconds)} · примерно ${Fmt.bytes(ask?.let { OfflineStore.estimateBytes(it.title, chapters) } ?: 0L)}",
         confirmLabel = "Скачать",
     )
 }
@@ -258,7 +262,7 @@ fun DownloadPicker(open: TitleFull?, onClose: () -> Unit) {
     val title = last
     val queue by OfflineStore.queue.collectAsStateWithLifecycle()
     val volumes = title?.let { t ->
-        val missing = OfflineStore.missing(t, t.volumes.flatMap { v -> v.liveChapters.filter { it.playable }.map { it.id } }).toSet() - queue.map { it.chapterId }.toSet()
+        val missing = OfflineStore.missing(t, t.volumes.flatMap { v -> v.liveChapters.filter { it.downloadable }.map { it.id } }).toSet() - queue.map { it.chapterId }.toSet()
         t.volumes.map { v -> v to v.liveChapters.filter { it.id in missing } }.filter { it.second.isNotEmpty() }
     } ?: emptyList()
     var selected by remember(title) { mutableStateOf(volumes.flatMap { (_, cs) -> cs.map { it.id } }.toSet()) }
@@ -292,7 +296,7 @@ fun DownloadPicker(open: TitleFull?, onClose: () -> Unit) {
         HairlineDivider(Modifier.padding(vertical = 8.dp))
         Row(verticalAlignment = Alignment.CenterVertically) {
             Text(
-                if (chosen.isEmpty()) "Ничего не выбрано" else "${chosen.size} ${Fmt.plural(chosen.size, "глава", "главы", "глав")} · примерно ${Fmt.bytes(OfflineStore.estimateBytes(seconds))}",
+                if (chosen.isEmpty()) "Ничего не выбрано" else "${chosen.size} ${Fmt.plural(chosen.size, "глава", "главы", "глав")} · примерно ${Fmt.bytes(OfflineStore.estimateBytes(title!!, chosen))}",
                 color = Ar.textMuted, fontSize = 12.sp, modifier = Modifier.weight(1f),
             )
             ArButton("Скачать", { OfflineStore.download(title!!, chosen.map { it.id }); toast("Главы добавлены в загрузки"); onClose() }, kind = ButtonKind.Primary, icon = Lucide.Download, small = true, enabled = chosen.isNotEmpty())

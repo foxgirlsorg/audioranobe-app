@@ -168,7 +168,7 @@ fun TextSkeleton(modifier: Modifier = Modifier, lines: Int = 3) {
 @Composable
 fun FillRowsSkeleton(rowHeight: Dp, gap: Dp = 12.dp, modifier: Modifier = Modifier, row: @Composable () -> Unit) {
     BoxWithConstraints(modifier.fillMaxSize()) {
-        val count = ((maxHeight + gap) / (rowHeight + gap)).toInt().coerceAtLeast(1)
+        val count = if (maxHeight == Dp.Infinity) 4 else ((maxHeight + gap) / (rowHeight + gap)).toInt().coerceAtLeast(1)
         Column(verticalArrangement = Arrangement.spacedBy(gap)) { repeat(count) { row() } }
     }
 }
@@ -220,9 +220,9 @@ fun catalogSkeletonCount(cols: Int = gridColumns(LocalConfiguration.current.scre
 
 /** Lazy-grid placeholder cards, for screens whose cards live in a LazyVerticalGrid. Keys are strings so they never clash with real item ids. */
 @OptIn(ExperimentalFoundationApi::class)
-fun LazyGridScope.titleCardSkeletons(count: Int = 6) {
+fun LazyGridScope.titleCardSkeletons(count: Int = 6, modifier: Modifier = Modifier) {
     gridItems((0 until count).toList(), key = { "skeleton$it" }) { _ ->
-        TitleCardSkeleton(Modifier.animateItem(fadeInSpec = skeletonFade(), fadeOutSpec = skeletonFade()))
+        TitleCardSkeleton(modifier.animateItem(fadeInSpec = skeletonFade(), fadeOutSpec = skeletonFade()))
     }
 }
 

@@ -41,6 +41,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.IntrinsicSize
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.imePadding
+import androidx.compose.foundation.layout.systemBarsPadding
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -89,7 +90,7 @@ fun ArModal(
         val alpha by pop.animateFloat({ if (targetState) tween(260) else tween(160) }, label = "modalAlpha") { if (it) 1f else 0f }
         val lift by pop.animateDp({ if (targetState) tween(260, easing = Overshoot) else tween(160) }, label = "modalLift") { if (it) 0.dp else if (pop.targetState) 20.dp else 12.dp }
         val scale by pop.animateFloat({ if (targetState) tween(260, easing = Overshoot) else tween(160) }, label = "modalScale") { if (it) 1f else 0.97f }
-        Box(Modifier.fillMaxWidth().padding(14.dp).imePadding(), contentAlignment = Alignment.Center) {
+        Box(Modifier.fillMaxWidth().systemBarsPadding().padding(14.dp).imePadding(), contentAlignment = Alignment.Center) {
             Column(
                 Modifier.fillMaxWidth().graphicsLayer { this.alpha = alpha; translationY = lift.toPx(); scaleX = scale; scaleY = scale }
                     .clip(RoundedCornerShape(16.dp)).background(Ar.surfaceSolid).border(1.dp, Ar.borderStrong, RoundedCornerShape(16.dp)),
@@ -100,7 +101,7 @@ fun ArModal(
                     IconBtn(Lucide.X, "Закрыть", onClose, size = 36.dp, iconSize = 18.dp)
                 }
                 Column(
-                    Modifier.fillMaxWidth().heightIn(max = 620.dp).then(if (scrollable) Modifier.verticalScroll(rememberScrollState()) else Modifier)
+                    Modifier.fillMaxWidth().weight(1f, fill = false).then(if (scrollable) Modifier.verticalScroll(rememberScrollState()) else Modifier)
                         .padding(horizontal = 18.dp, vertical = 12.dp),
                     content = content,
                 )
@@ -181,7 +182,7 @@ fun <T> SelectMenu(
         if (label != null) FieldLabel(label)
         Box {
             Row(
-                Modifier.fillMaxWidth().onSizeChanged { anchorWidth = it.width }
+                Modifier.fillMaxWidth().heightIn(min = if (LocalFlatUi.current && !small) 56.dp else 0.dp).onSizeChanged { anchorWidth = it.width }
                     .clip(RoundedCornerShape(if (small) 8.dp else 9.dp)).background(if (open) Ar.fill06 else Ar.fill04)
                     .border(1.dp, if (open) Ar.accent.copy(alpha = 0.45f) else Ar.border, RoundedCornerShape(if (small) 8.dp else 9.dp))
                     .clickable(enabled = enabled) { open = !open }

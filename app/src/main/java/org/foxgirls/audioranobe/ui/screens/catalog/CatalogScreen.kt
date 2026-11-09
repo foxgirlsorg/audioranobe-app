@@ -1,5 +1,7 @@
 package org.foxgirls.audioranobe.ui.screens.catalog
 
+import org.foxgirls.audioranobe.ui.components.TabHeaderSpace
+import org.foxgirls.audioranobe.ui.components.TabHeader
 import android.os.Bundle
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -68,6 +70,8 @@ import org.foxgirls.audioranobe.data.UserSearchHit
 import org.foxgirls.audioranobe.ui.LocalBottomInset
 import org.foxgirls.audioranobe.ui.dockScrollAware
 import org.foxgirls.audioranobe.ui.swipeTabs
+import org.foxgirls.audioranobe.ui.rememberTabSlide
+import org.foxgirls.audioranobe.ui.tabSlide
 import org.foxgirls.audioranobe.ui.LocalShell
 import org.foxgirls.audioranobe.ui.components.ArButton
 import org.foxgirls.audioranobe.ui.components.ArImage
@@ -101,7 +105,6 @@ import org.foxgirls.audioranobe.ui.components.pickers.GenrePicker
 import org.foxgirls.audioranobe.ui.icons.Lucide
 import org.foxgirls.audioranobe.ui.nav.LocalNav
 import org.foxgirls.audioranobe.ui.nav.Routes
-import org.foxgirls.audioranobe.ui.screens.TopBar
 import org.foxgirls.audioranobe.ui.theme.Ar
 import org.foxgirls.audioranobe.ui.toast.toast
 import org.foxgirls.audioranobe.ui.toast.toastError
@@ -214,77 +217,82 @@ fun CatalogScreen(args: Bundle?) {
     val screenHeight = LocalConfiguration.current.screenHeightDp
     val skeletonCount = (screenHeight / 160 + 1) * cols
 
-    LazyVerticalGrid(
-        columns = GridCells.Fixed(cols), state = gridState, modifier = Modifier.fillMaxSize().dockScrollAware().swipeTabs(listOfNotNull("titles", "narrators", if (user != null) "users" else null), tab) { tab = it; page = 1 },
-        contentPadding = PaddingValues(start = 16.dp, end = 16.dp, bottom = bottom + 24.dp),
-        horizontalArrangement = Arrangement.spacedBy(14.dp), verticalArrangement = Arrangement.spacedBy(18.dp),
-    ) {
-        item(span = { GridItemSpan(maxLineSpan) }) {
-            Column {
-                TopBar(onSearch = { shell.searchOpen = true }, horizontalPadding = 0.dp)
-                Eyebrow("Вся библиотека")
-                SectionTitle("Исследуйте", "каталог", Modifier.padding(top = 4.dp, bottom = 12.dp), size = 24)
-                ArTextField(q, { q = it }, placeholder = when (tab) { "narrators" -> "Имя чтеца …"; "users" -> "Имя пользователя …"; else -> "Название тайтла …" }, leading = Lucide.Search, imeAction = ImeAction.Search)
-                Spacer(Modifier.height(10.dp))
-                ArTabs(listOfNotNull(TabItem("titles", "Тайтлы"), TabItem("narrators", "Чтецы"), if (user != null) TabItem("users", "Люди") else null), tab, { tab = it; page = 1 }, variant = TabsVariant.Underline, scrollable = false)
-                Spacer(Modifier.height(16.dp))
-                if (tab == "titles") Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                    Text(data?.let { "Тайтлов: ${Fmt.count(it.total)}" } ?: "", color = Ar.textMuted, fontSize = 12.sp, modifier = Modifier.weight(1f))
-                    Row(Modifier.height(IntrinsicSize.Min), verticalAlignment = Alignment.CenterVertically) {
-                        SquareBtn(Lucide.SlidersHorizontal, "Фильтры", activeFilters > 0, { sheet = true }) {
-                            if (activeFilters > 0) CountBubble(activeFilters, Modifier.align(Alignment.TopEnd).offset(6.dp, (-6).dp))
+    val catTabs = listOfNotNull("titles", "narrators", if (user != null) "users" else null)
+    val slide = rememberTabSlide(catTabs, tab)
+    Box(Modifier.fillMaxSize()) {
+        LazyVerticalGrid(
+            columns = GridCells.Fixed(cols), state = gridState, modifier = Modifier.fillMaxSize().dockScrollAware().swipeTabs(catTabs, tab) { tab = it; page = 1 },
+            contentPadding = PaddingValues(start = 16.dp, end = 16.dp, bottom = bottom + 24.dp),
+            horizontalArrangement = Arrangement.spacedBy(14.dp), verticalArrangement = Arrangement.spacedBy(18.dp),
+        ) {
+            item(span = { GridItemSpan(maxLineSpan) }) {
+                Column {
+                    TabHeaderSpace()
+                    Spacer(Modifier.height(4.dp))
+                    ArTextField(q, { q = it }, placeholder = when (tab) { "narrators" -> "Имя чтеца …"; "users" -> "Имя пользователя …"; else -> "Название тайтла …" }, leading = Lucide.Search, imeAction = ImeAction.Search)
+                    Spacer(Modifier.height(10.dp))
+                    ArTabs(listOfNotNull(TabItem("titles", "Тайтлы"), TabItem("narrators", "Чтецы"), if (user != null) TabItem("users", "Люди") else null), tab, { tab = it; page = 1 }, variant = TabsVariant.Underline, scrollable = false)
+                    Spacer(Modifier.height(16.dp))
+                    if (tab == "titles") Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                        Text(data?.let { "Тайтлов: ${Fmt.count(it.total)}" } ?: "", color = Ar.textMuted, fontSize = 12.sp, modifier = Modifier.weight(1f))
+                        Row(Modifier.height(IntrinsicSize.Min), verticalAlignment = Alignment.CenterVertically) {
+                            SquareBtn(Lucide.SlidersHorizontal, "Фильтры", activeFilters > 0, { sheet = true }) {
+                                if (activeFilters > 0) CountBubble(activeFilters, Modifier.align(Alignment.TopEnd).offset(6.dp, (-6).dp))
+                            }
+                            Spacer(Modifier.width(6.dp))
+                            SelectMenu(sort, SORT_OPTIONS, { sort = it; page = 1 }, Modifier.width(150.dp), small = true)
+                            Spacer(Modifier.width(6.dp))
+                            SquareBtn(Lucide.ArrowDownWideNarrow, if (order == "asc") "По возрастанию" else "По убыванию", order == "asc", { order = if (order == "asc") "desc" else "asc"; page = 1 })
                         }
-                        Spacer(Modifier.width(6.dp))
-                        SelectMenu(sort, SORT_OPTIONS, { sort = it; page = 1 }, Modifier.width(150.dp), small = true)
-                        Spacer(Modifier.width(6.dp))
-                        SquareBtn(Lucide.ArrowDownWideNarrow, if (order == "asc") "По возрастанию" else "По убыванию", order == "asc", { order = if (order == "asc") "desc" else "asc"; page = 1 })
-                    }
-                } else Row(verticalAlignment = Alignment.CenterVertically) {
-                    Text(when (tab) { "narrators" -> narrators?.let { "Чтецов: ${Fmt.count(it.total)}" } ?: ""; else -> users?.let { "Найдено: ${Fmt.count(it.size)}" } ?: "" }, color = Ar.textMuted, fontSize = 12.sp)
-                }
-            }
-        }
-        // Only the active tab's results decide whether the grid is still loading, so switching tabs never shows "nothing found" mid-fetch.
-        val listLoading = loading && when (tab) { "narrators" -> narrators == null; "users" -> users == null; else -> data == null }
-        if (listLoading) when (tab) {
-            "titles" -> titleCardSkeletons(skeletonCount)
-            "narrators" -> items((0 until skeletonCount).toList(), key = { "narratorSkeleton$it" }) { _ -> PersonCardSkeleton(Modifier.animateItem(fadeInSpec = skeletonFade(), fadeOutSpec = skeletonFade())) }
-            else -> item(span = { GridItemSpan(maxLineSpan) }) { Column { repeat(screenHeight / 72 + 1) { AvatarRowSkeleton() } } }
-        }
-        else if (error != null) item(span = { GridItemSpan(maxLineSpan) }) { ErrorState(error!!, { nonce++ }) }
-        else when (tab) {
-            "titles" -> {
-                val d = data
-                if (d == null || d.items.isEmpty()) item(span = { GridItemSpan(maxLineSpan) }) { EmptyState("Тайтлы не найдены", "Попробуйте смягчить или сбросить фильтры.", Lucide.SearchX) }
-                else {
-                    items(d.items, key = { it.id }) { t -> TitleCardC(t) }
-                    item(span = { GridItemSpan(maxLineSpan) }) { Pagination(d.page, d.total, d.per_page) { page = it; scope.launch { gridState.scrollToItem(0) } } }
-                    d.external?.takeIf { it.isNotEmpty() }?.let { ext -> item(span = { GridItemSpan(maxLineSpan) }) { RequestableTitles(ext) } }
-                }
-            }
-            "narrators" -> {
-                val n = narrators
-                if (n == null || n.items.isEmpty()) item(span = { GridItemSpan(maxLineSpan) }) { EmptyState("Чтецы не найдены", "Попробуйте другой запрос.", Lucide.SearchX) }
-                else {
-                    items(n.items, key = { it.id }) { NarratorPersonCard(it) }
-                    item(span = { GridItemSpan(maxLineSpan) }) { Pagination(n.page, n.total, n.per_page) { page = it; scope.launch { gridState.scrollToItem(0) } } }
-                }
-            }
-            else -> {
-                val u = users
-                if (u == null || u.isEmpty()) item(span = { GridItemSpan(maxLineSpan) }) { EmptyState("Пользователи не найдены", if (debouncedQ.isNotBlank()) "Попробуйте другой запрос." else "Начните вводить имя пользователя.", Lucide.SearchX) }
-                else items(u, key = { it.id }, span = { GridItemSpan(maxLineSpan) }) { h ->
-                    Row(Modifier.fillMaxWidth().clip(RoundedCornerShape(10.dp)).clickable { nav.go(Routes.user(h.id)) }.padding(8.dp), verticalAlignment = Alignment.CenterVertically) {
-                        UserAvatar(h.username, h.avatar_url, 40.dp, thumbUrl = h.avatar_thumb_url)
-                        Spacer(Modifier.width(10.dp))
-                        Column {
-                            Text(h.display_name.ifBlank { h.username }, color = Ar.text, fontSize = 14.sp, fontWeight = FontWeight.SemiBold)
-                            Text("@${h.username}", color = Ar.textMuted, fontSize = 12.sp)
-                        }
+                    } else Row(verticalAlignment = Alignment.CenterVertically) {
+                        Text(when (tab) { "narrators" -> narrators?.let { "Чтецов: ${Fmt.count(it.total)}" } ?: ""; else -> users?.let { "Найдено: ${Fmt.count(it.size)}" } ?: "" }, color = Ar.textMuted, fontSize = 12.sp)
                     }
                 }
             }
+            // Only the active tab's results decide whether the grid is still loading, so switching tabs never shows "nothing found" mid-fetch.
+            val listLoading = loading && when (tab) { "narrators" -> narrators == null; "users" -> users == null; else -> data == null }
+            val sl = Modifier.tabSlide(slide)
+            if (listLoading) when (tab) {
+                "titles" -> titleCardSkeletons(skeletonCount, sl)
+                "narrators" -> items((0 until skeletonCount).toList(), key = { "narratorSkeleton$it" }) { _ -> PersonCardSkeleton(sl.animateItem(fadeInSpec = skeletonFade(), fadeOutSpec = skeletonFade())) }
+                else -> item(span = { GridItemSpan(maxLineSpan) }) { Column(sl) { repeat(screenHeight / 72 + 1) { AvatarRowSkeleton() } } }
+            }
+            else if (error != null) item(span = { GridItemSpan(maxLineSpan) }) { Box(sl) { ErrorState(error!!, { nonce++ }) } }
+            else when (tab) {
+                "titles" -> {
+                    val d = data
+                    if (d == null || d.items.isEmpty()) item(span = { GridItemSpan(maxLineSpan) }) { Box(sl) { EmptyState("Тайтлы не найдены", "Попробуйте смягчить или сбросить фильтры.", Lucide.SearchX) } }
+                    else {
+                        items(d.items, key = { it.id }) { t -> Box(sl) { TitleCardC(t) } }
+                        item(span = { GridItemSpan(maxLineSpan) }) { Box(sl) { Pagination(d.page, d.total, d.per_page) { page = it; scope.launch { gridState.scrollToItem(0) } } } }
+                        d.external?.takeIf { it.isNotEmpty() }?.let { ext -> item(span = { GridItemSpan(maxLineSpan) }) { Box(sl) { RequestableTitles(ext) } } }
+                    }
+                }
+                "narrators" -> {
+                    val n = narrators
+                    if (n == null || n.items.isEmpty()) item(span = { GridItemSpan(maxLineSpan) }) { Box(sl) { EmptyState("Чтецы не найдены", "Попробуйте другой запрос.", Lucide.SearchX) } }
+                    else {
+                        items(n.items, key = { it.id }) { Box(sl) { NarratorPersonCard(it) } }
+                        item(span = { GridItemSpan(maxLineSpan) }) { Box(sl) { Pagination(n.page, n.total, n.per_page) { page = it; scope.launch { gridState.scrollToItem(0) } } } }
+                    }
+                }
+                else -> {
+                    val u = users
+                    if (u == null || u.isEmpty()) item(span = { GridItemSpan(maxLineSpan) }) { Box(sl) { EmptyState("Пользователи не найдены", if (debouncedQ.isNotBlank()) "Попробуйте другой запрос." else "Начните вводить имя пользователя.", Lucide.SearchX) } }
+                    else items(u, key = { it.id }, span = { GridItemSpan(maxLineSpan) }) { h ->
+                        Row(sl.fillMaxWidth().clip(RoundedCornerShape(10.dp)).clickable { nav.go(Routes.user(h.id)) }.padding(8.dp), verticalAlignment = Alignment.CenterVertically) {
+                            UserAvatar(h.username, h.avatar_url, 40.dp, thumbUrl = h.avatar_thumb_url)
+                            Spacer(Modifier.width(10.dp))
+                            Column {
+                                Text(h.display_name.ifBlank { h.username }, color = Ar.text, fontSize = 14.sp, fontWeight = FontWeight.SemiBold)
+                                Text("@${h.username}", color = Ar.textMuted, fontSize = 12.sp)
+                            }
+                        }
+                    }
+                }
+            }
         }
+        TabHeader("Каталог", "аудиокниг", scrolled = { gridState.canScrollBackward }) { IconBtn(Lucide.Search, "Поиск", { shell.searchOpen = true }, tint = Ar.text) }
     }
 
     ArSheet(sheet, { sheet = false }, "Фильтры") {

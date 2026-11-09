@@ -28,6 +28,12 @@ import androidx.media3.session.SessionToken
 import org.foxgirls.audioranobe.core.Api
 import org.foxgirls.audioranobe.core.Fmt
 import org.foxgirls.audioranobe.data.ChapterPlay
+import org.foxgirls.audioranobe.data.ChapterText
+import org.foxgirls.audioranobe.tts.SentenceSpeaker
+import org.foxgirls.audioranobe.tts.SileroSpeaker
+import org.foxgirls.audioranobe.tts.SystemSpeaker
+import org.foxgirls.audioranobe.tts.TtsModels
+import org.foxgirls.audioranobe.tts.TtsText
 import org.foxgirls.audioranobe.data.Stores
 import org.foxgirls.audioranobe.offline.OfflineStore
 import org.foxgirls.audioranobe.ui.toast.toastError
@@ -80,6 +86,16 @@ object PlayerController {
     val full: StateFlow<Boolean> = _full.asStateFlow()
     private val _loading = MutableStateFlow(false)
     val loading: StateFlow<Boolean> = _loading.asStateFlow()
+
+    /** A read-aloud chapter was asked for but the narration models are not on the device yet: the UI offers the download, then retries. */
+    data class TtsRequest(val chapterId: Int, val startAt: Double?)
+    private val _ttsRequest = MutableStateFlow<TtsRequest?>(null)
+    val ttsRequest: StateFlow<TtsRequest?> = _ttsRequest.asStateFlow()
+    fun clearTtsRequest() { _ttsRequest.value = null }
+    private var listened = 0.0
+    private val _reader = MutableStateFlow<List<List<String>>?>(null)
+    /** The current read-aloud chapter as paragraphs of sentences; null for audio chapters. */
+    val reader: StateFlow<List<List<String>>?> = _reader.asStateFlow()
 
     private var loadSeq = 0
     private var pendingStart: Double? = null
@@ -145,7 +161,7 @@ object PlayerController {
                     if (c.duration > 0) _duration.value = c.duration / 1000.0
                     pendingStart?.let { s -> pendingStart = null; c.seekTo((s * 1000).toLong()) }
                 }
-                Player.STATE_ENDED -> onEnded()
+                Player.STATE_ENDED -> { _loading.value = false; onEnded() }
                 Player.STATE_BUFFERING -> _loading.value = true
                 else -> {}
             }
@@ -186,6 +202,7 @@ object PlayerController {
         _position.value = max(0.0, c.currentPosition / 1000.0)
         _buffered.value = max(0.0, c.bufferedPosition / 1000.0)
         if (c.duration > 0) _duration.value = c.duration / 1000.0
+        if (_playing.value) listened += 0.25 * _rate.value
         if (_sleep.value is Sleep.Chapter && _duration.value > 0) {
             _sleepRemaining.value = max(0.0, _duration.value - _position.value).toInt()
         }
@@ -208,14 +225,16 @@ object PlayerController {
         val pos = positionOverride ?: _position.value
         if (pos.isNaN()) return
         val offline = OfflineStore.isDownloaded(cur.id)
+        val heard = listened.also { listened = 0.0 }
         scope.launch(Dispatchers.IO) {
+            // Read-aloud chapters are credited by listening time; audio ones by how far the position moved.
             val ok = runCatching {
-                Api.put<Unit>("/me/progress/${cur.id}", buildJsonObject { put("position", max(0.0, pos)) })
+                Api.put<Unit>("/me/progress/${cur.id}", buildJsonObject { put("position", max(0.0, pos)); if (cur.isTts) put("listened", heard) })
             }.isSuccess
             // Keep the progress on the device when the server is unreachable (and for downloaded
             // chapters, so the offline title page shows it); it syncs when a connection is back.
             if (ok) OfflineStore.markSynced(cur.id)
-            if (!ok || offline) OfflineStore.recordProgress(cur, max(0.0, pos))
+            if (!ok || offline) OfflineStore.recordProgress(cur, max(0.0, pos), if (ok) 0.0 else heard)
         }
     }
 
@@ -241,7 +260,9 @@ object PlayerController {
             .setArtworkUri(art)
             .setIsPlayable(true)
             .build()
-        return MediaItem.Builder().setMediaId(ch.id.toString()).setUri(ch.audio_url).setMediaMetadata(md).build()
+        val b = MediaItem.Builder().setMediaId(ch.id.toString()).setMediaMetadata(md)
+        if (ch.audio_url.isNotBlank()) b.setUri(ch.audio_url)
+        return b.build()
     }
 
     /**
@@ -316,6 +337,9 @@ object PlayerController {
         }
         val art = carArt(ch.coverUrl, square = false)
         if (seq != loadSeq) return
+        if (ch.isTts) { startTts(ch, art, startAt, autoplay); return }
+        PlaybackService.instance?.leaveTts()
+        _reader.value = null
 
         val start = adopt(ch, startAt)
         c.setMediaItem(mediaItem(ch, art), (start * 1000).toLong())
@@ -324,6 +348,45 @@ object PlayerController {
         c.playWhenReady = autoplay
         if (!autoplay) _loading.value = false
     }
+
+    /** Reads the chapter's stored text aloud on the device. Asks for the models first when they are missing. */
+    private suspend fun startTts(ch: ChapterPlay, art: Uri, startAt: Double?, autoplay: Boolean) {
+        val system = Stores.prefs.ttsEngine == "system"
+        if (!system && !TtsModels.installed.value) {
+            _loading.value = false
+            if (autoplay) _ttsRequest.value = TtsRequest(ch.id, startAt)
+            return
+        }
+        val svc = PlaybackService.instance ?: throw IllegalStateException("Плеер ещё не готов")
+        val text = OfflineStore.chapterText(ch.id) ?: Api.get<ChapterText>("/chapters/${ch.id}/text")
+        val prefs = Stores.prefs
+        val announce = prefs.ttsAnnounce ?: text.defaults?.announce ?: true
+        val paragraphs = TtsText.paragraphs(text.text)
+        val sentences = (if (announce) listOf(TtsText.announcement(ch)) else emptyList()) + paragraphs.flatten()
+        val pause = prefs.ttsPause.takeIf { it >= 0 }?.toDouble() ?: text.defaults?.pause ?: 0.35
+        val start = adopt(ch, startAt)
+        val skipped = if (announce) 1 else 0
+        svc.startTts(mediaItem(ch, art), start, autoplay) { events ->
+            if (system) SystemSpeaker(appContext, sentences, skipped, prefs.ttsSystemVoice, pause, events)
+            else SileroSpeaker(appContext, sentences, skipped, prefs.ttsVoice ?: text.speaker, pause, events)
+        }
+        _duration.value = svc.ttsSeconds()
+        _reader.value = paragraphs
+        listened = 0.0
+        switching = false
+        _loading.value = false
+    }
+
+    /** Starts the current read-aloud chapter over from where it is, after the voice, pause or announcement changed. */
+    fun reloadTts() {
+        val ch = _current.value?.takeIf { it.isTts } ?: return
+        val at = _position.value
+        val resume = _playing.value
+        scope.launch { runCatching { startTts(ch, carArt(ch.coverUrl, square = false), at, resume) }.onFailure { toastError(it) } }
+    }
+
+    /** Jumps to a point of the read-aloud text, stored-length seconds. */
+    fun seekText(seconds: Double) = seek(seconds)
 
     /** Makes [ch] the current chapter (saving the one it replaces) and returns where to start it. */
     private fun adopt(ch: ChapterPlay, startAt: Double?): Double {
@@ -346,6 +409,7 @@ object PlayerController {
     @OptIn(UnstableApi::class)
     suspend fun resolve(id: Int, startAt: Double? = null): MediaSession.MediaItemsWithStartPosition {
         val ch = OfflineStore.chapterPlay(id) ?: Api.get<ChapterPlay>("/chapters/$id")
+        if (ch.isTts) throw UnsupportedOperationException("read-aloud chapters start from the app")
         val art = carArt(ch.coverUrl, square = false)
         val start = adopt(ch, startAt)
         return MediaSession.MediaItemsWithStartPosition(listOf(mediaItem(ch, art)), 0, (start * 1000).toLong())
@@ -436,7 +500,9 @@ object PlayerController {
             c.pause()
             c.stop()
             c.clearMediaItems()
+            PlaybackService.instance?.leaveTts()
         }
+        _reader.value = null
         Stores.prefs.openChapter = null
         _current.value = null
         _playing.value = false

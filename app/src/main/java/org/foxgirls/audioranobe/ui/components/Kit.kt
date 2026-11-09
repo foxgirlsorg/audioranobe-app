@@ -1,5 +1,13 @@
 package org.foxgirls.audioranobe.ui.components
 
+import org.foxgirls.audioranobe.ui.nav.LocalNav
+import org.foxgirls.audioranobe.ui.LocalShell
+import androidx.compose.animation.core.Spring
+import androidx.compose.animation.core.spring
+import androidx.compose.foundation.layout.statusBars
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.windowInsetsTopHeight
+import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.collectAsState
@@ -29,6 +37,7 @@ import com.eygraber.compose.placeholder.placeholder
 import androidx.compose.foundation.ScrollState
 import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.ui.draw.drawWithContent
+import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.BlendMode
@@ -54,6 +63,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.defaultMinSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -180,6 +190,9 @@ fun HairlineDivider(modifier: Modifier = Modifier) {
 
 enum class ButtonKind { Default, Primary, Ghost, Danger }
 
+/** True inside the edit screens, where buttons and labels use the flat sentence-case style (the site's `body.edit-ui`). */
+val LocalFlatUi = androidx.compose.runtime.compositionLocalOf { false }
+
 @Composable
 fun ArButton(
     text: String,
@@ -192,20 +205,23 @@ fun ArButton(
     fullWidth: Boolean = false,
     small: Boolean = false,
 ) {
+    val flat = LocalFlatUi.current
     val bg = when (kind) {
         ButtonKind.Default -> Ar.fill04
-        ButtonKind.Primary -> Ar.accent.copy(alpha = 0.12f)
+        ButtonKind.Primary -> if (flat) Ar.accent else Ar.accent.copy(alpha = 0.12f)
         ButtonKind.Ghost -> Color.Transparent
-        ButtonKind.Danger -> Ar.danger.copy(alpha = 0.12f)
+        ButtonKind.Danger -> if (flat) Color.Transparent else Ar.danger.copy(alpha = 0.12f)
     }
     val border = when (kind) {
         ButtonKind.Default -> Ar.border
-        ButtonKind.Primary -> Ar.accent.copy(alpha = 0.5f)
+        ButtonKind.Primary -> if (flat) Ar.accent else Ar.accent.copy(alpha = 0.5f)
         ButtonKind.Ghost -> Color.Transparent
         ButtonKind.Danger -> Ar.danger.copy(alpha = 0.55f)
     }
-    val fg = when (kind) {
-        ButtonKind.Ghost -> Ar.textSecondary
+    val fg = when {
+        kind == ButtonKind.Ghost -> Ar.textSecondary
+        flat && kind == ButtonKind.Primary -> Ar.white
+        flat && kind == ButtonKind.Danger -> Ar.danger
         else -> Ar.text
     }
     val shape = RoundedCornerShape(Ar.radiusSm)
@@ -230,7 +246,8 @@ fun ArButton(
             Icon(icon, null, tint = fg, modifier = Modifier.size(15.dp))
             Spacer(Modifier.width(8.dp))
         }
-        Text(text.uppercase(), color = fg, fontSize = 12.sp, fontWeight = FontWeight.SemiBold, letterSpacing = 1.2.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+        if (flat) Text(text, color = fg, fontSize = 14.sp, fontWeight = FontWeight.Medium, maxLines = 1, overflow = TextOverflow.Ellipsis)
+        else Text(text.uppercase(), color = fg, fontSize = 12.sp, fontWeight = FontWeight.SemiBold, letterSpacing = 1.2.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
     }
 }
 
@@ -462,7 +479,8 @@ fun arFieldColors() = OutlinedTextFieldDefaults.colors(
 @Composable
 fun FieldLabel(text: String, optional: Boolean = false, modifier: Modifier = Modifier) {
     Row(modifier.padding(bottom = 6.dp), verticalAlignment = Alignment.CenterVertically) {
-        Text(text.uppercase(), color = Ar.textSecondary, fontSize = 11.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.4.sp)
+        if (LocalFlatUi.current) Text(text, color = Ar.textSecondary, fontSize = 13.sp, fontWeight = FontWeight.Medium)
+        else Text(text.uppercase(), color = Ar.textSecondary, fontSize = 11.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.4.sp)
         if (optional) Text("  необязательно", color = Ar.textMuted, fontSize = 11.sp)
     }
 }
@@ -591,8 +609,8 @@ fun ArTabs(
 // ---------- states ----------
 
 @Composable
-fun Spinner(modifier: Modifier = Modifier, size: Dp = 26.dp) {
-    CircularProgressIndicator(modifier.size(size), color = Ar.accent, trackColor = Color.White.copy(alpha = 0.12f), strokeWidth = 2.dp)
+fun Spinner(modifier: Modifier = Modifier, size: Dp = 26.dp, color: Color = Ar.accent, track: Color = Color.White.copy(alpha = 0.12f)) {
+    CircularProgressIndicator(modifier.size(size), color = color, trackColor = track, strokeWidth = 2.dp)
 }
 
 /** components/EmptyState */
@@ -636,6 +654,62 @@ fun ErrorState(message: String, onRetry: (() -> Unit)?, title: String = "Не у
     }
     EmptyState(title, message, Lucide.TriangleAlert, modifier) {
         if (onRetry != null) ArButton("Попробовать ещё раз", onRetry, icon = Lucide.RefreshCw)
+    }
+}
+
+/**
+ * Top bar of the dock tabs: the logo (when [title] is null) or the tab's title, then [trailing].
+ * It slides away while the page scrolls down and comes back on the first scroll up, with the dock;
+ * a hairline shows under it while [scrolled].
+ */
+@Composable
+fun BoxScope.TabHeader(title: String?, accent: String? = null, scrolled: () -> Boolean = { false }, trailing: @Composable RowScope.() -> Unit = {}) {
+    val nav = LocalNav.current
+    val shift by animateDpAsState(if (LocalShell.current.dockCompact) -StickyBarHeight else 0.dp, spring(stiffness = Spring.StiffnessMediumLow), label = "tabHeader")
+    val isScrolled by remember { derivedStateOf(scrolled) }
+    val line by animateColorAsState(if (isScrolled) Ar.border else Color.Transparent, tween(180), label = "tabHeaderLine")
+    Box(Modifier.align(Alignment.TopCenter).fillMaxWidth()) {
+        Row(Modifier.statusBarsPadding().offset { IntOffset(0, shift.roundToPx()) }.fillMaxWidth().height(StickyBarHeight).background(Ar.bg)
+            .drawBehind { drawLine(line, Offset(0f, size.height), Offset(size.width, size.height), 1.dp.toPx()) }.padding(horizontal = 16.dp), verticalAlignment = Alignment.CenterVertically) {
+            if (title == null) Row(Modifier.clickable { nav.tab(org.foxgirls.audioranobe.ui.nav.Routes.HOME) }) {
+                Text("AUDIO", color = Ar.white, fontSize = 18.sp, fontWeight = FontWeight.Bold, letterSpacing = 2.sp)
+                Text("RANOBE", color = Ar.accent, fontSize = 18.sp, fontWeight = FontWeight.Bold, letterSpacing = 2.sp)
+            } else SectionTitle(title, accent, size = 18)
+            Spacer(Modifier.weight(1f))
+            trailing()
+        }
+        Box(Modifier.fillMaxWidth().windowInsetsTopHeight(WindowInsets.statusBars).background(Ar.bg))
+    }
+}
+
+/** Room a page leaves above its content for [TabHeader]. */
+@Composable
+fun TabHeaderSpace() = Spacer(Modifier.statusBarsPadding().height(StickyBarHeight))
+
+/** Height of [StickyBackBar] below the status bar; pages leave this much room above their content. */
+val StickyBarHeight = 48.dp
+
+/** Back-button header pinned over a scrolling page: see-through at the top, a solid backdrop once [scrolled] says the page moved. */
+@Composable
+fun StickyBackBar(
+    scrolled: () -> Boolean,
+    onBack: () -> Unit,
+    modifier: Modifier = Modifier,
+    horizontalPadding: Dp = 16.dp,
+    chip: Boolean = false,
+    trailing: @Composable RowScope.() -> Unit = {},
+) {
+    val isScrolled by remember { derivedStateOf(scrolled) }
+    val bg by animateColorAsState(if (isScrolled) Ar.bg else Ar.bg.copy(alpha = 0f), tween(180), label = "stickyBarBg")
+    val line by animateColorAsState(if (isScrolled) Ar.border else Color.Transparent, tween(180), label = "stickyBarLine")
+    Row(
+        modifier.fillMaxWidth().background(bg).drawBehind { drawLine(line, Offset(0f, size.height), Offset(size.width, size.height), 1.dp.toPx()) }
+            .statusBarsPadding().height(StickyBarHeight).padding(horizontal = horizontalPadding),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        IconBtn(Lucide.ArrowLeft, "Назад", onBack, tint = Ar.text, background = if (chip && !isScrolled) Ar.bg.copy(alpha = 0.5f) else Color.Transparent)
+        Spacer(Modifier.weight(1f))
+        trailing()
     }
 }
 

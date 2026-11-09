@@ -1,5 +1,7 @@
 package org.foxgirls.audioranobe.ui.screens
 
+import org.foxgirls.audioranobe.ui.components.StickyBarHeight
+import org.foxgirls.audioranobe.ui.components.StickyBackBar
 import org.foxgirls.audioranobe.ui.components.ditheredBackground
 import org.foxgirls.audioranobe.ui.components.PlayPauseIcon
 import androidx.compose.foundation.background
@@ -94,12 +96,9 @@ fun ChapterScreen(id: Int, startAt: Double?) {
     Box(Modifier.fillMaxSize()) {
         ArImage(ch.title.cover_url, Modifier.fillMaxWidth().height(320.dp), contentScale = ContentScale.Crop, backdrop = true)
         Box(Modifier.fillMaxWidth().height(320.dp).ditheredBackground(Brush.verticalGradient(listOf(Ar.bg.copy(alpha = 0.4f), Ar.bg))))
-        Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).statusBarsPadding().padding(horizontal = 16.dp).padding(bottom = bottom + 24.dp)) {
-            Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                IconBtn(Lucide.ArrowLeft, "Назад", { nav.back() }, tint = Ar.text)
-                Spacer(Modifier.weight(1f))
-                IconBtn(Lucide.Share2, "Поделиться", { Links.share(nav.context, "${Links.site}/chapter/${ch.id}", ch.title.name) }, tint = Ar.text)
-            }
+        val pageScroll = rememberScrollState()
+        Column(Modifier.fillMaxSize().verticalScroll(pageScroll).statusBarsPadding().padding(horizontal = 16.dp).padding(bottom = bottom + 24.dp)) {
+            Spacer(Modifier.height(StickyBarHeight))
             Row(Modifier.padding(vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
                 Text(ch.title.name, color = Ar.accent, fontSize = 12.sp, fontWeight = FontWeight.SemiBold, modifier = Modifier.clickable { nav.go(Routes.title(ch.title.slug)) })
                 Text(" / $volumeLabel", color = Ar.textMuted, fontSize = 12.sp)
@@ -111,7 +110,7 @@ fun ChapterScreen(id: Int, startAt: Double?) {
                     Eyebrow("$volumeLabel · Глава ${Fmt.trimNum(ch.number)}")
                     Text(chapterLabel, color = Ar.white, fontSize = 20.sp, fontWeight = FontWeight.Medium, textAlign = TextAlign.Center, modifier = Modifier.padding(top = 6.dp))
                     Spacer(Modifier.height(18.dp))
-                    Box(Modifier.size(76.dp).clip(CircleShape).background(if (isPlaying) Ar.accent else Ar.accentSoft).clickable { if (isCurrent) PlayerController.toggle() else PlayerController.play(ch.id) }, contentAlignment = Alignment.Center) {
+                    Box(Modifier.size(76.dp).clip(CircleShape).background(if (isPlaying) Ar.accent else Ar.accentSoft).clickable { if (isCurrent) PlayerController.toggle() else { PlayerController.play(ch.id); if (ch.isTts) PlayerController.setFull(true) } }, contentAlignment = Alignment.Center) {
                         PlayPauseIcon(isPlaying, if (isPlaying) Ar.accentOn else Ar.accent, 32.dp, 3.dp)
                     }
                     Text(if (isPlaying) "Играет" else if (isCurrent) "На паузе" else "Слушать главу", color = Ar.textMuted, fontSize = 11.sp, modifier = Modifier.padding(top = 8.dp))
@@ -124,7 +123,7 @@ fun ChapterScreen(id: Int, startAt: Double?) {
                     Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                         OutlineChip("⏱ ${Fmt.duration(ch.duration_seconds)}")
                         if (!isCurrent && (ch.my_position ?: 0.0) > 0) OutlineChip("Остановились на ${Fmt.duration(ch.my_position)}")
-                        OutlineChip("Скачать", onClick = { Links.external(nav.context, ch.audio_url) }, color = Ar.accent)
+                        if (!ch.isTts) OutlineChip("Скачать", onClick = { Links.external(nav.context, ch.audio_url) }, color = Ar.accent)
                     }
                     Spacer(Modifier.height(18.dp))
                     Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -134,6 +133,9 @@ fun ChapterScreen(id: Int, startAt: Double?) {
                 }
             }
             Spacer(Modifier.height(8.dp))
+        }
+        StickyBackBar({ pageScroll.value > 0 }, { nav.back() }) {
+            IconBtn(Lucide.Share2, "Поделиться", { Links.share(nav.context, "${Links.site}/chapter/${ch.id}", ch.title.name) }, tint = Ar.text)
         }
     }
 }

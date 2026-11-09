@@ -32,6 +32,36 @@ class Prefs(context: Context) {
         get() = p.getString("chat_draft", null)
         set(v) = p.edit().putString("chat_draft", v).apply()
 
+    /** Read-aloud engine: "silero" (downloaded model) or "system" (Android's own speech synthesizer). */
+    var ttsEngine: String
+        get() = p.getString("tts_engine", "silero") ?: "silero"
+        set(v) = p.edit().putString("tts_engine", v).apply()
+
+    /** Name of the Android voice to use with the system engine; null = automatic. */
+    var ttsSystemVoice: String?
+        get() = p.getString("tts_system_voice", null)
+        set(v) = p.edit().putString("tts_system_voice", v).apply()
+
+    /** Narrator voice for read-aloud chapters; null = the one the chapter asks for. */
+    var ttsVoice: String?
+        get() = p.getString("tts_voice", null)
+        set(v) = p.edit().putString("tts_voice", v).apply()
+
+    /** Seconds of silence after each sentence; negative = the server default. */
+    var ttsPause: Float
+        get() = p.getFloat("tts_pause", -1f)
+        set(v) = p.edit().putFloat("tts_pause", v).apply()
+
+    /** Read-aloud text shown as "Суфлёр" (one centered sentence per line) instead of "Фокус" (paragraphs). */
+    var ttsPrompter: Boolean
+        get() = p.getBoolean("tts_prompter", false)
+        set(v) = p.edit().putBoolean("tts_prompter", v).apply()
+
+    /** Announce volume and chapter before reading; null = the server default. */
+    var ttsAnnounce: Boolean?
+        get() = p.getString("tts_announce", null)?.toBooleanStrictOrNull()
+        set(v) = p.edit().putString("tts_announce", v?.toString()).apply()
+
     fun getString(key: String): String? = p.getString(key, null)
     fun putString(key: String, v: String?) = p.edit().putString(key, v).apply()
 }

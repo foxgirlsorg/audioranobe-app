@@ -114,7 +114,7 @@ fun SettingsScreen(tab: String?) {
     if (RequireAuth()) return
     val bottom = LocalBottomInset.current
     LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(bottom = bottom + 24.dp)) {
-        item { MeHeader("Аккаунт", "Мои", "настройки") }
+        meHeader("Аккаунт", "Мои", "настройки")
         item { Column(Modifier.padding(horizontal = 16.dp)) { SettingsBody(scopeUserId = null, onSaved = {}) } }
     }
 }

@@ -5,6 +5,7 @@ plugins {
     alias(libs.plugins.kotlin.android)
     alias(libs.plugins.kotlin.compose)
     alias(libs.plugins.kotlin.serialization)
+    alias(libs.plugins.chaquopy)
 }
 
 android {
@@ -14,10 +15,12 @@ android {
     defaultConfig {
         applicationId = "org.foxgirls.audioranobe"
         minSdk = 26
+        // Chaquopy (Python for the narrator's text front end) and ONNX Runtime ship native code per ABI.
+        ndk { abiFilters += listOf("arm64-v8a", "armeabi-v7a", "x86_64") }
         targetSdk = 36
         // Bump both before tagging a release; F-Droid reads them from here, the release workflow checks the tag against versionName.
-        versionCode = 11
-        versionName = "1.1.1"
+        versionCode = 12
+        versionName = "1.2.0"
 
         // Backend API base URL, including /api. Override with -PapiUrl=… or the API_URL env var.
         val apiUrl = (project.findProperty("apiUrl") as String?)
@@ -103,6 +106,15 @@ android {
     }
 }
 
+// Runs the narrator's Python text front end (frontend.py, downloaded with the models) on the device.
+chaquopy {
+    defaultConfig {
+        // 3.12+ has no armeabi-v7a build; 3.11 keeps 32-bit ARM phones working.
+        version = "3.11"
+        pyc { src = false }
+    }
+}
+
 kotlin {
     compilerOptions {
         jvmTarget.set(JvmTarget.JVM_17)
@@ -142,6 +154,8 @@ dependencies {
     implementation(libs.zoomable)
     implementation(libs.image.cropper)
     implementation(libs.zxing.core)
+    implementation(libs.onnxruntime.android)
+    implementation(libs.jtransforms)
     "fullImplementation"("com.google.firebase:firebase-messaging:25.1.3")
     implementation(libs.unifiedpush.connector)
     debugImplementation(libs.androidx.compose.ui.tooling)

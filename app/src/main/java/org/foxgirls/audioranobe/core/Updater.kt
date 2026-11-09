@@ -54,8 +54,22 @@ object Updater {
     private const val CHECK_INTERVAL_MS = 6 * 60 * 60 * 1000L
     private const val KEY_LAST_CHECK = "update_last_check"
 
+    /** Installers that keep the app updated themselves; the in-app updater stays off when one of them installed it. */
+    private val STORE_INSTALLERS = setOf(
+        "com.android.vending",
+        "org.fdroid.fdroid",
+        "org.fdroid.basic",
+        "com.looker.droidify",
+        "com.machiav3lli.fdroid",
+        "com.aurora.store",
+        "app.accrescent.client",
+        "dev.imranr.obtainium",
+        "dev.imranr.obtainium.fdroid",
+    )
+
     val repo: String = BuildConfig.UPDATE_REPO.trim().trim('/')
-    val enabled: Boolean get() = repo.contains('/')
+    private var fromStore = false
+    val enabled: Boolean get() = repo.contains('/') && !fromStore
 
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
     private lateinit var appContext: Context
@@ -77,9 +91,16 @@ object Updater {
 
     fun init(context: Context) {
         appContext = context.applicationContext
+        fromStore = installer(appContext) in STORE_INSTALLERS
         // Stale APKs from an earlier update are useless once installed (or abandoned).
         scope.launch { runCatching { cacheDir().listFiles()?.forEach { it.delete() } } }
     }
+
+    private fun installer(context: Context): String? = runCatching {
+        val pm = context.packageManager
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) pm.getInstallSourceInfo(context.packageName).installingPackageName
+        else @Suppress("DEPRECATION") pm.getInstallerPackageName(context.packageName)
+    }.getOrNull()
 
     private fun cacheDir() = File(appContext.cacheDir, "updates").apply { mkdirs() }
 

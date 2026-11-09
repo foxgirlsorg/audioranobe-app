@@ -1,5 +1,7 @@
 package org.foxgirls.audioranobe.ui.screens
 
+import org.foxgirls.audioranobe.ui.components.TabHeaderSpace
+import org.foxgirls.audioranobe.ui.components.TabHeader
 import org.foxgirls.audioranobe.ui.components.ditheredBackground
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.lazy.rememberLazyListState
@@ -175,8 +177,9 @@ fun HomeScreen() {
     LaunchedEffect(online) { if (online && loader.state is Load.Err) loader.reload() }
 
     Box(Modifier.fillMaxSize()) {
-        LazyColumn(Modifier.fillMaxSize().dockScrollAware(), contentPadding = PaddingValues(bottom = bottom + 24.dp)) {
-            item { TopBar(onSearch = { shell.searchOpen = true }) }
+        val pageList = rememberLazyListState()
+        LazyColumn(Modifier.fillMaxSize().dockScrollAware(), state = pageList, contentPadding = PaddingValues(bottom = bottom + 24.dp)) {
+            item { TabHeaderSpace() }
             when (val s = loader.state) {
                 is Load.Loading -> {
                     // Same blocks, order and paddings as the Ok branch below; the continue row shows only when the cached home had one.
@@ -284,20 +287,7 @@ fun HomeScreen() {
                 }
             }
         }
-    }
-}
-
-/** Compact top bar with the logo and search (replaces the site navbar on phones). */
-@Composable
-fun TopBar(onSearch: () -> Unit, modifier: Modifier = Modifier, horizontalPadding: Dp = 16.dp) {
-    val nav = LocalNav.current
-    Row(modifier.fillMaxWidth().statusBarsPadding().padding(horizontal = horizontalPadding, vertical = 10.dp), verticalAlignment = Alignment.CenterVertically) {
-        Row(Modifier.clickable { nav.tab(Routes.HOME) }) {
-            Text("AUDIO", color = Ar.white, fontSize = 18.sp, fontWeight = FontWeight.Bold, letterSpacing = 2.sp)
-            Text("RANOBE", color = Ar.accent, fontSize = 18.sp, fontWeight = FontWeight.Bold, letterSpacing = 2.sp)
-        }
-        Spacer(Modifier.weight(1f))
-        IconBtn(Lucide.Search, "Поиск", onSearch, tint = Ar.text)
+        TabHeader(null, scrolled = { pageList.canScrollBackward }) { IconBtn(Lucide.Search, "Поиск", { shell.searchOpen = true }, tint = Ar.text) }
     }
 }
 

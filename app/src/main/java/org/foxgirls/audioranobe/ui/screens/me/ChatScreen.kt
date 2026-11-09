@@ -1,5 +1,8 @@
 package org.foxgirls.audioranobe.ui.screens.me
 
+import org.foxgirls.audioranobe.ui.dockScrollAware
+import org.foxgirls.audioranobe.ui.components.TabHeaderSpace
+import org.foxgirls.audioranobe.ui.components.TabHeader
 import androidx.compose.animation.core.Animatable
 import androidx.compose.foundation.border
 import androidx.compose.foundation.ExperimentalFoundationApi
@@ -141,32 +144,36 @@ private fun ConversationList() {
             delay(LIST_POLL_MS)
         }
     }
-    LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(bottom = bottom + 16.dp)) {
-        item { MeHeader("Личные", "Сообщения", "") }
-        val c = convos
-        when {
-            c == null -> item { Box(Modifier.fillParentMaxHeight().padding(horizontal = 16.dp)) { FillRowsSkeleton(64.dp, 0.dp) { ConvRowSkeleton() } } }
-            c.isEmpty() -> item { EmptyState("Пока нет переписок", "Откройте профиль пользователя и нажмите «Написать».", Lucide.MessageCircle) }
-            else -> items(c, key = { it.user.id }) { conv ->
-                Row(Modifier.fillMaxWidth().clickable { nav.push(Routes.chat(conv.user.id)) }.padding(horizontal = 16.dp, vertical = 10.dp), verticalAlignment = Alignment.CenterVertically) {
-                    UserAvatar(conv.user.username, conv.user.avatar_url, 48.dp, presence = conv.user.presence, thumbUrl = conv.user.avatar_thumb_url)
-                    Spacer(Modifier.width(12.dp))
-                    Column(Modifier.weight(1f)) {
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            Row(Modifier.weight(1f), verticalAlignment = Alignment.CenterVertically) {
-                                Text(conv.user.shownName, color = Ar.text, fontSize = 14.sp, fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f, fill = false))
-                                Spacer(Modifier.width(4.dp)); UserBadgesRow(conv.user.badges, conv.user.is_banned, 13.dp)
+    Box(Modifier.fillMaxSize()) {
+        val pageList = rememberLazyListState()
+        LazyColumn(Modifier.fillMaxSize().dockScrollAware(), state = pageList, contentPadding = PaddingValues(bottom = bottom + 16.dp)) {
+            item { TabHeaderSpace() }
+            val c = convos
+            when {
+                c == null -> item { Box(Modifier.fillParentMaxHeight().padding(horizontal = 16.dp)) { FillRowsSkeleton(64.dp, 0.dp) { ConvRowSkeleton() } } }
+                c.isEmpty() -> item { EmptyState("Пока нет переписок", "Откройте профиль пользователя и нажмите «Написать».", Lucide.MessageCircle) }
+                else -> items(c, key = { it.user.id }) { conv ->
+                    Row(Modifier.fillMaxWidth().clickable { nav.push(Routes.chat(conv.user.id)) }.padding(horizontal = 16.dp, vertical = 10.dp), verticalAlignment = Alignment.CenterVertically) {
+                        UserAvatar(conv.user.username, conv.user.avatar_url, 48.dp, presence = conv.user.presence, thumbUrl = conv.user.avatar_thumb_url)
+                        Spacer(Modifier.width(12.dp))
+                        Column(Modifier.weight(1f)) {
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Row(Modifier.weight(1f), verticalAlignment = Alignment.CenterVertically) {
+                                    Text(conv.user.shownName, color = Ar.text, fontSize = 14.sp, fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f, fill = false))
+                                    Spacer(Modifier.width(4.dp)); UserBadgesRow(conv.user.badges, conv.user.is_banned, 13.dp)
+                                }
+                                if (conv.last_message_at != null) { Spacer(Modifier.width(8.dp)); Text(Fmt.time(conv.last_message_at), color = Ar.textMuted, fontSize = 11.sp) }
                             }
-                            if (conv.last_message_at != null) { Spacer(Modifier.width(8.dp)); Text(Fmt.time(conv.last_message_at), color = Ar.textMuted, fontSize = 11.sp) }
+                            val lm = conv.last_message
+                            Text(if (lm == null) "Нет сообщений" else (if (lm.mine) "Вы: " else "") + (if (lm.is_deleted) "сообщение удалено" else lm.body.ifBlank { if (lm.image_url.isNotBlank()) "📷 изображение" else "" }), color = if (conv.unread > 0) Ar.text else Ar.textMuted, fontSize = 13.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
                         }
-                        val lm = conv.last_message
-                        Text(if (lm == null) "Нет сообщений" else (if (lm.mine) "Вы: " else "") + (if (lm.is_deleted) "сообщение удалено" else lm.body.ifBlank { if (lm.image_url.isNotBlank()) "📷 изображение" else "" }), color = if (conv.unread > 0) Ar.text else Ar.textMuted, fontSize = 13.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                        if (conv.unread > 0) { Spacer(Modifier.width(8.dp)); CountBubble(conv.unread) }
                     }
-                    if (conv.unread > 0) { Spacer(Modifier.width(8.dp)); CountBubble(conv.unread) }
+                    HairlineDivider(Modifier.padding(horizontal = 16.dp))
                 }
-                HairlineDivider(Modifier.padding(horizontal = 16.dp))
             }
         }
+        TabHeader("Сообщения", scrolled = { pageList.canScrollBackward })
     }
 }
 
@@ -306,6 +313,7 @@ private fun Thread(userId: Int) {
     Column(Modifier.fillMaxSize().swipeBack { nav.back() }.statusBarsPadding().navigationBarsPadding().imePadding()) {
         Row(Modifier.fillMaxWidth().padding(horizontal = 6.dp, vertical = 6.dp), verticalAlignment = Alignment.CenterVertically) {
             IconBtn(Lucide.ArrowLeft, "Назад", { nav.back() }, tint = Ar.text)
+            Spacer(Modifier.width(8.dp))
             if (t != null) Row(Modifier.weight(1f).clickable { nav.go(Routes.user(t.user.id)) }, verticalAlignment = Alignment.CenterVertically) {
                 UserAvatar(t.user.username, t.user.avatar_url, 38.dp, presence = t.user.presence, thumbUrl = t.user.avatar_thumb_url)
                 Spacer(Modifier.width(10.dp))
@@ -438,7 +446,7 @@ private fun Bubble(m: ChatMessage, t: ChatThread, highlighted: Boolean, onLongPr
                     lastLineWidth = if (m.format == "rich") -1 else lastLine,
                     meta = meta,
                 ) {
-                    if (m.format == "rich") ArMarkdown(m.body, compact = true)
+                    if (m.format == "rich") ArMarkdown(m.body, compact = true, color = Ar.text)
                     else LinkifiedText(m.body, onLastLine = { lastLine = it }) { Links.open(nav, it) }
                 }
             } else Box(Modifier.align(Alignment.End).padding(top = 2.dp)) { meta() }

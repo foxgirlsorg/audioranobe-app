@@ -23,6 +23,9 @@ cropper = "4.7.0"
 zxing = "3.5.4"
 unifiedpush = "3.3.5"
 composePlaceholder = "1.0.12"
+chaquopy = "16.1.0"
+onnxruntime = "1.20.0"
+jtransforms = "3.1"
 
 [libraries]
 unifiedpush-connector = { group = "org.unifiedpush.android", name = "connector", version.ref = "unifiedpush" }
@@ -58,10 +61,13 @@ compose-charts = { group = "io.github.ehsannarmani", name = "compose-charts", ve
 zoomable = { group = "net.engawapg.lib", name = "zoomable", version.ref = "zoomable" }
 image-cropper = { group = "com.vanniktech", name = "android-image-cropper", version.ref = "cropper" }
 zxing-core = { group = "com.google.zxing", name = "core", version.ref = "zxing" }
+onnxruntime-android = { group = "com.microsoft.onnxruntime", name = "onnxruntime-android", version.ref = "onnxruntime" }
+jtransforms = { group = "com.github.wendykierp", name = "JTransforms", version.ref = "jtransforms" }
 compose-placeholder = { group = "com.eygraber", name = "compose-placeholder", version.ref = "composePlaceholder" }
 
 [plugins]
 android-application = { id = "com.android.application", version.ref = "agp" }
 kotlin-android = { id = "org.jetbrains.kotlin.android", version.ref = "kotlin" }
 kotlin-compose = { id = "org.jetbrains.kotlin.plugin.compose", version.ref = "kotlin" }
+chaquopy = { id = "com.chaquo.python", version.ref = "chaquopy" }
 kotlin-serialization = { id = "org.jetbrains.kotlin.plugin.serialization", version.ref = "kotlin" }
