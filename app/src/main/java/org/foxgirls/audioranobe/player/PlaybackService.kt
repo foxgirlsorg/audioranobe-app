@@ -307,7 +307,7 @@ class PlaybackService : MediaLibraryService() {
         }
         val found = runCatching { Api.get<SearchSuggest>("/search/suggest", mapOf("q" to words.joinToString(" "))) }.getOrNull()?.titles?.firstOrNull() ?: return null
         val t = Api.get<TitleFull>("/titles/${found.id}")
-        val chapters = t.volumes.sortedBy { it.number }.flatMap { v -> v.liveChapters.sortedBy { it.number } }.filter { it.downloadable }
+        val chapters = t.volumes.sortedBy { it.number }.flatMap { v -> v.liveChapters.sortedBy { it.number } }.filter { it.playable }
         return (chapters.firstOrNull { (it.my_position ?: 0.0) > 0 && it.my_position!! < it.duration_seconds - 5 } ?: chapters.firstOrNull())?.id
     }
 
@@ -339,7 +339,7 @@ class PlaybackService : MediaLibraryService() {
         val t = OfflineStore.offlineTitle(m)
         return t.volumes.sortedBy { it.number }.flatMap { v ->
             val group = listOf("${t.volume_label} ${v.num}", v.name).filter { it.isNotBlank() }.joinToString(" · ")
-            v.liveChapters.sortedBy { it.number }.filter { m.chapters.containsKey(it.id) }.map { c ->
+            v.liveChapters.sortedBy { it.number }.filter { it.playable && m.chapters.containsKey(it.id) }.map { c ->
                 chapterItem(c.id, Fmt.chapterLabel(c.number, c.number_end, c.name), t.name, v.cover_url ?: t.cover_url, c.my_position ?: 0.0, c.duration_seconds, group)
             }
         }
