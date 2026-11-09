@@ -142,14 +142,18 @@ object Updater {
         val text = res.body?.string()
         if (!res.isSuccessful || text == null) throw IOException("GitHub ответил ${res.code}")
         // Newest first; a release whose APK isn't uploaded yet (CI still building) is skipped.
-        for (e in parseFeed(text).take(3)) {
+        val entries = parseFeed(text)
+        for ((i, e) in entries.take(3).withIndex()) {
             val apkUrl = "https://github.com/$repo/releases/download/${e.tag}/audioranobe-${e.tag}.apk"
             val size = apkSize(apkUrl) ?: continue
+            // Several versions behind: each skipped release's notes follow the newest one's.
+            val missed = entries.drop(i).takeWhile { isNewer(it.tag.removePrefix("v"), AppVersion.VERSION) }
             return AppRelease(
                 tag = e.tag,
                 version = e.tag.removePrefix("v"),
                 name = e.tag,
-                notes = htmlToMarkdown(e.notesHtml),
+                notes = if (missed.size <= 1) htmlToMarkdown(e.notesHtml)
+                else missed.joinToString("\n\n") { "## ${it.tag}\n\n" + htmlToMarkdown(it.notesHtml) },
                 pageUrl = e.pageUrl,
                 apkUrl = apkUrl,
                 apkBytes = size,
