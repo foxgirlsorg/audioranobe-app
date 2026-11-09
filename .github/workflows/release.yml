@@ -1,6 +1,8 @@
 name: Release
 
 # Push a tag like v1.2.0 to build a signed release APK and publish it as a GitHub Release.
+# Each release attaches one APK per CPU ABI (audioranobe-<tag>-<abi>.apk) and a universal one
+# (audioranobe-<tag>.apk); the updater takes the device's ABI and falls back to the universal APK.
 # The in-app updater (core/Updater.kt) polls this repository's Releases and offers the APK asset.
 #
 # Required repository secrets (Settings → Secrets and variables → Actions):
@@ -64,8 +66,12 @@ jobs:
           FCM_PROJECT_ID: ${{ vars.FCM_PROJECT_ID }}
           FCM_SENDER_ID: ${{ vars.FCM_SENDER_ID }}
         run: |
-          ./gradlew --no-daemon assembleFullRelease
-          cp app/build/outputs/apk/full/release/app-full-release.apk "audioranobe-${{ github.ref_name }}.apk"
+          ./gradlew --no-daemon assembleFullRelease -PabiSplits
+          out=app/build/outputs/apk/full/release
+          cp "$out/app-full-universal-release.apk" "audioranobe-${{ github.ref_name }}.apk"
+          for abi in arm64-v8a armeabi-v7a x86_64; do
+            cp "$out/app-full-$abi-release.apk" "audioranobe-${{ github.ref_name }}-$abi.apk"
+          done
 
       - name: Release notes
         # Commit subjects since the previous tag — the in-app updater shows these.
@@ -79,4 +85,4 @@ jobs:
         with:
           name: ${{ github.ref_name }}
           body_path: release-notes.md
-          files: audioranobe-${{ github.ref_name }}.apk
+          files: audioranobe-${{ github.ref_name }}*.apk

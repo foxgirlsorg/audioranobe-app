@@ -47,8 +47,9 @@ sealed class UpdateDownload {
  *
  * Reads the public releases feed (github.com/<repo>/releases.atom), not the REST API: the API's
  * anonymous limit is 60 requests/hour per IP, which a carrier's shared IP exhausts and answers 403.
- * The APK name is fixed by .github/workflows/release.yml (audioranobe-<tag>.apk); a HEAD request
- * on it gives the size and confirms CI has finished uploading it.
+ * The APK is the per-ABI asset audioranobe-<tag>-<abi>.apk matching the device, falling back to the
+ * universal audioranobe-<tag>.apk for releases without it (names set by .github/workflows/release.yml).
+ * A HEAD request on it gives the size and confirms CI has finished uploading it.
  */
 object Updater {
     private const val CHECK_INTERVAL_MS = 6 * 60 * 60 * 1000L
@@ -66,6 +67,8 @@ object Updater {
         "dev.imranr.obtainium",
         "dev.imranr.obtainium.fdroid",
     )
+
+    private val ABIS = setOf("arm64-v8a", "armeabi-v7a", "x86_64")
 
     val repo: String = BuildConfig.UPDATE_REPO.trim().trim('/')
     private var fromStore = false
@@ -144,8 +147,7 @@ object Updater {
         // Newest first; a release whose APK isn't uploaded yet (CI still building) is skipped.
         val entries = parseFeed(text)
         for ((i, e) in entries.take(3).withIndex()) {
-            val apkUrl = "https://github.com/$repo/releases/download/${e.tag}/audioranobe-${e.tag}.apk"
-            val size = apkSize(apkUrl) ?: continue
+            val (apkUrl, size) = resolveApk(e.tag) ?: continue
             // Several versions behind: each skipped release's notes follow the newest one's.
             val missed = entries.drop(i).takeWhile { isNewer(it.tag.removePrefix("v"), AppVersion.VERSION) }
             return AppRelease(
@@ -161,6 +163,13 @@ object Updater {
             )
         }
         return null
+    }
+
+    /** The device's own ABI build first, then the universal APK; null while neither is uploaded. */
+    private suspend fun resolveApk(tag: String): Pair<String, Long>? {
+        val base = "https://github.com/$repo/releases/download/$tag/audioranobe-$tag"
+        val urls = Build.SUPPORTED_ABIS.filter { it in ABIS }.map { "$base-$it.apk" } + "$base.apk"
+        return urls.firstNotNullOfOrNull { url -> apkSize(url)?.let { url to it } }
     }
 
     private suspend fun apkSize(url: String): Long? {

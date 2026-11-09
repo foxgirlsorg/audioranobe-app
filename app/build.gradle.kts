@@ -9,6 +9,8 @@ plugins {
 }
 
 android {
+    // -PabiSplits (release CI) also builds one APK per ABI. Chaquopy needs ndk.abiFilters; AGP allows it with splits only while isUniversalApk is on.
+    val abiSplits = providers.gradleProperty("abiSplits").isPresent
     namespace = "org.foxgirls.audioranobe"
     compileSdk = 36
 
@@ -86,6 +88,15 @@ android {
             // The .debug package is a separate app in Firebase, with its own app id.
             val debugAppId = (project.findProperty("fcmDebugAppId") as String?) ?: System.getenv("FCM_DEBUG_APP_ID")
             if (!debugAppId.isNullOrBlank()) buildConfigField("String", "FCM_APP_ID", "\"$debugAppId\"")
+        }
+    }
+
+    splits {
+        abi {
+            isEnable = abiSplits
+            reset()
+            include("arm64-v8a", "armeabi-v7a", "x86_64")
+            isUniversalApk = true
         }
     }
 
