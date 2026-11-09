@@ -499,7 +499,7 @@ data class LibraryEntry(
 data class ContinueTitle(val id: Int, val slug: String = "", val name: String = "", val cover_url: String? = null)
 
 @Serializable
-data class ContinueChapter(val id: Int, val name: String = "", val number: Double = 0.0, val duration_seconds: Double = 0.0)
+data class ContinueChapter(val id: Int, val name: String = "", val number: Double = 0.0, val duration_seconds: Double = 0.0, val narration: String = "audio")
 
 @Serializable
 data class ContinueItem(val title: ContinueTitle, val chapter: ContinueChapter, val position_seconds: Double = 0.0, val updated_at: String = "")

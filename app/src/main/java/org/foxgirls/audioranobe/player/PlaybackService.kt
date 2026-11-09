@@ -285,13 +285,14 @@ class PlaybackService : MediaLibraryService() {
         }
     }
 
+    /** Audio chapters only: read-aloud chapters start from the app ([PlayerController.resolve]). */
     private suspend fun continueList(): List<ContinueItem> = try {
         Api.get<HomeData>("/home").continueItems
     } catch (_: Exception) {
         val cached = Stores.prefs.getString("home_continue_${Stores.auth.user.value?.id ?: 0}")
             ?.let { runCatching { AppJson.decodeFromString(ListSerializer(ContinueItem.serializer()), it) }.getOrNull() }
         OfflineStore.continueFallback(cached ?: emptyList())
-    }
+    }.filter { it.chapter.narration != "tts" }
 
     /**
      * Voice "play …" / «включи …»: a query with nothing but filler words resumes; otherwise the first
