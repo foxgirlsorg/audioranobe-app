@@ -26,3 +26,4 @@
 # Called from Python (Chaquopy) and from native code by name
 -keep class org.foxgirls.audioranobe.tts.NeuralCallback { *; }
 -keep class ai.onnxruntime.** { *; }
+-dontwarn sun.misc.Cleaner
