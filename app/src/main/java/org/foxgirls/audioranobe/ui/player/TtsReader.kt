@@ -11,6 +11,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material3.Text
@@ -70,7 +71,7 @@ fun TtsReader(paragraphs: List<List<String>>, position: Double, prompter: Boolea
     val current = para to sent
     if (prompter) return PrompterReader(paragraphs, starts, current, modifier)
     val list = rememberLazyListState()
-    LaunchedEffect(current.first, paragraphs) { list.animateScrollToItem(current.first + 1, scrollOffset = -40) }
+    LaunchedEffect(current.first, paragraphs) { list.follow(current.first + 1, -40) }
 
     LazyColumn(modifier.fillMaxSize().verticalFade(32.dp), state = list, contentPadding = PaddingValues(vertical = 0.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
         item { Spacer(Modifier.height(24.dp)) }
@@ -118,8 +119,7 @@ private fun PrompterReader(paragraphs: List<List<String>>, starts: List<List<Int
     val cur = starts.take(current.first).sumOf { it.size } + current.second
     val list = rememberLazyListState()
     LaunchedEffect(cur, paragraphs) {
-        val viewport = list.layoutInfo.viewportSize.height
-        list.animateScrollToItem(cur + 1, scrollOffset = -(viewport * 0.38f).toInt())
+        list.follow(cur + 1, -(list.layoutInfo.viewportSize.height * 0.38f).toInt())
     }
     LazyColumn(modifier.fillMaxSize().verticalFade(64.dp), state = list) {
         item { Spacer(Modifier.height(24.dp)) }
@@ -139,6 +139,13 @@ private fun PrompterReader(paragraphs: List<List<String>>, starts: List<List<Int
         }
         item { Spacer(Modifier.height(400.dp)) }
     }
+}
+
+/** Animates short moves; snaps when the target is far off screen, e.g. after the app comes back from the background. */
+private suspend fun LazyListState.follow(index: Int, offset: Int) {
+    val visible = layoutInfo.visibleItemsInfo
+    val near = visible.isNotEmpty() && index in (visible.first().index - 4)..(visible.last().index + 4)
+    if (near) animateScrollToItem(index, offset) else scrollToItem(index, offset)
 }
 
 private fun Modifier.verticalFade(fade: Dp): Modifier = graphicsLayer { compositingStrategy = CompositingStrategy.Offscreen }.drawWithContent {
