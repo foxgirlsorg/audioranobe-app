@@ -14,6 +14,7 @@ import org.foxgirls.audioranobe.core.CookieStore
 import org.foxgirls.audioranobe.core.Prefs
 import org.foxgirls.audioranobe.core.Updater
 import org.foxgirls.audioranobe.data.Stores
+import org.foxgirls.audioranobe.offline.Downloads
 import org.foxgirls.audioranobe.offline.OfflineStore
 import org.foxgirls.audioranobe.player.PlayerController
 import org.foxgirls.audioranobe.push.Push
@@ -24,6 +25,7 @@ class App : Application(), ImageLoaderFactory {
         instance = this
         Api.init(CookieStore(this))
         Stores.init(Prefs(this))
+        Downloads.init(this)
         OfflineStore.init(this)
         org.foxgirls.audioranobe.tts.TtsModels.init(this)
         org.foxgirls.audioranobe.tts.TtsEngine.init(this)

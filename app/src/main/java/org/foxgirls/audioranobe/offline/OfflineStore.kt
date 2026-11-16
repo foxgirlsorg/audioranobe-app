@@ -20,12 +20,15 @@ import org.foxgirls.audioranobe.data.Stores
 import org.foxgirls.audioranobe.data.TitleFull
 import org.foxgirls.audioranobe.data.Volume
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.CoroutineStart
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.distinctUntilChangedBy
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
@@ -120,6 +123,7 @@ object OfflineStore {
         root = File(appContext.filesDir, "offline").apply { mkdirs() }
         scope.launch { load() }
         watchNetwork()
+        watchDownloads()
     }
 
     // ---------- disk ----------
@@ -221,7 +225,11 @@ object OfflineStore {
         scope.launch {
             val existing = manifest(title.id)
             save(OfflineManifest(title.id, title.slug, title.name, existing?.savedAt ?: System.currentTimeMillis(), title, existing?.chapters ?: emptyMap(), existing?.images ?: emptyMap()))
-            launch { runCatching { saveImages(title) } }
+            val imagesKey = "images-${title.id}"
+            val images = launch(start = CoroutineStart.LAZY) { runCatching { saveImages(title) } }
+            images.invokeOnCompletion { Downloads.end(imagesKey) }
+            Downloads.begin(imagesKey, "Загрузка изображений", title.name, cancel = { images.cancel() })
+            images.start()
             val tasks = wanted.filter { id -> existing?.chapters?.containsKey(id) != true && _queue.value.none { it.chapterId == id } }.map { id ->
                 val ch = title.volumes.flatMap { it.chapters }.first { it.id == id }
                 cancelled.remove(id)
@@ -231,6 +239,7 @@ object OfflineStore {
             if (tasks.any { it.asText } && !TtsModels.installed.value) TtsModels.ask()
             _queue.update { it + tasks }
             _states.update { s -> s + tasks.associate { it.chapterId to DlState.Queued } }
+            Downloads.begin(Downloads.CHAPTERS, "Загрузка глав", chaptersText(_queue.value), cancel = { cancelAll() })
             startWorker()
         }
     }
@@ -257,9 +266,22 @@ object OfflineStore {
         _states.value = emptyMap()
     }
 
+    private fun chaptersText(q: List<DownloadTask>) = "${q.first().titleName} · ${q.first().label} (осталось: ${q.size})"
+
+    /** Keeps the shared download notification in step with the chapter queue. */
+    private fun watchDownloads() {
+        scope.launch {
+            combine(_queue, _states) { q, s -> q to s }.collect { (q, s) ->
+                val head = q.firstOrNull()
+                if (head == null) Downloads.end(Downloads.CHAPTERS)
+                else if (Downloads.CHAPTERS !in Downloads.transfers.value) Downloads.begin(Downloads.CHAPTERS, "Загрузка глав", chaptersText(q), cancel = { cancelAll() })
+                else Downloads.update(Downloads.CHAPTERS, text = chaptersText(q), fraction = (s[head.chapterId] as? DlState.Running)?.fraction ?: 0f)
+            }
+        }
+    }
+
     private fun startWorker() {
         if (worker?.isActive == true) return
-        DownloadService.start(appContext)
         worker = scope.launch {
             while (isActive) {
                 val task = _queue.value.firstOrNull() ?: break
@@ -470,7 +492,7 @@ object OfflineStore {
     }
 }
 
-/** Foreground service that keeps the process alive while chapters download and shows the progress. It stops itself once the queue is empty. */
+/** Foreground service that keeps the process alive while any [Downloads] transfer runs and shows them as one notification. It stops itself once there are none. */
 class DownloadService : android.app.Service() {
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main)
 
@@ -480,40 +502,44 @@ class DownloadService : android.app.Service() {
         super.onCreate()
         val nm = getSystemService(NOTIFICATION_SERVICE) as android.app.NotificationManager
         nm.createNotificationChannel(android.app.NotificationChannel(CHANNEL, "Загрузки", android.app.NotificationManager.IMPORTANCE_LOW))
-        startForeground(NOTIFICATION_ID, build("Подготовка…", 0f))
         scope.launch {
-            OfflineStore.queue.collect { q ->
-                if (q.isEmpty()) { stopSelf(); return@collect }
-                val head = q.first()
-                val frac = (OfflineStore.states.value[head.chapterId] as? DlState.Running)?.fraction ?: 0f
-                nm.notify(NOTIFICATION_ID, build("${head.titleName} · ${head.label} (осталось: ${q.size})", frac))
-            }
-        }
-        scope.launch {
-            OfflineStore.states.collect { st ->
-                val head = OfflineStore.queue.value.firstOrNull() ?: return@collect
-                val frac = (st[head.chapterId] as? DlState.Running)?.fraction ?: 0f
-                nm.notify(NOTIFICATION_ID, build("${head.titleName} · ${head.label} (осталось: ${OfflineStore.queue.value.size})", frac))
+            Downloads.transfers.distinctUntilChangedBy { m -> m.mapValues { (_, v) -> Triple(v.title, v.text, v.fraction?.let { (it * 100).toInt() }) } }.collect { t ->
+                if (t.isEmpty()) { stopForeground(STOP_FOREGROUND_REMOVE); stopSelf() }
+                else nm.notify(NOTIFICATION_ID, build(t))
             }
         }
     }
 
-    private fun build(text: String, frac: Float): android.app.Notification =
-        androidx.core.app.NotificationCompat.Builder(this, CHANNEL)
+    override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
+        if (intent?.action == ACTION_CANCEL) Downloads.cancelAll()
+        startForeground(NOTIFICATION_ID, build(Downloads.transfers.value))
+        return START_NOT_STICKY
+    }
+
+    private fun build(transfers: Map<String, Transfer>): android.app.Notification {
+        val first = transfers.values.firstOrNull() ?: Transfer("Загрузки", "Подготовка…")
+        val many = transfers.size > 1
+        val open = Intent(this, org.foxgirls.audioranobe.MainActivity::class.java)
+        if (transfers.size == 1 && transfers.containsKey(Downloads.CHAPTERS)) open.putExtra("open_route", "offline")
+        val cancel = Intent(this, DownloadService::class.java).setAction(ACTION_CANCEL)
+        return androidx.core.app.NotificationCompat.Builder(this, CHANNEL)
             .setSmallIcon(android.R.drawable.stat_sys_download)
-            .setContentTitle("Загрузка глав")
-            .setContentText(text)
-            .setProgress(100, (frac * 100).toInt(), frac <= 0f)
+            .setContentTitle(if (many) "Загрузки (${transfers.size})" else first.title)
+            .setContentText(if (many) listOf(first.title, first.text).filter { it.isNotBlank() }.joinToString(" · ") else first.text)
+            .setProgress(100, ((first.fraction ?: 0f) * 100).toInt(), first.fraction == null)
             .setOngoing(true)
             .setOnlyAlertOnce(true)
-            .setContentIntent(android.app.PendingIntent.getActivity(this, 0, Intent(this, org.foxgirls.audioranobe.MainActivity::class.java).putExtra("open_route", "offline"), android.app.PendingIntent.FLAG_IMMUTABLE or android.app.PendingIntent.FLAG_UPDATE_CURRENT))
+            .setContentIntent(android.app.PendingIntent.getActivity(this, 0, open, android.app.PendingIntent.FLAG_IMMUTABLE or android.app.PendingIntent.FLAG_UPDATE_CURRENT))
+            .addAction(0, "Отменить", android.app.PendingIntent.getService(this, 1, cancel, android.app.PendingIntent.FLAG_IMMUTABLE or android.app.PendingIntent.FLAG_UPDATE_CURRENT))
             .build()
+    }
 
     override fun onDestroy() { scope.coroutineContext[Job]?.cancel(); super.onDestroy() }
 
     companion object {
         private const val CHANNEL = "downloads"
         private const val NOTIFICATION_ID = 41
+        private const val ACTION_CANCEL = "org.foxgirls.audioranobe.downloads.CANCEL"
         fun start(context: Context) { runCatching { androidx.core.content.ContextCompat.startForegroundService(context, Intent(context, DownloadService::class.java)) } }
     }
 }

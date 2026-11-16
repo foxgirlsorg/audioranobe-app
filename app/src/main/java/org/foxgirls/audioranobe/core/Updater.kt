@@ -1,8 +1,13 @@
 package org.foxgirls.audioranobe.core
 
+import android.app.NotificationChannel
+import android.app.NotificationManager
+import android.app.PendingIntent
 import android.content.Context
 import android.content.Intent
 import android.os.Build
+import androidx.core.app.NotificationCompat
+import androidx.core.app.NotificationManagerCompat
 import androidx.core.content.FileProvider
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -17,7 +22,11 @@ import android.util.Xml
 import okhttp3.Request
 import org.xmlpull.v1.XmlPullParser
 import org.foxgirls.audioranobe.BuildConfig
+import org.foxgirls.audioranobe.MainActivity
+import org.foxgirls.audioranobe.R
 import org.foxgirls.audioranobe.data.Stores
+import org.foxgirls.audioranobe.offline.Downloads
+import org.foxgirls.audioranobe.push.Push
 import java.io.File
 import java.io.IOException
 
@@ -54,6 +63,8 @@ sealed class UpdateDownload {
 object Updater {
     private const val CHECK_INTERVAL_MS = 6 * 60 * 60 * 1000L
     private const val KEY_LAST_CHECK = "update_last_check"
+    private const val CHANNEL = "updates"
+    private const val NOTIFICATION_ID = 42
 
     /** Installers that keep the app updated themselves; the in-app updater stays off when one of them installed it. */
     private val STORE_INSTALLERS = setOf(
@@ -244,6 +255,7 @@ object Updater {
     fun startDownload(release: AppRelease) {
         if (_download.value is UpdateDownload.Running) return
         _download.value = UpdateDownload.Running(0f)
+        Downloads.begin(Downloads.UPDATE, "Загрузка обновления", release.version, cancel = { cancelDownload() })
         downloadJob = scope.launch {
             val target = File(cacheDir(), "audioranobe-${release.version}.apk")
             try {
@@ -262,17 +274,40 @@ object Updater {
                             out.write(buf, 0, n)
                             done += n
                             if (local) kotlinx.coroutines.delay(20)
-                            if (total > 0) _download.value = UpdateDownload.Running((done.toFloat() / total).coerceIn(0f, 1f))
+                            if (total > 0) {
+                                val fraction = (done.toFloat() / total).coerceIn(0f, 1f)
+                                _download.value = UpdateDownload.Running(fraction)
+                                Downloads.update(Downloads.UPDATE, fraction = fraction)
+                            }
                         }
                     }
                 }
                 _download.value = UpdateDownload.Ready(target)
+                if (!Stores.badges.foreground) notifyReady(release)
             } catch (e: Exception) {
                 target.delete()
                 if (e is kotlinx.coroutines.CancellationException) { _download.value = UpdateDownload.Idle; throw e }
                 _download.value = UpdateDownload.Failed(e.message ?: "Не удалось скачать обновление")
+            } finally {
+                Downloads.end(Downloads.UPDATE)
             }
         }
+    }
+
+    /** The download finished while the app was in the background; the popup already waits on the Ready state when the app opens. */
+    private fun notifyReady(release: AppRelease) {
+        if (!Push.permitted(appContext)) return
+        appContext.getSystemService(NotificationManager::class.java).createNotificationChannel(NotificationChannel(CHANNEL, "Обновления", NotificationManager.IMPORTANCE_DEFAULT))
+        val open = PendingIntent.getActivity(appContext, 0, Intent(appContext, MainActivity::class.java), PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT)
+        val n = NotificationCompat.Builder(appContext, CHANNEL)
+            .setSmallIcon(R.drawable.ic_notification)
+            .setContentTitle("Обновление скачано")
+            .setContentText("v${release.version} — откройте приложение, чтобы установить")
+            .setContentIntent(open)
+            .setAutoCancel(true)
+            .build()
+        @Suppress("MissingPermission")
+        NotificationManagerCompat.from(appContext).notify(NOTIFICATION_ID, n)
     }
 
     fun cancelDownload() {

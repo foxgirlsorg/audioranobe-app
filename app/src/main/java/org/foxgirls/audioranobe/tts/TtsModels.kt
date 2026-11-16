@@ -14,6 +14,7 @@ import kotlinx.coroutines.withContext
 import kotlinx.serialization.Serializable
 import okhttp3.Request
 import org.foxgirls.audioranobe.core.Api
+import org.foxgirls.audioranobe.offline.Downloads
 import java.io.File
 
 @Serializable
@@ -75,6 +76,7 @@ object TtsModels {
     /** Downloads everything. Throws on failure or cancellation, leaving no half-installed set behind. */
     private suspend fun install() = withContext(Dispatchers.IO) {
         val part = File(root.parentFile, "tts.part").apply { deleteRecursively(); mkdirs() }
+        Downloads.begin(Downloads.VOICE, "Загрузка голоса Silero", cancel = { cancelDownload() })
         try {
             _progress.value = 0f
             val manifest = Api.get<TtsManifest>("/tts/manifest")
@@ -93,7 +95,9 @@ object TtsModels {
                                 if (n < 0) break
                                 out.write(buf, 0, n)
                                 done += n
-                                _progress.value = (done / total).coerceIn(0f, 0.99f)
+                                val fraction = (done / total).coerceIn(0f, 0.99f)
+                                _progress.value = fraction
+                                Downloads.update(Downloads.VOICE, fraction = fraction)
                             }
                         }
                     }
@@ -107,6 +111,7 @@ object TtsModels {
             throw e
         } finally {
             _progress.value = null
+            Downloads.end(Downloads.VOICE)
             refresh()
         }
     }
