@@ -22,12 +22,15 @@ object TtsEngine {
 
     fun init(context: Context) { appContext = context.applicationContext }
 
-    /** Synthesizes [text]; [onChunk] gets 16-bit PCM pieces as they are made. Cancelling the caller stops it between pieces. */
-    suspend fun synth(text: String, speaker: String, pauseSeconds: Double, onChunk: (ShortArray) -> Unit) = withContext(thread) {
+    /**
+     * Synthesizes [text]; [onChunk] gets 16-bit PCM pieces as they are made. [lexicon] is a JSON object of English words
+     * and their Russian readings. Cancelling the caller stops it between pieces.
+     */
+    suspend fun synth(text: String, speaker: String, pauseSeconds: Double, lexicon: String, onChunk: (ShortArray) -> Unit) = withContext(thread) {
         check(TtsModels.installed.value) { "Модели озвучки не скачаны" }
         val e = engine ?: SileroEngine(appContext, TtsModels.dir).also { engine = it }
         val context = currentCoroutineContext()
-        e.narrate(text, speaker, pauseSeconds, { !context.isActive }, onChunk)
+        e.narrate(text, lexicon, speaker, pauseSeconds, { !context.isActive }, onChunk)
         context.ensureActive()
     }
 

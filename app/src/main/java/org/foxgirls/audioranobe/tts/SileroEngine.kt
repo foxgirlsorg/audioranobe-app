@@ -182,12 +182,12 @@ class SileroEngine(context: Context, private val dir: File) : AutoCloseable {
      * Narrates [text] piece by piece, [pauseSeconds] of silence after each; [onChunk] gets 16-bit PCM.
      * A piece the front end cannot handle is skipped, like the narrator node does.
      */
-    fun narrate(text: String, speaker: String, pauseSeconds: Double, cancelled: () -> Boolean, onChunk: (ShortArray) -> Unit) {
+    fun narrate(text: String, lexicon: String, speaker: String, pauseSeconds: Double, cancelled: () -> Boolean, onChunk: (ShortArray) -> Unit) {
         val speakerId = speakers[speaker] ?: 0
         val pause = (TtsEngine.SAMPLE_RATE * pauseSeconds).toInt()
         val accentCb = NeuralCallback { accent(it) }
         val homoCb = NeuralCallback { homo(it) }
-        for (piece in bridge.callAttr("pieces", text).asList().map { it.toString() }) {
+        for (piece in bridge.callAttr("pieces", text, lexicon).asList().map { it.toString() }) {
             if (cancelled()) return
             val audio = try {
                 val r = bridge.callAttr("prepare", piece, data, accentCb, homoCb).asList()

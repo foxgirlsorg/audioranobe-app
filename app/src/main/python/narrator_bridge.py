@@ -17,8 +17,14 @@ def load(directory):
     return frontend.load_data(directory)
 
 
-def pieces(text):
-    return _fe.split_text(_fe.normalize(text))
+def _normalize(text, lexicon):
+    if lexicon in ('', '{}') or _fe.normalize.__code__.co_argcount < 2:
+        return _fe.normalize(text)
+    return _fe.normalize(text, lexicon)
+
+
+def pieces(text, lexicon=''):
+    return _fe.split_text(_normalize(text, lexicon))
 
 
 def prepare(piece, data, accent_cb, homo_cb):

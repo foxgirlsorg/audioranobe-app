@@ -86,7 +86,7 @@ fun TtsReader(paragraphs: List<List<String>>, position: Double, prompter: Boolea
                             pi < current.first || (pi == current.first && si < active) -> SpanStyle(color = Ar.textMuted)
                             else -> SpanStyle(color = Ar.textSecondary)
                         }
-                        withStyle(style) { append(s) }
+                        withStyle(style) { append(TtsText.plain(s)) }
                         if (si < sentences.lastIndex) append(" ")
                     }
                 }
@@ -99,7 +99,7 @@ fun TtsReader(paragraphs: List<List<String>>, position: Double, prompter: Boolea
                         val offset = layout?.getOffsetForPosition(pos) ?: return@detectTapGestures
                         var at = 0
                         var hit = 0
-                        sentences.forEachIndexed { si, s -> if (offset >= at) hit = si; at += s.length + 1 }
+                        sentences.forEachIndexed { si, s -> if (offset >= at) hit = si; at += TtsText.plain(s).length + 1 }
                         PlayerController.seekText(starts[pi][hit] / TtsText.CHARS_PER_SECOND)
                     }
                 },
@@ -114,7 +114,7 @@ fun TtsReader(paragraphs: List<List<String>>, position: Double, prompter: Boolea
 private fun PrompterReader(paragraphs: List<List<String>>, starts: List<List<Int>>, current: Pair<Int, Int>, modifier: Modifier) {
     data class Line(val text: String, val start: Int, val opensParagraph: Boolean)
     val lines = remember(paragraphs) {
-        paragraphs.flatMapIndexed { pi, p -> p.mapIndexed { si, s -> Line(s, starts[pi][si], si == 0 && pi > 0) } }
+        paragraphs.flatMapIndexed { pi, p -> p.mapIndexed { si, s -> Line(TtsText.plain(s), starts[pi][si], si == 0 && pi > 0) } }
     }
     val cur = starts.take(current.first).sumOf { it.size } + current.second
     val list = rememberLazyListState()

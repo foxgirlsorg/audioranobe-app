@@ -19,6 +19,7 @@ import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
+import org.json.JSONObject
 import java.util.concurrent.atomic.AtomicLong
 import kotlin.coroutines.cancellation.CancellationException
 
@@ -32,9 +33,11 @@ class SileroSpeaker(
     skipped: Int,
     private val voice: String,
     private val pauseSeconds: Double,
+    lexicon: Map<String, String>,
     listener: Listener,
 ) : SentenceSpeaker(sentences, skipped, listener) {
     private val app = context.applicationContext
+    private val lexiconJson = JSONObject(lexicon).toString()
     private val audio = app.getSystemService(Context.AUDIO_SERVICE) as AudioManager
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
 
@@ -145,7 +148,7 @@ class SileroSpeaker(
                 while (t != null && g == generation && (queued.get() - frames(t)) / TtsEngine.SAMPLE_RATE > LOOKAHEAD_SECONDS) delay(250)
                 if (g != generation) return
                 val parts = ArrayList<ShortArray>()
-                TtsEngine.synth(sentences[i], voice, pauseSeconds) { parts.add(it) }
+                TtsEngine.synth(sentences[i], voice, pauseSeconds, lexiconJson) { parts.add(it) }
                 val joined = ShortArray(parts.sumOf { it.size })
                 var at = 0
                 for (p in parts) { p.copyInto(joined, at); at += p.size }

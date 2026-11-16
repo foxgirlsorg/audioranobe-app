@@ -368,7 +368,7 @@ object PlayerController {
         val skipped = if (announce) 1 else 0
         svc.startTts(mediaItem(ch, art), start, autoplay) { events ->
             if (system) SystemSpeaker(appContext, sentences, skipped, prefs.ttsSystemVoice, pause, events)
-            else SileroSpeaker(appContext, sentences, skipped, prefs.ttsVoice ?: text.speaker, pause, events)
+            else SileroSpeaker(appContext, sentences, skipped, prefs.ttsVoice ?: text.speaker, pause, text.lexicon, events)
         }
         _duration.value = svc.ttsSeconds()
         _reader.value = paragraphs

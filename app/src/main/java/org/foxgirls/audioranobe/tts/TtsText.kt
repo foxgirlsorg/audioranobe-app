@@ -11,6 +11,11 @@ object TtsText {
     private val sentenceEnd = Regex("(?<=[.!?…])\\s+(?!—\\s*[а-яё])")
     private val spaces = Regex("\\s+")
 
+    /** Marks the stressed vowel for the Silero voice. The screen and the device voice show and speak text without it. */
+    const val STRESS_MARK = "\u0301"
+
+    fun plain(sentence: String): String = sentence.replace(STRESS_MARK, "")
+
     /** The text as paragraphs of sentences. */
     fun paragraphs(text: String): List<List<String>> =
         text.split(Regex("\n+"))

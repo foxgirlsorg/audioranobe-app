@@ -453,6 +453,7 @@ data class ChapterText(
     val speaker: String = "baya",
     val sample_rate: Int = 48000,
     val defaults: TextDefaults? = null,
+    @Serializable(with = StringMap::class) val lexicon: Map<String, String> = emptyMap(),
 )
 
 /** Narration settings the moderators picked for everyone; a listener's own choices win. */
