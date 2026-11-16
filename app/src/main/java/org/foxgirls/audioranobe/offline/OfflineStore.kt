@@ -207,7 +207,7 @@ object OfflineStore {
         val local = _titles.value.sortedByDescending { m -> pending.filter { it.titleId == m.titleId }.maxOfOrNull { it.updatedAt } ?: 0L }.mapNotNull { m ->
             val t = offlineTitle(m)
             val ch = t.volumes.flatMap { it.liveChapters }.filter { m.chapters.containsKey(it.id) && (it.my_position ?: 0.0) > 0 }.maxByOrNull { it.number } ?: return@mapNotNull null
-            ContinueItem(ContinueTitle(t.id, t.slug, t.name, t.cover_url), ContinueChapter(ch.id, ch.name, ch.number, ch.duration_seconds), ch.my_position ?: 0.0)
+            ContinueItem(ContinueTitle(t.id, t.slug, t.name, t.cover_url), ContinueChapter(ch.id, ch.name, ch.number, ch.duration_seconds, m.chapters.getValue(ch.id).let { if (it.text) "tts" else it.play.narration }), ch.my_position ?: 0.0)
         }
         return local + cached.filter { c -> local.none { it.title.id == c.title.id } }
             .map { c -> pending.firstOrNull { it.chapterId == c.chapter.id }?.let { c.copy(position_seconds = it.position) } ?: c }
