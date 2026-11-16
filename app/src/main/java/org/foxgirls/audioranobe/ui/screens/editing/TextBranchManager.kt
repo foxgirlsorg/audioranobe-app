@@ -40,6 +40,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.JsonPrimitive
@@ -48,6 +49,7 @@ import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.put
 import org.foxgirls.audioranobe.core.Api
 import org.foxgirls.audioranobe.core.Fmt
+import org.foxgirls.audioranobe.data.LocalAuth
 import org.foxgirls.audioranobe.data.TitleFull
 import org.foxgirls.audioranobe.tts.TtsText
 import org.foxgirls.audioranobe.ui.components.ArButton
@@ -97,6 +99,15 @@ private data class TextBranchData(val enabled: Boolean = true, val chapters: Lis
 @Serializable
 private data class ChapterTextBody(val text: String = "")
 
+@Serializable
+private data class StressJob(val chapter_id: Int, val status: String = "", val fixes: Int = 0, val error: String? = null)
+
+@Serializable
+private data class StressState(val configured: Boolean = false, val jobs: List<StressJob> = emptyList())
+
+@Serializable
+private data class StressCount(val queued: Int = 0, val cancelled: Int = 0)
+
 private fun length(chars: Int): String = "≈ ${Fmt.duration(chars / TtsText.CHARS_PER_SECOND)}"
 private fun grouped(n: Int): String = "%,d".format(n).replace(',', ' ')
 private val DAY = SimpleDateFormat("d MMMM", Locale.forLanguageTag("ru"))
@@ -110,7 +121,7 @@ private val checkColors @Composable get() = CheckboxDefaults.colors(checkedColor
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
 fun TextBranchManager(title: TitleFull, reload: suspend () -> Unit, header: @Composable ColumnScope.() -> Unit) {
-    val loader = rememberLoader("texts", title.id) { Api.get<TextBranchData>("/panel/titles/${title.id}/texts") }
+    val loader = rememberLoader("texts", title.id, keepOnReload = true) { Api.get<TextBranchData>("/panel/titles/${title.id}/texts") }
     val scope = rememberCoroutineScope()
     var busy by remember { mutableStateOf(false) }
     var query by remember { mutableStateOf("") }
@@ -124,6 +135,25 @@ fun TextBranchManager(title: TitleFull, reload: suspend () -> Unit, header: @Com
     var editVolume by remember { mutableStateOf<VolumeOption?>(null) }
     var moving by remember { mutableStateOf<List<Int>?>(null) }
     var actions by remember { mutableStateOf(false) }
+
+    val canStress = LocalAuth.current.can("stress.run")
+    val stressLoader = rememberLoader("stress", title.id, keepOnReload = true) {
+        if (canStress) Api.get<StressState>("/panel/titles/${title.id}/stress") else StressState()
+    }
+    var stressPrev by remember { mutableStateOf<Set<Int>>(emptySet()) }
+    val stressState = stressLoader.data
+    val stressConfigured = stressState?.configured == true
+    val stressJobs = stressState?.jobs.orEmpty().associateBy { it.chapter_id }
+    val stressActive = stressJobs.values.filter { it.status == "queued" || it.status == "running" }.map { it.chapter_id }.toSet()
+    LaunchedEffect(stressActive) {
+        val finished = stressPrev - stressActive
+        stressPrev = stressActive
+        if (finished.isNotEmpty()) loader.reload()
+    }
+    LaunchedEffect(stressActive.isNotEmpty()) {
+        if (!canStress || stressActive.isEmpty()) return@LaunchedEffect
+        while (true) { delay(10_000); stressLoader.reload() }
+    }
 
     val data = when (val s = loader.state) {
         is Load.Err -> { EditScaffold(false, header = header) { Text(s.message, color = Ar.danger, fontSize = 13.sp) }; return }
@@ -145,6 +175,30 @@ fun TextBranchManager(title: TitleFull, reload: suspend () -> Unit, header: @Com
                 refresh()
             } catch (e: Exception) { toastError(e) }
             busy = false
+        }
+    }
+
+    fun startStress(ids: List<Int>) {
+        if (ids.isEmpty()) return
+        scope.launch {
+            try {
+                val res = Api.post<StressCount>("/panel/stress", buildJsonObject { put("ids", buildJsonArray { ids.forEach { add(JsonPrimitive(it)) } }) })
+                toast("В очередь поставлено глав: ${res.queued}")
+                selected = emptySet()
+                stressLoader.reload()
+            } catch (e: Exception) { toastError(e) }
+        }
+    }
+
+    fun cancelStress(ids: List<Int>) {
+        if (ids.isEmpty()) return
+        scope.launch {
+            try {
+                val res = Api.post<StressCount>("/panel/stress/cancel", buildJsonObject { put("ids", buildJsonArray { ids.forEach { add(JsonPrimitive(it)) } }) })
+                toast("Отменено глав: ${res.cancelled}")
+                selected = emptySet()
+                stressLoader.reload()
+            } catch (e: Exception) { toastError(e) }
         }
     }
 
@@ -184,6 +238,11 @@ fun TextBranchManager(title: TitleFull, reload: suspend () -> Unit, header: @Com
         ArButton("Добавить главу", { adding = true }, icon = Lucide.Plus, small = true, enabled = volumes.isNotEmpty())
         if (live.isEmpty()) ArButton("Импорт из файла", { importing = true }, icon = Lucide.Upload, small = true)
         ArButton("Обновить из источника", { confirm = data.chapters.map { it.id } to "resync" }, small = true, enabled = !busy && data.chapters.isNotEmpty())
+        if (canStress) ArButton(
+            if (stressConfigured) "Ударения ИИ: вся книга" else "ИИ не настроен",
+            { confirm = live.map { it.id } to "stress" }, icon = Lucide.Sparkles, small = true,
+            enabled = !busy && stressConfigured && live.isNotEmpty(),
+        )
     }
 
     ArTextField(query, { query = it }, placeholder = "Поиск по названию или номеру")
@@ -211,12 +270,21 @@ fun TextBranchManager(title: TitleFull, reload: suspend () -> Unit, header: @Com
                     Chevron(isOpen(first.volume_id))
                 }
                 IconBtn(Lucide.Pencil, "Править ${title.volume_label.lowercase()}", { editVolume = VolumeOption(first.volume_id, first.volume_number, first.volume_name) }, size = 36.dp, iconSize = 15.dp)
+                if (canStress) {
+                    val stressIds = volumeLive.map { it.id }
+                    IconBtn(
+                        Lucide.Sparkles, if (stressConfigured) "Ударения ИИ: ${title.volume_label.lowercase()}" else "ИИ не настроен",
+                        { confirm = stressIds to "stress" }, size = 36.dp, iconSize = 15.dp,
+                        enabled = !busy && stressConfigured && stressIds.isNotEmpty(),
+                    )
+                }
             }
             AnimatedVisibility(isOpen(first.volume_id), enter = expandVertically(), exit = shrinkVertically()) {
                 Column(Modifier.padding(top = 4.dp)) {
                     for (c in g) TextChapterRow(
                         c, c.id in selected, busy, { flip(listOf(c.id), it) }, { editing = c },
                         { run(listOf(c.id), if (c.enabled) "disable" else "enable") }, { confirm = listOf(c.id) to "resync" },
+                        stress = stressJobs[c.id],
                     )
                 }
             }
@@ -237,16 +305,28 @@ fun TextBranchManager(title: TitleFull, reload: suspend () -> Unit, header: @Com
         MenuRow(Lucide.RefreshCw, "Обновить из источника", { act { confirm = picked to "resync" } })
         MenuRow(Lucide.Mic, "Включить озвучку", { act { run(picked, "enable") } })
         MenuRow(Lucide.MicOff, "Отключить озвучку", { act { run(picked, "disable") } })
+        if (canStress) {
+            MenuRow(Lucide.Sparkles, if (stressConfigured) "Ударения ИИ" else "ИИ не настроен", { if (stressConfigured) act { confirm = picked to "stress" } }, tint = if (stressConfigured) Ar.textSecondary else Ar.textMuted)
+            MenuRow(Lucide.Ban, "Отменить ИИ-ударения", { act { cancelStress(picked) } })
+        }
         if (volumes.isNotEmpty()) MenuRow(Lucide.Move, "Переместить в ${title.volume_label.lowercase()}…", { act { moving = picked } })
         MenuRow(Lucide.Trash2, "Удалить тексты", { act { confirm = picked to "remove" } }, tint = Ar.danger)
     }
 
     ConfirmDialog(
         confirm != null, { confirm = null },
-        onConfirm = { confirm?.let { (ids, action) -> run(ids, action) }; confirm = null },
-        title = if (confirm?.second == "remove") "Удалить тексты: ${confirm?.first?.size}?" else "Обновить из источника: ${confirm?.first?.size ?: 0}?",
-        body = if (confirm?.second == "remove") "Тексты будут удалены, источник их заново не подтянет." else "Сохранённые тексты, включая правки, заменятся оригиналами из источника.",
-        danger = true,
+        onConfirm = { confirm?.let { (ids, action) -> if (action == "stress") startStress(ids) else run(ids, action) }; confirm = null },
+        title = when (confirm?.second) {
+            "remove" -> "Удалить тексты: ${confirm?.first?.size}?"
+            "stress" -> "Ударения ИИ: глав ${confirm?.first?.size ?: 0}?"
+            else -> "Обновить из источника: ${confirm?.first?.size ?: 0}?"
+        },
+        body = when (confirm?.second) {
+            "remove" -> "Тексты будут удалены, источник их заново не подтянет."
+            "stress" -> "ИИ расставит знаки ударения в текстах выбранных глав. Обработка идёт в фоне и тратит токены провайдера."
+            else -> "Сохранённые тексты, включая правки, заменятся оригиналами из источника."
+        },
+        danger = confirm?.second != "stress",
     )
     if (adding) AddTextChapterDialog(title.id, volumes, title.volume_label, groups.lastOrNull()?.first()?.volume_id ?: volumes.last().id, ::nextNumber, { adding = false }, refresh)
     editVolume?.let { v -> EditVolumeDialog(v, title.volume_label, { editVolume = null }, refresh) }
@@ -291,7 +371,7 @@ private fun RowScope.Stat(label: String, value: String) {
 }
 
 @Composable
-private fun TextChapterRow(c: TextChapter, checked: Boolean, busy: Boolean, onCheck: (Boolean) -> Unit, onEdit: () -> Unit, onToggle: () -> Unit, onRestore: () -> Unit) {
+private fun TextChapterRow(c: TextChapter, checked: Boolean, busy: Boolean, onCheck: (Boolean) -> Unit, onEdit: () -> Unit, onToggle: () -> Unit, onRestore: () -> Unit, stress: StressJob? = null) {
     val off = !c.enabled || c.removed
     Row(
         Modifier.fillMaxWidth().clip(RoundedCornerShape(8.dp)).background(if (checked) Ar.accentSoft.copy(alpha = 0.5f) else androidx.compose.ui.graphics.Color.Transparent).padding(vertical = 2.dp),
@@ -314,12 +394,32 @@ private fun TextChapterRow(c: TextChapter, checked: Boolean, busy: Boolean, onCh
                 color = Ar.textMuted, fontSize = 11.sp, maxLines = 1, overflow = TextOverflow.Ellipsis,
             )
         }
+        if (stress != null) StressTag(stress)
         if (c.removed) ArButton("Вернуть", onRestore, kind = ButtonKind.Ghost, small = true, enabled = !busy)
         else {
             IconBtn(Lucide.Pencil, "Править текст", onEdit, size = 34.dp, iconSize = 15.dp)
             ArButton(if (c.enabled) "Откл." else "Вкл.", onToggle, kind = ButtonKind.Ghost, small = true, enabled = !busy)
         }
     }
+}
+
+@Composable
+private fun StressTag(job: StressJob) {
+    val tone = when (job.status) { "running" -> Ar.accent; "error" -> Ar.danger; "done" -> Ar.textSecondary; else -> Ar.textMuted }
+    val label = when (job.status) {
+        "queued" -> "в очереди"
+        "running" -> "обработка"
+        "done" -> "ударения: ${job.fixes}"
+        "error" -> "ошибка"
+        else -> return
+    }
+    Text(
+        label, color = tone, fontSize = 10.sp, lineHeight = 12.sp, maxLines = 1,
+        modifier = Modifier.padding(start = 6.dp).clip(RoundedCornerShape(50)).background(tone.copy(alpha = 0.12f))
+            .border(1.dp, tone.copy(alpha = 0.4f), RoundedCornerShape(50))
+            .then(if (job.status == "error") Modifier.clickable { toastError(job.error ?: "Ошибка ИИ-ударений") } else Modifier)
+            .padding(horizontal = 7.dp, vertical = 2.dp),
+    )
 }
 
 /** components/TextBranch/TextEditorModal: the chapter text as the narrator will read it, with its stats and per-chapter switches. */
