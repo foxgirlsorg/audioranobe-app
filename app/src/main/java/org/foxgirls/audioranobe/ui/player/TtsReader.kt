@@ -71,7 +71,12 @@ fun TtsReader(paragraphs: List<List<String>>, position: Double, prompter: Boolea
     val current = para to sent
     if (prompter) return PrompterReader(paragraphs, starts, current, modifier)
     val list = rememberLazyListState()
-    LaunchedEffect(current.first, paragraphs) { list.follow(current.first + 1, -40) }
+    LaunchedEffect(current.first, paragraphs) {
+        val index = current.first + 1
+        val info = list.layoutInfo
+        val height = info.visibleItemsInfo.firstOrNull { it.index == index }?.size ?: 0
+        list.follow(index, (-(info.viewportSize.height - height) / 2).coerceAtMost(-40))
+    }
 
     LazyColumn(modifier.fillMaxSize().verticalFade(32.dp), state = list, contentPadding = PaddingValues(vertical = 0.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
         item { Spacer(Modifier.height(24.dp)) }
@@ -105,7 +110,7 @@ fun TtsReader(paragraphs: List<List<String>>, position: Double, prompter: Boolea
                 },
             )
         }
-        item { Spacer(Modifier.height(120.dp)) }
+        item { Spacer(Modifier.height(400.dp)) }
     }
 }
 
