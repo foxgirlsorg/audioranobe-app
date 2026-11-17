@@ -167,8 +167,7 @@ object Api {
 
     /** multipart/form-data upload (images etc.). */
     suspend inline fun <reified T> upload(path: String, method: String = "POST", build: MultipartBody.Builder.() -> Unit): T {
-        val mb = MultipartBody.Builder().setType(MultipartBody.FORM)
-        mb.build()
+        val mb = MultipartBody.Builder().setType(MultipartBody.FORM).apply(build)
         return decode(raw(method, path, null, mb.build()))
     }
 
