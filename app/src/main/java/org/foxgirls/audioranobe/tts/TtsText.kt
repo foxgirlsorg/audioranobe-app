@@ -16,6 +16,59 @@ object TtsText {
 
     fun plain(sentence: String): String = sentence.replace(MARKS, "")
 
+    /** Characters of a sentence on the stored-length scale: marks do not count. */
+    fun length(sentence: String): Int = plain(sentence).length
+
+    /** What the device voice gets: no stress marks, and a marked е spelled as the ё it is read as. */
+    fun spoken(sentence: String): String = plain(sentence.replace("е\u0308", "ё").replace("Е\u0308", "Ё"))
+
+    /** Toggles the stress mark at a selection or caret: the new text and its selection, or null when nothing applies. */
+    fun toggleStress(text: String, start: Int, end: Int): Triple<String, Int, Int>? {
+        val lo = minOf(start, end)
+        var hi = maxOf(start, end)
+        if (lo == hi) return caretStress(text, lo)
+        while (hi < text.length && isMark(text[hi])) hi++
+        val range = text.substring(lo, hi)
+        if (range.any { isMark(it) }) {
+            val bare = plain(range)
+            return Triple(text.substring(0, lo) + bare + text.substring(hi), lo, lo + bare.length)
+        }
+        val vowel = (lo until hi).lastOrNull { isVowel(text[it]) } ?: return null
+        return caretStress(text, vowel + 1)
+    }
+
+    private fun caretStress(text: String, caret: Int): Triple<String, Int, Int>? {
+        var p = caret
+        while (p < text.length && isMark(text[p])) p++
+        var q = p - 1
+        while (q >= 0 && isMark(text[q])) q--
+        val target = when {
+            q >= 0 && isVowel(text[q]) -> q
+            p < text.length && isVowel(text[p]) -> p
+            else -> return null
+        }
+        var after = target + 1
+        while (after < text.length && isMark(text[after])) after++
+        if (after > target + 1) {
+            return Triple(text.substring(0, target + 1) + text.substring(after), target + 1, target + 1)
+        }
+        var ws = target
+        while (ws > 0 && (isCyrillic(text[ws - 1]) || isMark(text[ws - 1]))) ws--
+        var we = target + 1
+        while (we < text.length && (isCyrillic(text[we]) || isMark(text[we]))) we++
+        val head = plain(text.substring(ws, target + 1))
+        val tail = plain(text.substring(target + 1, we))
+        val mark = if (text[target].lowercaseChar() == 'ё') "" else "\u0301"
+        val next = text.substring(0, ws) + head + mark + tail + text.substring(we)
+        if (next == text) return null
+        val caretAt = ws + head.length + mark.length
+        return Triple(next, caretAt, caretAt)
+    }
+
+    private fun isMark(c: Char): Boolean = c == '\u0301' || c == '\u0308'
+    private fun isVowel(c: Char): Boolean = c.lowercaseChar() in "аеёиоуыэюя"
+    private fun isCyrillic(c: Char): Boolean = c in 'а'..'я' || c in 'А'..'Я' || c == 'ё' || c == 'Ё'
+
     /** The text as paragraphs of sentences. */
     fun paragraphs(text: String): List<List<String>> =
         text.split(Regex("\n+"))

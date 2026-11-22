@@ -62,7 +62,7 @@ fun TtsReader(paragraphs: List<List<String>>, position: Double, prompter: Boolea
     // Characters before each paragraph / sentence, on the same scale the player counts its position in.
     val starts = remember(paragraphs) {
         var chars = 0
-        paragraphs.map { p -> p.map { s -> chars.also { chars += s.length } } }
+        paragraphs.map { p -> p.map { s -> chars.also { chars += TtsText.length(s) } } }
     }
     val chars = position * TtsText.CHARS_PER_SECOND
     var para = 0

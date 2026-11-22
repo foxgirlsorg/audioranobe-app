@@ -20,7 +20,7 @@ abstract class SentenceSpeaker(
 
     /** Characters before each counted sentence, for the stored-length progress scale. */
     private val before = IntArray(sentences.size + 1).also { a ->
-        for (i in sentences.indices) a[i + 1] = a[i] + if (i >= skipped) sentences[i].length else 0
+        for (i in sentences.indices) a[i + 1] = a[i] + if (i >= skipped) TtsText.length(sentences[i]) else 0
     }
     val totalSeconds: Double get() = before[sentences.size] / TtsText.CHARS_PER_SECOND
 
@@ -36,7 +36,7 @@ abstract class SentenceSpeaker(
     /** Position in the chapter, stored-length seconds; [within] is how far into the current sentence (0..1). */
     protected fun seconds(within: Double = 0.0): Double {
         val i = index.coerceIn(0, (sentences.size - 1).coerceAtLeast(0))
-        val chars = before[i.coerceAtLeast(skipped).coerceAtMost(sentences.size)] + if (i >= skipped) sentences[i].length * within else 0.0
+        val chars = before[i.coerceAtLeast(skipped).coerceAtMost(sentences.size)] + if (i >= skipped) TtsText.length(sentences[i]) * within else 0.0
         return chars / TtsText.CHARS_PER_SECOND
     }
 

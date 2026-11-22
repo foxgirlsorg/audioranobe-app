@@ -11,6 +11,8 @@ import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.PaddingValues
@@ -25,6 +27,7 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Checkbox
 import androidx.compose.material3.CheckboxDefaults
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -36,7 +39,10 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.text.TextRange
+import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -60,6 +66,7 @@ import org.foxgirls.audioranobe.ui.components.LocalFlatUi
 import androidx.compose.runtime.CompositionLocalProvider
 import org.foxgirls.audioranobe.ui.components.ArTextField
 import org.foxgirls.audioranobe.ui.components.ArToggle
+import org.foxgirls.audioranobe.ui.components.arFieldColors
 import org.foxgirls.audioranobe.ui.components.ButtonKind
 import org.foxgirls.audioranobe.ui.components.Chevron
 import org.foxgirls.audioranobe.ui.components.ConfirmDialog
@@ -100,7 +107,13 @@ private data class TextBranchData(val enabled: Boolean = true, val chapters: Lis
 private data class ChapterTextBody(val text: String = "")
 
 @Serializable
-private data class StressJob(val chapter_id: Int, val status: String = "", val fixes: Int = 0, val error: String? = null)
+private data class StressJob(
+    val chapter_id: Int,
+    val status: String = "",
+    val fixes: Int = 0,
+    val error: String? = null,
+    val checked_at: Long? = null,
+)
 
 @Serializable
 private data class StressState(val configured: Boolean = false, val jobs: List<StressJob> = emptyList())
@@ -113,6 +126,27 @@ private fun grouped(n: Int): String = "%,d".format(n).replace(',', ' ')
 private val DAY = SimpleDateFormat("d MMMM", Locale.forLanguageTag("ru"))
 private fun chapterLabel(c: TextChapter) = c.name.ifBlank { "Глава ${Fmt.chapterNumber(c.number, c.number_end)}" }
 private val checkColors @Composable get() = CheckboxDefaults.colors(checkedColor = Ar.accent, uncheckedColor = Ar.textMuted)
+
+private fun aiBusy(j: StressJob?): Boolean = j?.status == "queued" || j?.status == "running"
+private fun aiChecked(c: TextChapter, j: StressJob?): Boolean {
+    val at = j?.checked_at ?: return false
+    return c.updated_at <= at
+}
+private fun aiNote(c: TextChapter, j: StressJob?): String = when {
+    j == null -> ""
+    j.status == "queued" -> "в очереди на проверку ИИ"
+    j.status == "running" -> "ИИ проверяет…"
+    j.status == "error" -> "ошибка проверки ИИ"
+    j.checked_at == null -> ""
+    aiChecked(c, j) -> "проверено ИИ, исправлений: ${j.fixes}"
+    else -> "текст изменён после проверки ИИ"
+}
+private fun aiAction(c: TextChapter, j: StressJob?): String = when {
+    j?.status == "queued" -> "В очереди на проверку ИИ"
+    j?.status == "running" -> "ИИ проверяет главу. Нажмите, чтобы начать заново"
+    aiChecked(c, j) -> "Проверить ударения ИИ ещё раз"
+    else -> "Проверить ударения ИИ"
+}
 
 /**
  * components/TextBranch/TextBranchManager: the AudioRanobe AI branch of a title, its chapter texts read aloud on the device.
@@ -135,6 +169,7 @@ fun TextBranchManager(title: TitleFull, reload: suspend () -> Unit, header: @Com
     var editVolume by remember { mutableStateOf<VolumeOption?>(null) }
     var moving by remember { mutableStateOf<List<Int>?>(null) }
     var actions by remember { mutableStateOf(false) }
+    var stressAsk by remember { mutableStateOf<List<Int>?>(null) }
 
     val canStress = LocalAuth.current.can("stress.run")
     val stressLoader = rememberLoader("stress", title.id, keepOnReload = true) {
@@ -184,7 +219,6 @@ fun TextBranchManager(title: TitleFull, reload: suspend () -> Unit, header: @Com
             try {
                 val res = Api.post<StressCount>("/panel/stress", buildJsonObject { put("ids", buildJsonArray { ids.forEach { add(JsonPrimitive(it)) } }) })
                 toast("В очередь поставлено глав: ${res.queued}")
-                selected = emptySet()
                 stressLoader.reload()
             } catch (e: Exception) { toastError(e) }
         }
@@ -203,6 +237,7 @@ fun TextBranchManager(title: TitleFull, reload: suspend () -> Unit, header: @Com
     }
 
     val live = data.chapters.filter { !it.removed }
+    val checkedIds = live.filter { aiChecked(it, stressJobs[it.id]) }.map { it.id }.toSet()
     val q = query.trim().lowercase()
     val groups = data.chapters
         .filter { c -> filter != "edited" || c.edited }
@@ -238,10 +273,10 @@ fun TextBranchManager(title: TitleFull, reload: suspend () -> Unit, header: @Com
         ArButton("Добавить главу", { adding = true }, icon = Lucide.Plus, small = true, enabled = volumes.isNotEmpty())
         if (live.isEmpty()) ArButton("Импорт из файла", { importing = true }, icon = Lucide.Upload, small = true)
         ArButton("Обновить из источника", { confirm = data.chapters.map { it.id } to "resync" }, small = true, enabled = !busy && data.chapters.isNotEmpty())
-        if (canStress) ArButton(
-            if (stressConfigured) "Ударения ИИ: вся книга" else "ИИ не настроен",
-            { confirm = live.map { it.id } to "stress" }, icon = Lucide.Sparkles, small = true,
-            enabled = !busy && stressConfigured && live.isNotEmpty(),
+        if (canStress && live.size > 1) IconBtn(
+            Lucide.Sparkles, if (stressConfigured) "Проверить ударения ИИ: вся книга" else "ИИ не настроен",
+            { stressAsk = live.map { it.id } }, size = 36.dp, iconSize = 17.dp,
+            background = Ar.fill04, border = Ar.border, enabled = !busy && stressConfigured,
         )
     }
 
@@ -265,26 +300,30 @@ fun TextBranchManager(title: TitleFull, reload: suspend () -> Unit, header: @Com
                 }.padding(vertical = 4.dp), verticalAlignment = Alignment.CenterVertically) {
                     Column(Modifier.weight(1f)) {
                         Text("${title.volume_label} ${Fmt.trimNum(first.volume_number)}" + if (first.volume_name.isNotBlank()) " · ${first.volume_name}" else "", color = Ar.white, fontSize = 14.sp, fontWeight = FontWeight.Medium)
-                        Text("${volumeLive.size} гл. · ${length(volumeLive.sumOf { it.chars })}" + if (on in 1 until ids.size) " · выбрано $on" else "", color = Ar.textMuted, fontSize = 12.sp)
+                        val checkedCount = volumeLive.count { aiChecked(it, stressJobs[it.id]) }
+                        Text(
+                            "${volumeLive.size} гл. · ${length(volumeLive.sumOf { it.chars })}" +
+                                (if (checkedCount > 0) " · проверено ИИ: $checkedCount из ${volumeLive.size}" else "") +
+                                (if (on in 1 until ids.size) " · выбрано $on" else ""),
+                            color = Ar.textMuted, fontSize = 12.sp,
+                        )
                     }
                     Chevron(isOpen(first.volume_id))
                 }
                 IconBtn(Lucide.Pencil, "Править ${title.volume_label.lowercase()}", { editVolume = VolumeOption(first.volume_id, first.volume_number, first.volume_name) }, size = 36.dp, iconSize = 15.dp)
-                if (canStress) {
-                    val stressIds = volumeLive.map { it.id }
-                    IconBtn(
-                        Lucide.Sparkles, if (stressConfigured) "Ударения ИИ: ${title.volume_label.lowercase()}" else "ИИ не настроен",
-                        { confirm = stressIds to "stress" }, size = 36.dp, iconSize = 15.dp,
-                        enabled = !busy && stressConfigured && stressIds.isNotEmpty(),
-                    )
-                }
+                if (canStress && volumeLive.size > 1) IconBtn(
+                    Lucide.Sparkles,
+                    if (stressConfigured) "Проверить ударения ИИ: ${title.volume_label.lowercase()} ${Fmt.trimNum(first.volume_number)}" else "ИИ не настроен",
+                    { stressAsk = volumeLive.map { it.id } }, size = 36.dp, iconSize = 15.dp,
+                    enabled = !busy && stressConfigured,
+                )
             }
             AnimatedVisibility(isOpen(first.volume_id), enter = expandVertically(), exit = shrinkVertically()) {
                 Column(Modifier.padding(top = 4.dp)) {
                     for (c in g) TextChapterRow(
-                        c, c.id in selected, busy, { flip(listOf(c.id), it) }, { editing = c },
-                        { run(listOf(c.id), if (c.enabled) "disable" else "enable") }, { confirm = listOf(c.id) to "resync" },
-                        stress = stressJobs[c.id],
+                        c = c, checked = c.id in selected, busy = busy, onCheck = { flip(listOf(c.id), it) }, onEdit = { editing = c },
+                        onRestore = { confirm = listOf(c.id) to "resync" }, stress = stressJobs[c.id],
+                        canStress = canStress, stressReady = stressConfigured, onStress = { startStress(listOf(c.id)) },
                     )
                 }
             }
@@ -306,8 +345,9 @@ fun TextBranchManager(title: TitleFull, reload: suspend () -> Unit, header: @Com
         MenuRow(Lucide.Mic, "Включить озвучку", { act { run(picked, "enable") } })
         MenuRow(Lucide.MicOff, "Отключить озвучку", { act { run(picked, "disable") } })
         if (canStress) {
-            MenuRow(Lucide.Sparkles, if (stressConfigured) "Ударения ИИ" else "ИИ не настроен", { if (stressConfigured) act { confirm = picked to "stress" } }, tint = if (stressConfigured) Ar.textSecondary else Ar.textMuted)
-            MenuRow(Lucide.Ban, "Отменить ИИ-ударения", { act { cancelStress(picked) } })
+            MenuRow(Lucide.Sparkles, if (stressConfigured) "Проверить ударения ИИ" else "ИИ не настроен", { if (stressConfigured) act { stressAsk = picked.filter { id -> live.any { it.id == id } } } }, tint = if (stressConfigured) Ar.textSecondary else Ar.textMuted)
+            val queued = picked.filter { aiBusy(stressJobs[it]) }
+            if (queued.isNotEmpty()) MenuRow(Lucide.Ban, "Отменить проверку ИИ", { act { cancelStress(queued) } })
         }
         if (volumes.isNotEmpty()) MenuRow(Lucide.Move, "Переместить в ${title.volume_label.lowercase()}…", { act { moving = picked } })
         MenuRow(Lucide.Trash2, "Удалить тексты", { act { confirm = picked to "remove" } }, tint = Ar.danger)
@@ -315,19 +355,20 @@ fun TextBranchManager(title: TitleFull, reload: suspend () -> Unit, header: @Com
 
     ConfirmDialog(
         confirm != null, { confirm = null },
-        onConfirm = { confirm?.let { (ids, action) -> if (action == "stress") startStress(ids) else run(ids, action) }; confirm = null },
+        onConfirm = { confirm?.let { (ids, action) -> run(ids, action) }; confirm = null },
         title = when (confirm?.second) {
             "remove" -> "Удалить тексты: ${confirm?.first?.size}?"
-            "stress" -> "Ударения ИИ: глав ${confirm?.first?.size ?: 0}?"
             else -> "Обновить из источника: ${confirm?.first?.size ?: 0}?"
         },
         body = when (confirm?.second) {
             "remove" -> "Тексты будут удалены, источник их заново не подтянет."
-            "stress" -> "ИИ расставит знаки ударения в текстах выбранных глав. Обработка идёт в фоне и тратит токены провайдера."
             else -> "Сохранённые тексты, включая правки, заменятся оригиналами из источника."
         },
-        danger = confirm?.second != "stress",
+        danger = true,
     )
+    stressAsk?.let { ids ->
+        StressConfirm(ids, checkedIds, onClose = { stressAsk = null }, onConfirm = { target -> stressAsk = null; startStress(target) })
+    }
     if (adding) AddTextChapterDialog(title.id, volumes, title.volume_label, groups.lastOrNull()?.first()?.volume_id ?: volumes.last().id, ::nextNumber, { adding = false }, refresh)
     editVolume?.let { v -> EditVolumeDialog(v, title.volume_label, { editVolume = null }, refresh) }
     moving?.let { ids -> MoveChaptersDialog(title.id, ids, volumes, title.volume_label, { moving = null }) { selected = emptySet(); refresh() } }
@@ -371,7 +412,10 @@ private fun RowScope.Stat(label: String, value: String) {
 }
 
 @Composable
-private fun TextChapterRow(c: TextChapter, checked: Boolean, busy: Boolean, onCheck: (Boolean) -> Unit, onEdit: () -> Unit, onToggle: () -> Unit, onRestore: () -> Unit, stress: StressJob? = null) {
+private fun TextChapterRow(
+    c: TextChapter, checked: Boolean, busy: Boolean, onCheck: (Boolean) -> Unit, onEdit: () -> Unit, onRestore: () -> Unit,
+    stress: StressJob?, canStress: Boolean, stressReady: Boolean, onStress: () -> Unit,
+) {
     val off = !c.enabled || c.removed
     Row(
         Modifier.fillMaxWidth().clip(RoundedCornerShape(8.dp)).background(if (checked) Ar.accentSoft.copy(alpha = 0.5f) else androidx.compose.ui.graphics.Color.Transparent).padding(vertical = 2.dp),
@@ -386,40 +430,64 @@ private fun TextChapterRow(c: TextChapter, checked: Boolean, busy: Boolean, onCh
                     c.removed -> "текст удалён"
                     else -> listOfNotNull(
                         if (!c.enabled) "отключена" else null,
-                        if (c.edited) "изменён вручную" else null,
+                        if (c.edited && !aiChecked(c, stress)) "изменён вручную" else null,
                         if (c.updated_at > 0) DAY.format(Date(c.updated_at * 1000)) else null,
                         length(c.chars),
                     ).joinToString(" · ")
                 },
                 color = Ar.textMuted, fontSize = 11.sp, maxLines = 1, overflow = TextOverflow.Ellipsis,
             )
+            if (!c.removed) aiNote(c, stress).takeIf { it.isNotEmpty() }?.let {
+                Text(it, color = if (stress?.status == "error") Ar.danger else Ar.textMuted, fontSize = 11.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            }
+            if (stress != null && stress.status == "error") stress.error?.takeIf { it.isNotBlank() }?.let {
+                Text(it, color = Ar.danger, fontSize = 11.sp, lineHeight = 14.sp, maxLines = 2, overflow = TextOverflow.Ellipsis)
+            }
         }
-        if (stress != null) StressTag(stress)
         if (c.removed) ArButton("Вернуть", onRestore, kind = ButtonKind.Ghost, small = true, enabled = !busy)
         else {
             IconBtn(Lucide.Pencil, "Править текст", onEdit, size = 34.dp, iconSize = 15.dp)
-            ArButton(if (c.enabled) "Откл." else "Вкл.", onToggle, kind = ButtonKind.Ghost, small = true, enabled = !busy)
+            if (canStress) {
+                if (aiBusy(stress)) Box(Modifier.size(34.dp).clickable(enabled = !busy && stressReady && stress?.status == "running", onClickLabel = aiAction(c, stress), onClick = onStress), contentAlignment = Alignment.Center) { Spinner(size = 15.dp) }
+                else IconBtn(
+                    Lucide.Sparkles, aiAction(c, stress), onStress, size = 34.dp, iconSize = 15.dp,
+                    tint = if (aiChecked(c, stress)) Ar.accent else Ar.textSecondary, enabled = !busy && stressReady,
+                )
+            }
         }
     }
 }
 
+/** The AI stress check for chapters: skips the checked ones when asked, and says so when all of them are checked. */
 @Composable
-private fun StressTag(job: StressJob) {
-    val tone = when (job.status) { "running" -> Ar.accent; "error" -> Ar.danger; "done" -> Ar.textSecondary; else -> Ar.textMuted }
-    val label = when (job.status) {
-        "queued" -> "в очереди"
-        "running" -> "обработка"
-        "done" -> "ударения: ${job.fixes}"
-        "error" -> "ошибка"
-        else -> return
+private fun StressConfirm(ids: List<Int>, checked: Set<Int>, onClose: () -> Unit, onConfirm: (List<Int>) -> Unit) {
+    var skipChecked by remember(ids) { mutableStateOf(true) }
+    val unchecked = ids.filter { it !in checked }
+    val mixed = unchecked.isNotEmpty() && unchecked.size < ids.size
+    val target = if (mixed && skipChecked) unchecked else ids
+    ArModal(true, onClose, "Проверить ударения ИИ: глав ${target.size}") {
+        Text(
+            "ИИ проверит ударения и сохранит результат в тексте глав. Главы обрабатываются по одной, статус виден у каждой.",
+            color = Ar.textSecondary, fontSize = 14.sp, lineHeight = 20.sp,
+        )
+        if (mixed) Row(
+            Modifier.fillMaxWidth().padding(top = 10.dp).clip(RoundedCornerShape(8.dp)).clickable { skipChecked = !skipChecked },
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Checkbox(skipChecked, { skipChecked = it }, colors = checkColors)
+            Text("Пропустить уже проверенные: ${ids.size - unchecked.size}", color = Ar.text, fontSize = 14.sp)
+        }
+        else if (unchecked.isEmpty() && ids.isNotEmpty()) Text(
+            "Все эти главы уже проверены и будут проверены заново.",
+            color = Ar.textSecondary, fontSize = 14.sp, lineHeight = 20.sp, modifier = Modifier.padding(top = 8.dp),
+        )
+        Spacer(Modifier.height(18.dp))
+        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
+            ArButton("Отмена", onClose, kind = ButtonKind.Ghost)
+            Spacer(Modifier.width(8.dp))
+            ArButton("Проверить", { onConfirm(target) }, kind = ButtonKind.Primary, enabled = target.isNotEmpty())
+        }
     }
-    Text(
-        label, color = tone, fontSize = 10.sp, lineHeight = 12.sp, maxLines = 1,
-        modifier = Modifier.padding(start = 6.dp).clip(RoundedCornerShape(50)).background(tone.copy(alpha = 0.12f))
-            .border(1.dp, tone.copy(alpha = 0.4f), RoundedCornerShape(50))
-            .then(if (job.status == "error") Modifier.clickable { toastError(job.error ?: "Ошибка ИИ-ударений") } else Modifier)
-            .padding(horizontal = 7.dp, vertical = 2.dp),
-    )
 }
 
 /** components/TextBranch/TextEditorModal: the chapter text as the narrator will read it, with its stats and per-chapter switches. */
@@ -429,17 +497,22 @@ private fun TextEditor(
     onClose: () -> Unit, onSaved: suspend () -> Unit, onRemove: () -> Unit, onResync: () -> Unit,
 ) {
     val scope = rememberCoroutineScope()
-    var text by remember(c.id) { mutableStateOf<String?>(null) }
+    var text by remember(c.id) { mutableStateOf<TextFieldValue?>(null) }
     var original by remember(c.id) { mutableStateOf("") }
     var enabled by remember(c.id) { mutableStateOf(c.enabled) }
     var saving by remember { mutableStateOf(false) }
     var discard by remember { mutableStateOf<(() -> Unit)?>(null) }
     LaunchedEffect(c.id) {
         runCatching { Api.get<ChapterTextBody>("/panel/chapters/${c.id}/text").text }
-            .onSuccess { text = it; original = it }.onFailure { toastError(it); onClose() }
+            .onSuccess { text = TextFieldValue(it); original = it }.onFailure { toastError(it); onClose() }
     }
-    val dirty = text != null && text != original
+    val dirty = text != null && text?.text != original
     fun guard(fn: () -> Unit) { if (dirty) discard = fn else fn() }
+    fun stressAtCaret() {
+        val f = text ?: return
+        val r = TtsText.toggleStress(f.text, f.selection.min, f.selection.max)
+        if (r == null) toastError("Поставьте курсор после гласной") else text = TextFieldValue(r.first, TextRange(r.second, r.third))
+    }
 
     ArModal(true, { if (!saving) guard(onClose) }, chapterLabel(c)) {
         Row(verticalAlignment = Alignment.CenterVertically) {
@@ -450,12 +523,13 @@ private fun TextEditor(
             IconBtn(Lucide.ChevronLeft, "Предыдущая глава", { guard { onNavigate(-1) } }, size = 34.dp, iconSize = 16.dp, enabled = canPrev)
             IconBtn(Lucide.ChevronRight, "Следующая глава", { guard { onNavigate(1) } }, size = 34.dp, iconSize = 16.dp, enabled = canNext)
         }
-        val t = text
-        if (t == null) { Spinner(Modifier.align(Alignment.CenterHorizontally).padding(24.dp)); return@ArModal }
+        val field = text
+        if (field == null) { Spinner(Modifier.align(Alignment.CenterHorizontally).padding(24.dp)); return@ArModal }
+        val t = field.text
         val words = t.split(Regex("\\s+")).count { it.isNotBlank() }
         val paras = t.split('\n').count { it.isNotBlank() }
         Row(Modifier.padding(vertical = 10.dp), horizontalArrangement = Arrangement.spacedBy(16.dp)) {
-            Stat("знаков", grouped(t.length)); Stat("слов", grouped(words)); Stat("абзацев", paras.toString()); Stat("на 1×", length(t.length))
+            Stat("знаков", grouped(TtsText.length(t))); Stat("слов", grouped(words)); Stat("абзацев", paras.toString()); Stat("на 1×", length(TtsText.length(t)))
         }
         Text("Прозвучит первой строкой:", color = Ar.textMuted, fontSize = 12.sp)
         Text(
@@ -463,7 +537,19 @@ private fun TextEditor(
             color = Ar.accent, fontSize = 12.sp,
             modifier = Modifier.padding(top = 4.dp, bottom = 8.dp).clip(RoundedCornerShape(50)).background(Ar.accentSoft).padding(horizontal = 10.dp, vertical = 4.dp),
         )
-        ArTextField(t, { text = it }, Modifier.heightIn(min = 240.dp, max = 420.dp), singleLine = false, minLines = 10)
+        Row(Modifier.fillMaxWidth().padding(bottom = 6.dp), horizontalArrangement = Arrangement.End) {
+            ArButton("Ударение", { stressAtCaret() }, kind = ButtonKind.Ghost, small = true, enabled = !saving)
+        }
+        OutlinedTextField(
+            value = field,
+            onValueChange = { text = it },
+            modifier = Modifier.fillMaxWidth().heightIn(min = 240.dp, max = 420.dp),
+            singleLine = false,
+            minLines = 10,
+            textStyle = TextStyle(fontSize = 14.sp, color = Ar.text),
+            shape = RoundedCornerShape(9.dp),
+            colors = arFieldColors(),
+        )
         Spacer(Modifier.height(8.dp))
         ArToggle(enabled, { next ->
             enabled = next

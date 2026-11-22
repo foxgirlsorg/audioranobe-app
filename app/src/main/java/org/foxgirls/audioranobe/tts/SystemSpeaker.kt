@@ -116,7 +116,7 @@ class SystemSpeaker(
     private fun refill() {
         val t = tts ?: return
         while (next < sentences.size && next < index + LOOKAHEAD) {
-            t.speak(TtsText.plain(sentences[next]), TextToSpeech.QUEUE_ADD, null, "$generation:$next")
+            t.speak(TtsText.spoken(sentences[next]), TextToSpeech.QUEUE_ADD, null, "$generation:$next")
             if (pauseSeconds > 0 && next < sentences.size - 1) t.playSilentUtterance((pauseSeconds * 1000).toLong(), TextToSpeech.QUEUE_ADD, "$generation:p$next")
             next++
         }
