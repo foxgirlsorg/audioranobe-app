@@ -41,6 +41,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.text.TextRange
 import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.text.style.TextOverflow
@@ -546,7 +547,7 @@ private fun TextEditor(
             modifier = Modifier.fillMaxWidth().heightIn(min = 240.dp, max = 420.dp),
             singleLine = false,
             minLines = 10,
-            textStyle = TextStyle(fontSize = 14.sp, color = Ar.text),
+            textStyle = TextStyle(fontSize = 14.sp, color = Ar.text, fontFamily = FontFamily.Default),
             shape = RoundedCornerShape(9.dp),
             colors = arFieldColors(),
         )
